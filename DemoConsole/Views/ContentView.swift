@@ -8,6 +8,8 @@
 //  单窗口布局：顶部工具栏、中间预览区、底部状态栏
 //
 
+import AppKit
+import CoreImage
 import SwiftUI
 
 // MARK: - 蓝色主题色
@@ -218,17 +220,17 @@ struct ContentView: View {
         .gesture(
             TapGesture(count: 2)
                 .onEnded {
-                    toggleFullScreen()
+                    toggleZoom()
                 }
         )
     }
 
-    // MARK: - 全屏切换
+    // MARK: - 窗口最大化切换
 
-    /// 切换全屏/还原窗口
-    private func toggleFullScreen() {
+    /// 切换最大化/还原窗口
+    private func toggleZoom() {
         guard let window = NSApplication.shared.windows.first else { return }
-        window.toggleFullScreen(nil)
+        window.zoom(nil)
     }
 
     // MARK: - 预览区域
@@ -285,7 +287,10 @@ struct ContentView: View {
         devicePreviewPanel(
             title: "Android",
             isConnected: appState.androidConnected,
+            isCapturing: appState.androidCapturing,
             deviceName: appState.androidDeviceName,
+            latestFrame: appState.androidLatestFrame,
+            deviceSource: appState.androidDeviceSource,
             connectionGuide: "使用 USB 数据线连接 Android 设备"
         )
     }
@@ -295,7 +300,10 @@ struct ContentView: View {
         devicePreviewPanel(
             title: "iPhone",
             isConnected: appState.iosConnected,
+            isCapturing: appState.iosCapturing,
             deviceName: appState.iosDeviceName,
+            latestFrame: appState.iosLatestFrame,
+            deviceSource: appState.iosDeviceSource,
             connectionGuide: "使用 USB 数据线连接 iPhone 并信任此电脑"
         )
     }
@@ -305,7 +313,10 @@ struct ContentView: View {
     private func devicePreviewPanel(
         title: String,
         isConnected: Bool,
+        isCapturing: Bool,
         deviceName: String?,
+        latestFrame: CapturedFrame?,
+        deviceSource: BaseDeviceSource?,
         connectionGuide: String
     ) -> some View {
         // 根据主题决定文字颜色
@@ -315,12 +326,78 @@ struct ContentView: View {
 
         return ZStack {
             // 设备内容区
-            if isConnected {
-                // 已连接：显示设备画面占位符
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                Text("设备画面")
-                    .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+            if isCapturing, let frame = latestFrame, let cgImage = createCGImage(from: frame) {
+                // 捕获中：显示实际画面
+                GeometryReader { geometry in
+                    Image(nsImage: NSImage(
+                        cgImage: cgImage,
+                        size: NSSize(width: cgImage.width, height: cgImage.height)
+                    ))
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: geometry.size.width, maxHeight: geometry.size.height)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+            } else if isConnected {
+                // 已连接但未捕获：显示连接状态和准备中
+                VStack(spacing: 16) {
+                    if let source = deviceSource {
+                        // 根据状态显示不同内容
+                        switch source.state {
+                        case .connecting:
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("正在连接...")
+                                .font(.headline)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        case .connected:
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("准备捕获...")
+                                .font(.caption)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        case .capturing:
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("等待画面...")
+                                .font(.caption)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        case .paused:
+                            Image(systemName: "pause.circle")
+                                .font(.system(size: 48))
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                            Text("已暂停")
+                                .font(.headline)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        case let .error(error):
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.orange)
+                            Text(error.localizedDescription)
+                                .font(.caption)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                                .multilineTextAlignment(.center)
+
+                        default:
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("初始化中...")
+                                .font(.caption)
+                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                        }
+                    } else {
+                        // 设备已检测到但 DeviceSource 尚未创建
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("正在准备...")
+                            .font(.caption)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                    }
+                }
             } else {
                 // 未连接：显示设备类型和大图标
                 VStack(spacing: 20) {
@@ -356,26 +433,54 @@ struct ContentView: View {
             VStack {
                 HStack {
                     if isConnected {
+                        // 状态指示灯
                         Circle()
-                            .fill(Color.green)
+                            .fill(isCapturing ? Color.green : Color.yellow)
                             .frame(width: 8, height: 8)
+
+                        // 设备名称
                         if let name = deviceName {
                             Text(name)
                                 .font(.caption)
-                                .foregroundStyle(textColor.opacity(0.8))
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
+
+                        Spacer()
+
+                        // 捕获尺寸信息
+                        if let source = deviceSource, source.captureSize != .zero {
+                            Text("\(Int(source.captureSize.width))×\(Int(source.captureSize.height))")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.6))
+
+                            if source.frameRate > 0 {
+                                Text("\(Int(source.frameRate)) fps")
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
                         }
                     }
                     Spacer()
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isConnected ? (colorScheme == .dark ? Color.black : Color.white).opacity(0.3) : Color.clear)
+                .background(isConnected ? Color.black.opacity(0.5) : Color.clear)
 
                 Spacer()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background((colorScheme == .dark ? Color.black : Color.white).opacity(0.1))
+    }
+
+    // MARK: - 帧转换
+
+    /// 将 CapturedFrame 转换为 CGImage
+    private func createCGImage(from frame: CapturedFrame) -> CGImage? {
+        guard let pixelBuffer = frame.pixelBuffer else { return nil }
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let context = CIContext(options: [.useSoftwareRenderer: false])
+        return context.createCGImage(ciImage, from: ciImage.extent)
     }
 
     // MARK: - 底部状态栏

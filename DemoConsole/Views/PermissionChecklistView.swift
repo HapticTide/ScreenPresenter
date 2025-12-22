@@ -119,7 +119,7 @@ struct PermissionChecklistView: View {
     }
 
     var isReadyToContinue: Bool {
-        // 至少需要摄像头权限、屏幕录制权限和工具链就绪
+        // 需要摄像头权限、屏幕录制权限和工具链就绪
         appState.permissionChecker.cameraStatus == .granted &&
             appState.permissionChecker.screenRecordingStatus == .granted &&
             appState.toolchainManager.isReady

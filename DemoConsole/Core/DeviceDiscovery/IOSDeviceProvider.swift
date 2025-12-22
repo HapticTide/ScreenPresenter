@@ -78,27 +78,10 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         lastError = nil
         serviceStatus = .monitoring
 
-        // 检查摄像头权限
-        let cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
-        AppLogger.device.info("摄像头权限状态: \(String(describing: cameraStatus.rawValue))")
-
-        if cameraStatus == .notDetermined {
-            // 请求权限
-            Task {
-                let granted = await AVCaptureDevice.requestAccess(for: .video)
-                AppLogger.device.info("摄像头权限请求结果: \(granted)")
-                if granted {
-                    await MainActor.run {
-                        self.setupDiscoverySession()
-                    }
-                }
-            }
-        } else if cameraStatus == .authorized {
-            setupDiscoverySession()
-        } else {
-            AppLogger.device.warning("摄像头权限被拒绝，无法检测 iOS 设备")
-            serviceStatus = .error("需要摄像头权限")
-        }
+        // 直接设置设备发现会话
+        // 注意：AVCaptureDevice.DiscoverySession 发现外部设备不需要摄像头权限
+        // 权限会在实际创建 AVCaptureSession 并添加输入时由系统自动请求
+        setupDiscoverySession()
     }
 
     /// 设置设备发现会话

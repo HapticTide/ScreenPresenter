@@ -84,7 +84,7 @@ final class PermissionChecker: ObservableObject {
     /// 屏幕录制权限
     @Published private(set) var screenRecordingStatus: PermissionStatus = .unknown
 
-    /// 摄像头权限（用于 iOS 设备检测）
+    /// 摄像头权限（用于 iOS 设备捕获）
     @Published private(set) var cameraStatus: PermissionStatus = .unknown
 
     /// 是否所有必需权限都已授予
@@ -98,7 +98,7 @@ final class PermissionChecker: ObservableObject {
             PermissionItem(
                 id: "camera",
                 name: "摄像头",
-                description: "需要此权限来检测 USB 连接的 iOS 设备",
+                description: "需要此权限来捕获 USB 连接的 iOS 设备画面",
                 status: cameraStatus,
                 isRequired: true,
                 settingsURL: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")
@@ -106,7 +106,7 @@ final class PermissionChecker: ObservableObject {
             PermissionItem(
                 id: "screenRecording",
                 name: "屏幕录制",
-                description: "需要此权限来捕获设备画面",
+                description: "需要此权限来捕获 Android 设备画面（scrcpy 窗口）",
                 status: screenRecordingStatus,
                 isRequired: true,
                 settingsURL: URL(
@@ -124,7 +124,7 @@ final class PermissionChecker: ObservableObject {
         await checkScreenRecordingPermission()
     }
 
-    /// 检查摄像头权限（用于 iOS 设备检测）
+    /// 检查摄像头权限
     func checkCameraPermission() async {
         cameraStatus = .checking
 
@@ -143,9 +143,7 @@ final class PermissionChecker: ObservableObject {
     }
 
     /// 请求摄像头权限
-    /// 返回是否成功请求（会触发系统授权对话框，使应用出现在系统设置中）
     func requestCameraPermission() async -> Bool {
-        // 先请求权限，这会触发系统对话框并将应用添加到系统设置中
         let granted = await AVCaptureDevice.requestAccess(for: .video)
         await checkCameraPermission()
         return granted
