@@ -27,8 +27,11 @@ final class IOSDeviceSource: BaseDeviceSource {
     /// 是否支持音频
     override var supportsAudio: Bool { true }
 
+    /// 最新的 CVPixelBuffer 存储
+    private var _latestPixelBuffer: CVPixelBuffer?
+
     /// 最新的 CVPixelBuffer（供渲染使用）
-    private(set) var latestPixelBuffer: CVPixelBuffer?
+    override var latestPixelBuffer: CVPixelBuffer? { _latestPixelBuffer }
 
     // MARK: - 私有属性
 
@@ -106,18 +109,18 @@ final class IOSDeviceSource: BaseDeviceSource {
         videoOutput = nil
         audioOutput = nil
         videoDelegate = nil
-        latestPixelBuffer = nil
+        _latestPixelBuffer = nil
 
         updateState(.disconnected)
     }
 
     override func startCapture() async throws {
         guard state == .connected || state == .paused else {
-            throw DeviceSourceError.captureStartFailed("设备未连接")
+            throw DeviceSourceError.captureStartFailed(L10n.capture.deviceNotConnected)
         }
 
         guard let session = captureSession else {
-            throw DeviceSourceError.captureStartFailed("捕获会话未初始化")
+            throw DeviceSourceError.captureStartFailed(L10n.capture.sessionNotInitialized)
         }
 
         AppLogger.capture.info("开始捕获 iOS 设备: \(iosDevice.name)")
@@ -200,10 +203,16 @@ final class IOSDeviceSource: BaseDeviceSource {
         // 获取 AVCaptureDevice
         guard let captureDevice = AVCaptureDevice(uniqueID: iosDevice.id) else {
             AppLogger.capture.error("无法获取捕获设备: \(iosDevice.id)")
-            throw DeviceSourceError.connectionFailed("无法获取捕获设备: \(iosDevice.id)")
+            throw DeviceSourceError.connectionFailed(L10n.capture.cannotGetDevice(iosDevice.id))
         }
 
         AppLogger.capture.info("找到捕获设备: \(captureDevice.localizedName), 模型: \(captureDevice.modelID)")
+
+        // 检测设备是否被其他应用占用（如 QuickTime）
+        if captureDevice.isInUseByAnotherApplication {
+            AppLogger.capture.warning("设备被其他应用占用: \(captureDevice.localizedName)")
+            throw DeviceSourceError.deviceInUse("QuickTime")
+        }
 
         let session = AVCaptureSession()
         session.sessionPreset = .high
@@ -213,13 +222,13 @@ final class IOSDeviceSource: BaseDeviceSource {
             let videoInput = try AVCaptureDeviceInput(device: captureDevice)
             guard session.canAddInput(videoInput) else {
                 AppLogger.capture.error("无法添加视频输入到会话")
-                throw DeviceSourceError.connectionFailed("无法添加视频输入")
+                throw DeviceSourceError.connectionFailed(L10n.capture.cannotAddInput)
             }
             session.addInput(videoInput)
             AppLogger.capture.info("视频输入已添加")
         } catch {
             AppLogger.capture.error("创建视频输入失败: \(error.localizedDescription)")
-            throw DeviceSourceError.connectionFailed("创建视频输入失败: \(error.localizedDescription)")
+            throw DeviceSourceError.connectionFailed(L10n.capture.inputFailed(error.localizedDescription))
         }
 
         // 添加视频输出
@@ -236,7 +245,7 @@ final class IOSDeviceSource: BaseDeviceSource {
         videoOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
 
         guard session.canAddOutput(videoOutput) else {
-            throw DeviceSourceError.connectionFailed("无法添加视频输出")
+            throw DeviceSourceError.connectionFailed(L10n.capture.cannotAddOutput)
         }
         session.addOutput(videoOutput)
 
@@ -261,7 +270,7 @@ final class IOSDeviceSource: BaseDeviceSource {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         // 更新最新帧
-        latestPixelBuffer = pixelBuffer
+        _latestPixelBuffer = pixelBuffer
 
         // 创建 CapturedFrame 并发送
         let frame = CapturedFrame(sourceID: id, sampleBuffer: sampleBuffer)

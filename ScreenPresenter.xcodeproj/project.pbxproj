@@ -8,49 +8,46 @@
 
 /* Begin PBXBuildFile section */
 		3D08D092E75081FC3BA6C7A9 /* IOSDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */; };
-		5EBC87BE3CCCA63A6D6AD322 /* qvh in Resources */ = {isa = PBXBuildFile; fileRef = 4BB1BC782C4396162646E34A /* qvh */; };
 		87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */; };
 		908C36A37CB44D844E526D8E /* IOSScreenMirrorActivator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA214349613EC0729564B6E /* IOSScreenMirrorActivator.swift */; };
-		9DF67A37A1DC097C49BF57CF /* DevicePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38562AB0525A6749B71F6F93 /* DevicePreviewView.swift */; };
-		A1000001241A0001000001A1 /* ScreenPresenterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001241A0002000001A1 /* ScreenPresenterApp.swift */; };
-		A122E5909FCABEB4D3CBDCB1 /* QVHDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */; };
+		A1000001241A0001000001A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001241A0002000001A1 /* AppDelegate.swift */; };
 		A441333F2EF93201003DCDD3 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133102EF93201003DCDD3 /* ProcessRunner.swift */; };
 		A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441330E2EF93201003DCDD3 /* UserPreferences.swift */; };
-		A44133432EF93201003DCDD3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441332F2EF93201003DCDD3 /* SettingsView.swift */; };
 		A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */; };
 		A44133462EF93201003DCDD3 /* DeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133062EF93201003DCDD3 /* DeviceSource.swift */; };
 		A44133472EF93201003DCDD3 /* FramePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133192EF93201003DCDD3 /* FramePipeline.swift */; };
 		A44133482EF93201003DCDD3 /* AndroidDeviceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */; };
-		A441334A2EF93201003DCDD3 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44132FF2EF93201003DCDD3 /* ConnectionManager.swift */; };
 		A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133112EF93201003DCDD3 /* ToolchainManager.swift */; };
-		A44133512EF93201003DCDD3 /* PermissionChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133382EF93201003DCDD3 /* PermissionChecklistView.swift */; };
 		A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133032EF93201003DCDD3 /* AndroidDevice.swift */; };
-		A44133572EF93201003DCDD3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133362EF93201003DCDD3 /* ContentView.swift */; };
-		A44133592EF93201003DCDD3 /* AndroidConnector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44132FE2EF93201003DCDD3 /* AndroidConnector.swift */; };
-		A441335A2EF93201003DCDD3 /* PermissionChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441330C2EF93201003DCDD3 /* PermissionChecker.swift */; };
 		A441335D2EF93201003DCDD3 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441331F2EF93201003DCDD3 /* Logger.swift */; };
 		A44133622EF93201003DCDD3 /* adb in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* adb */; };
 		A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A44133242EF93201003DCDD3 /* Assets.xcassets */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
+		/* New files */
+		B1000001000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000001 /* AppState.swift */; };
+		B1000001000000000002 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000002 /* MetalRenderer.swift */; };
+		B1000001000000000003 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000003 /* MetalRenderView.swift */; };
+		B1000001000000000004 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000004 /* MainViewController.swift */; };
+		B1000001000000000005 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000005 /* PreferencesWindowController.swift */; };
+		B1000001000000000006 /* DeviceOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000006 /* DeviceOverlayView.swift */; };
+		B1000001000000000007 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000007 /* StatusBarView.swift */; };
+		B1000001000000000008 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000008 /* ToolbarView.swift */; };
+		B1000001000000000009 /* DeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000009 /* DeviceInsightService.swift */; };
+		B1000001000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000010 /* Localization.swift */; };
+		B1000001000000000011 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B1000002000000000011 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceSource.swift; sourceTree = "<group>"; };
-		38562AB0525A6749B71F6F93 /* DevicePreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevicePreviewView.swift; sourceTree = "<group>"; };
-		4BB1BC782C4396162646E34A /* qvh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = "compiled.mach-o.executable"; path = qvh; sourceTree = "<group>"; };
-		6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QVHDeviceSource.swift; sourceTree = "<group>"; };
 		8FA214349613EC0729564B6E /* IOSScreenMirrorActivator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSScreenMirrorActivator.swift; sourceTree = "<group>"; };
 		A1000001241A0000000001A1 /* ScreenPresenter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScreenPresenter.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1000001241A0002000001A1 /* ScreenPresenterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenPresenterApp.swift; sourceTree = "<group>"; };
+		A1000001241A0002000001A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000001241A001D000001A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000001241A001E000001A1 /* ScreenPresenter.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenPresenter.entitlements; sourceTree = "<group>"; };
-		A44132FE2EF93201003DCDD3 /* AndroidConnector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidConnector.swift; sourceTree = "<group>"; };
-		A44132FF2EF93201003DCDD3 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		A44133032EF93201003DCDD3 /* AndroidDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidDevice.swift; sourceTree = "<group>"; };
 		A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidDeviceProvider.swift; sourceTree = "<group>"; };
 		A44133062EF93201003DCDD3 /* DeviceSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSource.swift; sourceTree = "<group>"; };
 		A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyDeviceSource.swift; sourceTree = "<group>"; };
-		A441330C2EF93201003DCDD3 /* PermissionChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionChecker.swift; sourceTree = "<group>"; };
 		A441330E2EF93201003DCDD3 /* UserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferences.swift; sourceTree = "<group>"; };
 		A44133102EF93201003DCDD3 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
 		A44133112EF93201003DCDD3 /* ToolchainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolchainManager.swift; sourceTree = "<group>"; };
@@ -58,11 +55,21 @@
 		A441331F2EF93201003DCDD3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		A44133222EF93201003DCDD3 /* adb */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = adb; sourceTree = "<group>"; };
 		A44133242EF93201003DCDD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A441332F2EF93201003DCDD3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		A44133362EF93201003DCDD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A44133382EF93201003DCDD3 /* PermissionChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionChecklistView.swift; sourceTree = "<group>"; };
 		C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceProvider.swift; sourceTree = "<group>"; };
 		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
+		/* New file references */
+		B1000002000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		B1000002000000000002 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
+		B1000002000000000003 /* MetalRenderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderView.swift; sourceTree = "<group>"; };
+		B1000002000000000004 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		B1000002000000000005 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
+		B1000002000000000006 /* DeviceOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOverlayView.swift; sourceTree = "<group>"; };
+		B1000002000000000007 /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
+		B1000002000000000008 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
+		B1000002000000000009 /* DeviceInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInsightService.swift; sourceTree = "<group>"; };
+		B1000002000000000010 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		B1000002000000000012 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B1000002000000000013 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,7 +96,7 @@
 			children = (
 				A1000001241A001E000001A1 /* ScreenPresenter.entitlements */,
 				A1000001241A001D000001A1 /* Info.plist */,
-				A1000001241A0002000001A1 /* ScreenPresenterApp.swift */,
+				A1000001241A0002000001A1 /* AppDelegate.swift */,
 				A44133212EF93201003DCDD3 /* Core */,
 				A44133252EF93201003DCDD3 /* Resources */,
 				A44133392EF93201003DCDD3 /* Views */,
@@ -105,15 +112,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A44133022EF93201003DCDD3 /* Connection */ = {
-			isa = PBXGroup;
-			children = (
-				A44132FE2EF93201003DCDD3 /* AndroidConnector.swift */,
-				A44132FF2EF93201003DCDD3 /* ConnectionManager.swift */,
-			);
-			path = Connection;
-			sourceTree = "<group>";
-		};
 		A44133052EF93201003DCDD3 /* DeviceDiscovery */ = {
 			isa = PBXGroup;
 			children = (
@@ -125,24 +123,23 @@
 			path = DeviceDiscovery;
 			sourceTree = "<group>";
 		};
+		B1000003000000000010 /* DeviceInsight */ = {
+			isa = PBXGroup;
+			children = (
+				B1000002000000000009 /* DeviceInsightService.swift */,
+			);
+			path = DeviceInsight;
+			sourceTree = "<group>";
+		};
 		A44133092EF93201003DCDD3 /* DeviceSource */ = {
 			isa = PBXGroup;
 			children = (
 				A44133062EF93201003DCDD3 /* DeviceSource.swift */,
 				A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */,
-				6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */,
 				2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */,
 				8FA214349613EC0729564B6E /* IOSScreenMirrorActivator.swift */,
 			);
 			path = DeviceSource;
-			sourceTree = "<group>";
-		};
-		A441330D2EF93201003DCDD3 /* Permissions */ = {
-			isa = PBXGroup;
-			children = (
-				A441330C2EF93201003DCDD3 /* PermissionChecker.swift */,
-			);
-			path = Permissions;
 			sourceTree = "<group>";
 		};
 		A441330F2EF93201003DCDD3 /* Preferences */ = {
@@ -166,6 +163,8 @@
 			isa = PBXGroup;
 			children = (
 				A44133192EF93201003DCDD3 /* FramePipeline.swift */,
+				B1000002000000000002 /* MetalRenderer.swift */,
+				B1000002000000000003 /* MetalRenderView.swift */,
 			);
 			path = Rendering;
 			sourceTree = "<group>";
@@ -174,6 +173,7 @@
 			isa = PBXGroup;
 			children = (
 				A441331F2EF93201003DCDD3 /* Logger.swift */,
+				B1000002000000000010 /* Localization.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -181,10 +181,10 @@
 		A44133212EF93201003DCDD3 /* Core */ = {
 			isa = PBXGroup;
 			children = (
-				A44133022EF93201003DCDD3 /* Connection */,
+				B1000002000000000001 /* AppState.swift */,
 				A44133052EF93201003DCDD3 /* DeviceDiscovery */,
+				B1000003000000000010 /* DeviceInsight */,
 				A44133092EF93201003DCDD3 /* DeviceSource */,
-				A441330D2EF93201003DCDD3 /* Permissions */,
 				A441330F2EF93201003DCDD3 /* Preferences */,
 				A44133122EF93201003DCDD3 /* Process */,
 				A441331E2EF93201003DCDD3 /* Rendering */,
@@ -197,7 +197,6 @@
 			isa = PBXGroup;
 			children = (
 				A44133222EF93201003DCDD3 /* adb */,
-				4BB1BC782C4396162646E34A /* qvh */,
 			);
 			path = tools;
 			sourceTree = "<group>";
@@ -207,30 +206,44 @@
 			children = (
 				A44133232EF93201003DCDD3 /* tools */,
 				A44133242EF93201003DCDD3 /* Assets.xcassets */,
+				B1000002000000000011 /* Localizable.strings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		A44133302EF93201003DCDD3 /* Settings */ = {
+		B1000003000000000011 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				A441332F2EF93201003DCDD3 /* SettingsView.swift */,
+				B1000002000000000006 /* DeviceOverlayView.swift */,
+				B1000002000000000007 /* StatusBarView.swift */,
+				B1000002000000000008 /* ToolbarView.swift */,
 			);
-			path = Settings;
+			path = Components;
 			sourceTree = "<group>";
 		};
 		A44133392EF93201003DCDD3 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A44133302EF93201003DCDD3 /* Settings */,
-				A44133362EF93201003DCDD3 /* ContentView.swift */,
-				A44133382EF93201003DCDD3 /* PermissionChecklistView.swift */,
-				38562AB0525A6749B71F6F93 /* DevicePreviewView.swift */,
+				B1000002000000000004 /* MainViewController.swift */,
+				B1000002000000000005 /* PreferencesWindowController.swift */,
+				B1000003000000000011 /* Components */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXVariantGroup section */
+		B1000002000000000011 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B1000002000000000012 /* en */,
+				B1000002000000000013 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXNativeTarget section */
 		A10000012419FFFF000001A1 /* ScreenPresenter */ = {
@@ -246,7 +259,7 @@
 			dependencies = (
 			);
 			name = ScreenPresenter;
-			productName = DemoConsole;
+			productName = ScreenPresenter;
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -291,7 +304,7 @@
 			files = (
 				A44133622EF93201003DCDD3 /* adb in Resources */,
 				A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */,
-				5EBC87BE3CCCA63A6D6AD322 /* qvh in Resources */,
+				B1000001000000000011 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -304,26 +317,29 @@
 			files = (
 				A441333F2EF93201003DCDD3 /* ProcessRunner.swift in Sources */,
 				A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */,
-				A44133432EF93201003DCDD3 /* SettingsView.swift in Sources */,
 				A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */,
 				A44133462EF93201003DCDD3 /* DeviceSource.swift in Sources */,
 				A44133472EF93201003DCDD3 /* FramePipeline.swift in Sources */,
 				A44133482EF93201003DCDD3 /* AndroidDeviceProvider.swift in Sources */,
-				A441334A2EF93201003DCDD3 /* ConnectionManager.swift in Sources */,
 				A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */,
-				A44133512EF93201003DCDD3 /* PermissionChecklistView.swift in Sources */,
 				A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */,
-				A44133572EF93201003DCDD3 /* ContentView.swift in Sources */,
-				A44133592EF93201003DCDD3 /* AndroidConnector.swift in Sources */,
-				A441335A2EF93201003DCDD3 /* PermissionChecker.swift in Sources */,
 				A441335D2EF93201003DCDD3 /* Logger.swift in Sources */,
-				A1000001241A0001000001A1 /* ScreenPresenterApp.swift in Sources */,
-				9DF67A37A1DC097C49BF57CF /* DevicePreviewView.swift in Sources */,
-				A122E5909FCABEB4D3CBDCB1 /* QVHDeviceSource.swift in Sources */,
+				A1000001241A0001000001A1 /* AppDelegate.swift in Sources */,
 				3D08D092E75081FC3BA6C7A9 /* IOSDevice.swift in Sources */,
 				87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */,
 				DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */,
 				908C36A37CB44D844E526D8E /* IOSScreenMirrorActivator.swift in Sources */,
+				/* New source files */
+				B1000001000000000001 /* AppState.swift in Sources */,
+				B1000001000000000002 /* MetalRenderer.swift in Sources */,
+				B1000001000000000003 /* MetalRenderView.swift in Sources */,
+				B1000001000000000004 /* MainViewController.swift in Sources */,
+				B1000001000000000005 /* PreferencesWindowController.swift in Sources */,
+				B1000001000000000006 /* DeviceOverlayView.swift in Sources */,
+				B1000001000000000007 /* StatusBarView.swift in Sources */,
+				B1000001000000000008 /* ToolbarView.swift in Sources */,
+				B1000001000000000009 /* DeviceInsightService.swift in Sources */,
+				B1000001000000000010 /* Localization.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

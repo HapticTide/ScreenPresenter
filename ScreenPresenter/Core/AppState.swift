@@ -122,7 +122,7 @@ final class AppState {
                 try await newSource.connect()
                 try await newSource.startCapture()
             } else {
-                throw DeviceSourceError.connectionFailed("没有可用的 iOS 设备")
+                throw DeviceSourceError.connectionFailed(L10n.error.noDevice(L10n.platform.ios))
             }
             return
         }
@@ -156,7 +156,7 @@ final class AppState {
                 try await newSource.connect()
                 try await newSource.startCapture()
             } else {
-                throw DeviceSourceError.connectionFailed("没有可用的 Android 设备")
+                throw DeviceSourceError.connectionFailed(L10n.error.noDevice(L10n.platform.android))
             }
             return
         }

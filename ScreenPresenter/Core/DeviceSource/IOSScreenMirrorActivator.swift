@@ -64,7 +64,7 @@ final class IOSScreenMirrorActivator {
             return true
         } else {
             isDALEnabled = false
-            lastError = "启用失败，错误码: \(result)"
+            lastError = L10n.iosScreenMirror.enableFailed(result)
             AppLogger.device.warning("启用 CoreMediaIO 屏幕捕获设备失败: \(result)")
             return false
         }

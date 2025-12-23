@@ -46,7 +46,7 @@ final class StatusBarView: NSView {
         addSubview(topSeparator)
 
         // 状态标签
-        statusLabel = createLabel(text: "等待设备连接...")
+        statusLabel = createLabel(text: L10n.statusBar.waitingDevice)
         statusLabel.alignment = .left
         addSubview(statusLabel)
 

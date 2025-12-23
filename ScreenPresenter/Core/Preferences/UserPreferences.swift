@@ -21,9 +21,9 @@ enum ThemeMode: String, CaseIterable, Codable {
 
     var displayName: String {
         switch self {
-        case .system: "跟随系统"
-        case .light: "浅色"
-        case .dark: "深色"
+        case .system: L10n.theme.system
+        case .light: L10n.theme.light
+        case .dark: L10n.theme.dark
         }
     }
 }
@@ -37,20 +37,10 @@ enum BackgroundColorMode: String, CaseIterable, Codable {
 
     var displayName: String {
         switch self {
-        case .followTheme: "跟随主题"
-        case .custom: "自定义"
+        case .followTheme: L10n.background.followTheme
+        case .custom: L10n.background.custom
         }
     }
-}
-
-// MARK: - scrcpy 配置
-
-/// scrcpy 基础配置
-struct ScrcpyConfig {
-    var bitrate: String = "8M"
-    var maxSize: Int = 1920
-    var maxFps: Int = 60
-    var stayAwake: Bool = true
 }
 
 // MARK: - 用户偏好设置模型
@@ -69,6 +59,7 @@ final class UserPreferences {
         static let reconnectDelay = "reconnectDelay"
         static let maxReconnectAttempts = "maxReconnectAttempts"
         static let themeMode = "themeMode"
+        static let appLanguage = "appLanguage"
         static let backgroundColorMode = "backgroundColorMode"
         static let customBackgroundColor = "customBackgroundColor"
         static let captureFrameRate = "captureFrameRate"
@@ -137,6 +128,23 @@ final class UserPreferences {
             return mode
         }
         set { defaults.set(newValue.rawValue, forKey: Keys.themeMode) }
+    }
+
+    /// 应用语言
+    var appLanguage: AppLanguage {
+        get {
+            guard
+                let raw = defaults.string(forKey: Keys.appLanguage),
+                let lang = AppLanguage(rawValue: raw)
+            else {
+                return .system
+            }
+            return lang
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Keys.appLanguage)
+            LocalizationManager.shared.setLanguage(newValue)
+        }
     }
 
     /// 背景色模式
@@ -231,16 +239,6 @@ final class UserPreferences {
     }
 
     // MARK: - scrcpy 配置生成
-
-    /// 生成 scrcpy 配置
-    func generateScrcpyConfig() -> ScrcpyConfig {
-        var config = ScrcpyConfig()
-        config.bitrate = "\(scrcpyBitrate)M"
-        config.maxSize = scrcpyMaxSize
-        config.maxFps = captureFrameRate
-        config.stayAwake = true
-        return config
-    }
 
     /// 为特定设备构建 scrcpy 配置
     func buildScrcpyConfiguration(serial: String) -> ScrcpyConfiguration {

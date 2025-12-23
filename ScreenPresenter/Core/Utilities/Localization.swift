@@ -1,0 +1,454 @@
+//
+//  Localization.swift
+//  ScreenPresenter
+//
+//  Created by Sun on 2025/12/23.
+//
+//  本地化支持
+//  提供多语言切换功能
+//
+
+import Foundation
+
+// MARK: - 语言选项
+
+/// 应用支持的语言
+enum AppLanguage: String, CaseIterable, Codable {
+    case system // 跟随系统
+    case en // English
+    case zhHans = "zh-Hans" // 简体中文
+
+    /// 显示名称（本地化）
+    var displayName: String {
+        switch self {
+        case .system: L10n.language.system
+        case .en: L10n.language.en
+        case .zhHans: L10n.language.zhHans
+        }
+    }
+
+    /// 原生名称（用于选择器显示）
+    var nativeName: String {
+        switch self {
+        case .system: "System"
+        case .en: "English"
+        case .zhHans: "简体中文"
+        }
+    }
+
+    /// 对应的 Locale 标识符
+    var localeIdentifier: String? {
+        switch self {
+        case .system: nil
+        case .en: "en"
+        case .zhHans: "zh-Hans"
+        }
+    }
+}
+
+// MARK: - 本地化管理器
+
+/// 本地化管理器
+final class LocalizationManager {
+    // MARK: - 单例
+
+    static let shared = LocalizationManager()
+
+    // MARK: - 属性
+
+    /// 当前使用的 Bundle
+    private(set) var bundle: Bundle = .main
+
+    /// 当前语言
+    private(set) var currentLanguage: AppLanguage = .system
+
+    /// 语言变更通知
+    static let languageDidChangeNotification = Notification.Name("AppLanguageDidChange")
+
+    // MARK: - 初始化
+
+    private init() {
+        loadSavedLanguage()
+    }
+
+    // MARK: - 公开方法
+
+    /// 设置应用语言
+    /// - Parameter language: 目标语言
+    func setLanguage(_ language: AppLanguage) {
+        currentLanguage = language
+        UserDefaults.standard.set(language.rawValue, forKey: "AppLanguage")
+
+        updateBundle(for: language)
+
+        // 发送通知
+        NotificationCenter.default.post(name: Self.languageDidChangeNotification, object: nil)
+
+        AppLogger.app.info("语言已切换为: \(language.nativeName)")
+    }
+
+    /// 获取本地化字符串
+    /// - Parameters:
+    ///   - key: 本地化 key
+    ///   - arguments: 格式化参数
+    /// - Returns: 本地化后的字符串
+    func localizedString(_ key: String, arguments: CVarArg...) -> String {
+        let format = bundle.localizedString(forKey: key, value: nil, table: nil)
+        if arguments.isEmpty {
+            return format
+        }
+        return String(format: format, arguments: arguments)
+    }
+
+    // MARK: - 私有方法
+
+    private func loadSavedLanguage() {
+        if
+            let savedValue = UserDefaults.standard.string(forKey: "AppLanguage"),
+            let language = AppLanguage(rawValue: savedValue) {
+            currentLanguage = language
+            updateBundle(for: language)
+        }
+    }
+
+    private func updateBundle(for language: AppLanguage) {
+        if
+            let identifier = language.localeIdentifier,
+            let path = Bundle.main.path(forResource: identifier, ofType: "lproj"),
+            let languageBundle = Bundle(path: path) {
+            bundle = languageBundle
+        } else {
+            bundle = .main
+        }
+    }
+}
+
+// MARK: - String 扩展
+
+extension String {
+    /// 本地化字符串
+    var localized: String {
+        LocalizationManager.shared.localizedString(self)
+    }
+
+    /// 带参数的本地化字符串
+    func localized(_ arguments: CVarArg...) -> String {
+        let format = LocalizationManager.shared.bundle.localizedString(forKey: self, value: nil, table: nil)
+        return String(format: format, arguments: arguments)
+    }
+}
+
+// MARK: - L10n 命名空间
+
+/// 本地化字符串命名空间
+/// 使用方式: L10n.common.ok
+enum L10n {
+    // MARK: - App
+
+    enum app {
+        static var name: String { "app.name".localized }
+        static var description: String { "app.description".localized }
+    }
+
+    // MARK: - Common
+
+    enum common {
+        static var ok: String { "common.ok".localized }
+        static var cancel: String { "common.cancel".localized }
+        static var close: String { "common.close".localized }
+        static var refresh: String { "common.refresh".localized }
+        static var install: String { "common.install".localized }
+        static var version: String { "common.version".localized }
+        static var status: String { "common.status".localized }
+        static var error: String { "common.error".localized }
+        static var unknown: String { "common.unknown".localized }
+        static var checking: String { "common.checking".localized }
+    }
+
+    // MARK: - Menu
+
+    enum menu {
+        static var preferences: String { "menu.preferences".localized }
+        static var refreshDevices: String { "menu.refreshDevices".localized }
+    }
+
+    // MARK: - Window
+
+    enum window {
+        static var preferences: String { "window.preferences".localized }
+        static var main: String { "window.main".localized }
+    }
+
+    // MARK: - Device
+
+    enum device {
+        static var connected: String { "device.connected".localized }
+        static var disconnected: String { "device.disconnected".localized }
+        static var connecting: String { "device.connecting".localized }
+        static var capturing: String { "device.capturing".localized }
+        static var waitingAuth: String { "device.waitingAuth".localized }
+        static var idle: String { "device.idle".localized }
+        static var paused: String { "device.paused".localized }
+        static func error(_ msg: String) -> String { "device.error".localized(msg) }
+    }
+
+    // MARK: - Platform
+
+    enum platform {
+        static var ios: String { "platform.ios".localized }
+        static var android: String { "platform.android".localized }
+    }
+
+    // MARK: - Overlay
+
+    enum overlay {
+        static var disconnected: String { "overlay.disconnected".localized }
+        static var clickToStart: String { "overlay.clickToStart".localized }
+        static func fps(_ value: Int) -> String { "overlay.fps".localized(value) }
+    }
+
+    // MARK: - Status Bar
+
+    enum statusBar {
+        static var waitingDevice: String { "statusBar.waitingDevice".localized }
+        static func ios(_ status: String) -> String { "statusBar.ios".localized(status) }
+        static func android(_ status: String) -> String { "statusBar.android".localized(status) }
+    }
+
+    // MARK: - Layout
+
+    enum layout {
+        static var sideBySide: String { "layout.sideBySide".localized }
+        static var topBottom: String { "layout.topBottom".localized }
+        static var single: String { "layout.single".localized }
+    }
+
+    // MARK: - Theme
+
+    enum theme {
+        static var system: String { "theme.system".localized }
+        static var light: String { "theme.light".localized }
+        static var dark: String { "theme.dark".localized }
+    }
+
+    // MARK: - Language
+
+    enum language {
+        static var system: String { "language.system".localized }
+        static var en: String { "language.en".localized }
+        static var zhHans: String { "language.zhHans".localized }
+    }
+
+    // MARK: - Preferences
+
+    enum prefs {
+        enum tab {
+            static var general: String { "prefs.tab.general".localized }
+            static var toolchain: String { "prefs.tab.toolchain".localized }
+            static var about: String { "prefs.tab.about".localized }
+        }
+
+        enum general {
+            static var displaySettings: String { "prefs.general.displaySettings".localized }
+            static var autoStartCapture: String { "prefs.general.autoStartCapture".localized }
+            static var showFPS: String { "prefs.general.showFPS".localized }
+            static var language: String { "prefs.general.language".localized }
+            static var languageNote: String { "prefs.general.languageNote".localized }
+        }
+
+        enum toolchain {
+            static var title: String { "prefs.toolchain.title".localized }
+            static func adb(_ status: String) -> String { "prefs.toolchain.adb".localized(status) }
+            static func scrcpy(_ status: String) -> String { "prefs.toolchain.scrcpy".localized(status) }
+            static var refresh: String { "prefs.toolchain.refresh".localized }
+            static var installScrcpy: String { "prefs.toolchain.installScrcpy".localized }
+            static var notInstalled: String { "prefs.toolchain.notInstalled".localized }
+            static var installing: String { "prefs.toolchain.installing".localized }
+            static func bundled(_ version: String) -> String { "toolchain.bundled".localized(version) }
+            static var notFoundAdb: String { "toolchain.notFound.adb".localized }
+            static var notFoundScrcpy: String { "toolchain.notFound.scrcpy".localized }
+            static var installHomebrew: String { "toolchain.installHomebrew".localized }
+            static var installFailed: String { "toolchain.installFailed".localized }
+        }
+
+        enum about {
+            static func version(_ v: String) -> String { "prefs.about.version".localized(v) }
+        }
+    }
+
+    // MARK: - Toolchain (顶级)
+
+    enum toolchain {
+        static var installScrcpyHint: String { "toolchain.installScrcpyHint".localized }
+        static var installScrcpyButton: String { "toolchain.installScrcpyButton".localized }
+    }
+
+    // MARK: - Android
+
+    enum android {
+        enum state {
+            static var device: String { "android.state.device".localized }
+            static var unauthorized: String { "android.state.unauthorized".localized }
+            static var offline: String { "android.state.offline".localized }
+            static var noPermissions: String { "android.state.noPermissions".localized }
+            static var unknown: String { "android.state.unknown".localized }
+        }
+
+        enum hint {
+            static var unauthorized: String { "android.hint.unauthorized".localized }
+            static var offline: String { "android.hint.offline".localized }
+            static var noPermissions: String { "android.hint.noPermissions".localized }
+            static var unknown: String { "android.hint.unknown".localized }
+        }
+
+        enum connection {
+            static var authTimeout: String { "android.authTimeout".localized }
+            static func mirrorStartFailed(_ error: String) -> String { "android.mirrorStartFailed".localized(error) }
+            static func mirrorTerminated(_ code: Int32) -> String { "android.mirrorTerminated".localized(code) }
+            static var cannotGetIp: String { "android.cannotGetIp".localized }
+        }
+    }
+
+    // MARK: - iOS
+
+    enum ios {
+        enum hint {
+            static var trust: String { "ios.hint.trust".localized }
+            static func occupied(_ app: String) -> String { "ios.hint.occupied".localized(app) }
+        }
+    }
+
+    // MARK: - Errors
+
+    enum error {
+        static func connectionFailed(_ reason: String) -> String { "error.connectionFailed".localized(reason) }
+        static var permissionDenied: String { "error.permissionDenied".localized }
+        static var windowNotFound: String { "error.windowNotFound".localized }
+        static func captureStartFailed(_ reason: String) -> String { "error.captureStartFailed".localized(reason) }
+        static func processTerminated(_ code: Int32) -> String { "error.processTerminated".localized(code) }
+        static var timeout: String { "error.timeout".localized }
+        static func noDevice(_ platform: String) -> String { "error.noDevice".localized(platform) }
+        static func startCaptureFailed(_ platform: String, _ error: String) -> String {
+            "error.startCaptureFailed".localized(platform, error)
+        }
+    }
+
+    // MARK: - Toolbar
+
+    enum toolbar {
+        static var refresh: String { "toolbar.refresh".localized }
+        static var layout: String { "toolbar.layout".localized }
+        static var swap: String { "toolbar.swap".localized }
+        static var preferences: String { "toolbar.preferences".localized }
+        static var swapTooltip: String { "toolbar.swap.tooltip".localized }
+        static var refreshTooltip: String { "toolbar.refresh.tooltip".localized }
+        static var preferencesTooltip: String { "toolbar.preferences.tooltip".localized }
+    }
+
+    // MARK: - Permission
+
+    enum permission {
+        static var unknown: String { "permission.unknown".localized }
+        static var checking: String { "permission.checking".localized }
+        static var granted: String { "permission.granted".localized }
+        static var denied: String { "permission.denied".localized }
+        static var notDetermined: String { "permission.notDetermined".localized }
+        static var screenRecordingName: String { "permission.screenRecording.name".localized }
+        static var screenRecordingDesc: String { "permission.screenRecording.desc".localized }
+    }
+
+    // MARK: - Background
+
+    enum background {
+        static var followTheme: String { "background.followTheme".localized }
+        static var custom: String { "background.custom".localized }
+    }
+
+    // MARK: - Connection
+
+    enum connection {
+        static var notConnected: String { "connection.notConnected".localized }
+        static var connecting: String { "connection.connecting".localized }
+        static var waitingAuth: String { "connection.waitingAuth".localized }
+        static var connected: String { "connection.connected".localized }
+        static func error(_ msg: String) -> String { "connection.error".localized(msg) }
+        static func abnormalState(_ state: String) -> String { "connection.abnormalState".localized(state) }
+        static var disconnected: String { "connection.disconnected".localized }
+    }
+
+    // MARK: - Overlay UI
+
+    enum overlayUI {
+        static var startCapture: String { "overlay.startCapture".localized }
+        static var stop: String { "overlay.stop".localized }
+        static var connectDevice: String { "overlay.connectDevice".localized }
+        static var waitingConnection: String { "overlay.waitingConnection".localized }
+        static var deviceReady: String { "overlay.deviceReady".localized }
+    }
+
+    // MARK: - Device Info
+
+    enum deviceInfo {
+        static var unknownModel: String { "deviceInfo.unknownModel".localized }
+        static var unknownVersion: String { "deviceInfo.unknownVersion".localized }
+        static var unknown: String { "deviceInfo.unknown".localized }
+    }
+
+    // MARK: - Process
+
+    enum process {
+        static func notFound(_ path: String) -> String { "process.notFound".localized(path) }
+        static func failed(_ code: Int32, _ stderr: String) -> String { "process.failed".localized(code, stderr) }
+        static var timeout: String { "process.timeout".localized }
+        static var cancelled: String { "process.cancelled".localized }
+    }
+
+    // MARK: - ADB
+
+    enum adb {
+        static func startFailed(_ error: String) -> String { "adb.startFailed".localized(error) }
+        static func stopFailed(_ error: String) -> String { "adb.stopFailed".localized(error) }
+    }
+
+    // MARK: - Capture
+
+    enum capture {
+        static var deviceNotConnected: String { "capture.deviceNotConnected".localized }
+        static var sessionNotInitialized: String { "capture.sessionNotInitialized".localized }
+        static func cannotGetDevice(_ id: String) -> String { "capture.cannotGetDevice".localized(id) }
+        static var cannotAddInput: String { "capture.cannotAddInput".localized }
+        static func inputFailed(_ error: String) -> String { "capture.inputFailed".localized(error) }
+        static var cannotAddOutput: String { "capture.cannotAddOutput".localized }
+    }
+
+    // MARK: - iOS Screen Mirror
+
+    enum iosScreenMirror {
+        static func enableFailed(_ code: Int32) -> String { "ios.enableFailed".localized(code) }
+    }
+
+    // MARK: - iOS Device Type
+
+    enum iosDeviceType {
+        static var unknown: String { "ios.deviceType.unknown".localized }
+    }
+
+    // MARK: - Mobile Device
+
+    enum mobileDevice {
+        static func loadFailed(_ error: String) -> String { "mobileDevice.loadFailed".localized(error) }
+    }
+
+    // MARK: - Installation Log
+
+    enum install {
+        static var checkingHomebrew: String { "install.checkingHomebrew".localized }
+        static var homebrewNotFound: String { "install.homebrewNotFound".localized }
+        static var installHomebrewPrompt: String { "install.installHomebrewPrompt".localized }
+        static func homebrewFound(_ path: String) -> String { "install.homebrewFound".localized(path) }
+        static var startInstall: String { "install.startInstall".localized }
+        static var installSuccess: String { "install.installSuccess".localized }
+        static func installFailed(_ error: String) -> String { "install.installFailed".localized(error) }
+        static var verifyingInstall: String { "install.verifyingInstall".localized }
+    }
+}

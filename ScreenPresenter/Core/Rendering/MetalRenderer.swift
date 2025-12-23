@@ -421,9 +421,9 @@ enum LayoutMode: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .sideBySide: "左右并排"
-        case .topBottom: "上下布局"
-        case .single: "单屏"
+        case .sideBySide: L10n.layout.sideBySide
+        case .topBottom: L10n.layout.topBottom
+        case .single: L10n.layout.single
         }
     }
 

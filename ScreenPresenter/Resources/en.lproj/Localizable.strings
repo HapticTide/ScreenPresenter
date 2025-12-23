@@ -1,0 +1,217 @@
+/*
+  Localizable.strings (English)
+  ScreenPresenter
+
+  Created by Sun on 2025/12/23.
+*/
+
+// MARK: - App
+"app.name" = "ScreenPresenter";
+"app.description" = "macOS Screen Mirroring Tool\nDisplay iOS and Android device screens simultaneously";
+
+// MARK: - Common
+"common.ok" = "OK";
+"common.cancel" = "Cancel";
+"common.close" = "Close";
+"common.refresh" = "Refresh";
+"common.install" = "Install";
+"common.version" = "Version";
+"common.status" = "Status";
+"common.error" = "Error";
+"common.unknown" = "Unknown";
+"common.checking" = "Checking...";
+
+// MARK: - Menu
+"menu.preferences" = "Preferences...";
+"menu.refreshDevices" = "Refresh Devices";
+
+// MARK: - Window
+"window.preferences" = "Preferences";
+"window.main" = "ScreenPresenter";
+
+// MARK: - Device Status
+"device.connected" = "Connected";
+"device.disconnected" = "Disconnected";
+"device.connecting" = "Connecting...";
+"device.capturing" = "Capturing";
+"device.waitingAuth" = "Waiting for Authorization";
+"device.idle" = "Idle";
+"device.paused" = "Paused";
+"device.error" = "Error: %@";
+
+// MARK: - Device Platform
+"platform.ios" = "iOS";
+"platform.android" = "Android";
+
+// MARK: - Device Overlay
+"overlay.disconnected" = "No device connected";
+"overlay.clickToStart" = "Click to start capture";
+"overlay.fps" = "%d fps";
+
+// MARK: - Status Bar
+"statusBar.waitingDevice" = "Waiting for device connection...";
+"statusBar.ios" = "iOS: %@";
+"statusBar.android" = "Android: %@";
+
+// MARK: - Layout
+"layout.sideBySide" = "Side by Side";
+"layout.topBottom" = "Top & Bottom";
+"layout.single" = "Single";
+
+// MARK: - Theme
+"theme.system" = "Follow System";
+"theme.light" = "Light";
+"theme.dark" = "Dark";
+
+// MARK: - Language
+"language.system" = "Follow System";
+"language.en" = "English";
+"language.zhHans" = "简体中文";
+
+// MARK: - Preferences - Tabs
+"prefs.tab.general" = "General";
+"prefs.tab.toolchain" = "Toolchain";
+"prefs.tab.about" = "About";
+
+// MARK: - Preferences - General
+"prefs.general.displaySettings" = "Display Settings";
+"prefs.general.autoStartCapture" = "Auto start capture on launch";
+"prefs.general.showFPS" = "Show frame rate statistics";
+"prefs.general.language" = "Language";
+"prefs.general.languageNote" = "Restart app to apply language change";
+
+// MARK: - Preferences - Toolchain
+"prefs.toolchain.title" = "Toolchain Status";
+"prefs.toolchain.adb" = "adb: %@";
+"prefs.toolchain.scrcpy" = "scrcpy: %@";
+"prefs.toolchain.refresh" = "Refresh Status";
+"prefs.toolchain.installScrcpy" = "Install scrcpy (Homebrew)";
+"prefs.toolchain.notInstalled" = "Not Installed - Click to Install";
+"prefs.toolchain.installing" = "Installing...";
+"prefs.toolchain.bundled" = "Bundled v%@";
+
+// MARK: - Preferences - About
+"prefs.about.version" = "Version %@";
+
+// MARK: - Android Device State
+"android.state.device" = "Connected";
+"android.state.unauthorized" = "Waiting for Authorization";
+"android.state.offline" = "Offline";
+"android.state.noPermissions" = "No Permissions";
+"android.state.unknown" = "Unknown Status";
+
+// MARK: - Android Device Hints
+"android.hint.unauthorized" = "Please tap \"Allow USB debugging\" on your phone";
+"android.hint.offline" = "Please reconnect the USB cable";
+"android.hint.noPermissions" = "Please check adb permission settings";
+"android.hint.unknown" = "Please reconnect the device";
+
+// MARK: - iOS Device
+"ios.hint.trust" = "Please tap \"Trust This Computer\" on your device";
+"ios.hint.occupied" = "Device may be occupied by %@, please close it and try again";
+
+// MARK: - Errors
+"error.connectionFailed" = "Connection failed: %@";
+"error.permissionDenied" = "Permission denied";
+"error.windowNotFound" = "Screen mirroring window not found";
+"error.captureStartFailed" = "Capture start failed: %@";
+"error.processTerminated" = "Process terminated (exit code: %d)";
+"error.timeout" = "Connection timeout";
+"error.noDevice" = "No available %@ device";
+"error.startCaptureFailed" = "Failed to start %@ capture: %@";
+
+// MARK: - Toolbar
+"toolbar.refresh" = "Refresh";
+"toolbar.layout" = "Layout";
+"toolbar.swap" = "Swap";
+"toolbar.preferences" = "Preferences";
+"toolbar.swap.tooltip" = "Swap device positions";
+"toolbar.refresh.tooltip" = "Refresh device list";
+"toolbar.preferences.tooltip" = "Preferences";
+
+// MARK: - Permission
+"permission.unknown" = "Unknown";
+"permission.checking" = "Checking...";
+"permission.granted" = "Granted";
+"permission.denied" = "Denied";
+"permission.notDetermined" = "Not Determined";
+"permission.screenRecording.name" = "Screen Recording";
+"permission.screenRecording.desc" = "For capturing Android device screen (fallback only)";
+
+// MARK: - Background Color Mode
+"background.followTheme" = "Follow Theme";
+"background.custom" = "Custom";
+
+// MARK: - Connection State
+"connection.notConnected" = "Not Connected";
+"connection.connecting" = "Connecting...";
+"connection.waitingAuth" = "Waiting for Authorization";
+"connection.connected" = "Connected";
+"connection.error" = "Error: %@";
+"connection.abnormalState" = "Device state abnormal: %@";
+"connection.disconnected" = "Device disconnected";
+
+// MARK: - Overlay
+"overlay.startCapture" = "Start Capture";
+"overlay.stop" = "Stop";
+"overlay.connectDevice" = "Connect device via USB cable";
+"overlay.waitingConnection" = "Waiting for connection...";
+"overlay.deviceReady" = "Device ready";
+
+// MARK: - Device Info
+"deviceInfo.unknownModel" = "Unknown Model";
+"deviceInfo.unknownVersion" = "Unknown Version";
+"deviceInfo.unknown" = "Unknown";
+
+// MARK: - Toolchain Errors
+"toolchain.bundled" = "Bundled v%@";
+"toolchain.notFound.adb" = "adb not found";
+"toolchain.notFound.scrcpy" = "scrcpy not found";
+"toolchain.installHomebrew" = "Please install Homebrew first";
+"toolchain.installFailed" = "Install failed";
+"toolchain.installScrcpyHint" = "scrcpy is required for Android screen mirroring";
+"toolchain.installScrcpyButton" = "Install scrcpy";
+
+// MARK: - Android Connection
+"android.authTimeout" = "Authorization timeout, please tap \"Allow USB debugging\" on your phone";
+"android.mirrorStartFailed" = "Failed to start mirroring: %@";
+"android.mirrorTerminated" = "Mirroring unexpectedly terminated (exit code: %d)";
+"android.cannotGetIp" = "Cannot get device IP address";
+
+// MARK: - Process Errors
+"process.notFound" = "Executable not found: %@";
+"process.failed" = "Execution failed (exit code: %d): %@";
+"process.timeout" = "Execution timeout";
+"process.cancelled" = "Execution cancelled";
+
+// MARK: - ADB Service
+"adb.startFailed" = "Failed to start adb service: %@";
+"adb.stopFailed" = "Failed to stop adb service: %@";
+
+// MARK: - Device Capture Errors
+"capture.deviceNotConnected" = "Device not connected";
+"capture.sessionNotInitialized" = "Capture session not initialized";
+"capture.cannotGetDevice" = "Cannot get capture device: %@";
+"capture.cannotAddInput" = "Cannot add video input";
+"capture.inputFailed" = "Failed to create video input: %@";
+"capture.cannotAddOutput" = "Cannot add video output";
+
+// MARK: - iOS Screen Mirror
+"ios.enableFailed" = "Enable failed, error code: %d";
+
+// MARK: - iOS Device Type
+"ios.deviceType.unknown" = "Unknown";
+
+// MARK: - Mobile Device
+"mobileDevice.loadFailed" = "Cannot load MobileDevice.framework: %@";
+
+// MARK: - Installation Log
+"install.checkingHomebrew" = "🔍 Checking Homebrew...\n";
+"install.homebrewNotFound" = "❌ Homebrew not found\n\n";
+"install.installHomebrewPrompt" = "Please install Homebrew first:\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"";
+"install.homebrewFound" = "✅ Found Homebrew: %@\n\n";
+"install.startInstall" = "📦 Installing scrcpy (this may take a few minutes)...\n";
+"install.installSuccess" = "✅ scrcpy installed successfully\n";
+"install.installFailed" = "❌ Installation failed: %@\n";
+"install.verifyingInstall" = "🔍 Verifying installation...\n";
+

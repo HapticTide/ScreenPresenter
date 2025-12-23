@@ -1,0 +1,217 @@
+/*
+  Localizable.strings (Simplified Chinese)
+  ScreenPresenter
+
+  Created by Sun on 2025/12/23.
+*/
+
+// MARK: - App
+"app.name" = "ScreenPresenter";
+"app.description" = "macOS 设备投屏工具\n同时展示 iOS 和 Android 设备屏幕";
+
+// MARK: - Common
+"common.ok" = "确定";
+"common.cancel" = "取消";
+"common.close" = "关闭";
+"common.refresh" = "刷新";
+"common.install" = "安装";
+"common.version" = "版本";
+"common.status" = "状态";
+"common.error" = "错误";
+"common.unknown" = "未知";
+"common.checking" = "检查中...";
+
+// MARK: - Menu
+"menu.preferences" = "偏好设置...";
+"menu.refreshDevices" = "刷新设备";
+
+// MARK: - Window
+"window.preferences" = "偏好设置";
+"window.main" = "ScreenPresenter";
+
+// MARK: - Device Status
+"device.connected" = "已连接";
+"device.disconnected" = "已断开";
+"device.connecting" = "连接中...";
+"device.capturing" = "捕获中";
+"device.waitingAuth" = "等待授权";
+"device.idle" = "空闲";
+"device.paused" = "已暂停";
+"device.error" = "错误: %@";
+
+// MARK: - Device Platform
+"platform.ios" = "iOS";
+"platform.android" = "Android";
+
+// MARK: - Device Overlay
+"overlay.disconnected" = "未连接设备";
+"overlay.clickToStart" = "点击开始捕获";
+"overlay.fps" = "%d fps";
+
+// MARK: - Status Bar
+"statusBar.waitingDevice" = "等待设备连接...";
+"statusBar.ios" = "iOS: %@";
+"statusBar.android" = "Android: %@";
+
+// MARK: - Layout
+"layout.sideBySide" = "左右并排";
+"layout.topBottom" = "上下布局";
+"layout.single" = "单屏";
+
+// MARK: - Theme
+"theme.system" = "跟随系统";
+"theme.light" = "浅色";
+"theme.dark" = "深色";
+
+// MARK: - Language
+"language.system" = "跟随系统";
+"language.en" = "English";
+"language.zhHans" = "简体中文";
+
+// MARK: - Preferences - Tabs
+"prefs.tab.general" = "通用";
+"prefs.tab.toolchain" = "工具链";
+"prefs.tab.about" = "关于";
+
+// MARK: - Preferences - General
+"prefs.general.displaySettings" = "显示设置";
+"prefs.general.autoStartCapture" = "启动时自动开始捕获";
+"prefs.general.showFPS" = "显示帧率统计";
+"prefs.general.language" = "语言";
+"prefs.general.languageNote" = "更改语言后需重启应用生效";
+
+// MARK: - Preferences - Toolchain
+"prefs.toolchain.title" = "工具链状态";
+"prefs.toolchain.adb" = "adb: %@";
+"prefs.toolchain.scrcpy" = "scrcpy: %@";
+"prefs.toolchain.refresh" = "刷新状态";
+"prefs.toolchain.installScrcpy" = "安装 scrcpy (Homebrew)";
+"prefs.toolchain.notInstalled" = "未安装 - 点击安装";
+"prefs.toolchain.installing" = "安装中...";
+"prefs.toolchain.bundled" = "内嵌 v%@";
+
+// MARK: - Preferences - About
+"prefs.about.version" = "版本 %@";
+
+// MARK: - Android Device State
+"android.state.device" = "已连接";
+"android.state.unauthorized" = "等待授权";
+"android.state.offline" = "离线";
+"android.state.noPermissions" = "权限不足";
+"android.state.unknown" = "未知状态";
+
+// MARK: - Android Device Hints
+"android.hint.unauthorized" = "请在手机上点击「允许 USB 调试」";
+"android.hint.offline" = "请重新插拔数据线";
+"android.hint.noPermissions" = "请检查 adb 权限设置";
+"android.hint.unknown" = "请重新连接设备";
+
+// MARK: - iOS Device
+"ios.hint.trust" = "请在设备上点击「信任此电脑」以允许访问";
+"ios.hint.occupied" = "设备可能被 %@ 占用，请关闭后重试";
+
+// MARK: - Errors
+"error.connectionFailed" = "连接失败: %@";
+"error.permissionDenied" = "权限被拒绝";
+"error.windowNotFound" = "未找到投屏窗口";
+"error.captureStartFailed" = "捕获启动失败: %@";
+"error.processTerminated" = "进程已终止 (退出码: %d)";
+"error.timeout" = "连接超时";
+"error.noDevice" = "没有可用的 %@ 设备";
+"error.startCaptureFailed" = "启动 %@ 捕获失败: %@";
+
+// MARK: - Toolbar
+"toolbar.refresh" = "刷新";
+"toolbar.layout" = "布局";
+"toolbar.swap" = "交换";
+"toolbar.preferences" = "偏好设置";
+"toolbar.swap.tooltip" = "交换设备位置";
+"toolbar.refresh.tooltip" = "刷新设备列表";
+"toolbar.preferences.tooltip" = "偏好设置";
+
+// MARK: - Permission
+"permission.unknown" = "未知";
+"permission.checking" = "检查中...";
+"permission.granted" = "已授权";
+"permission.denied" = "已拒绝";
+"permission.notDetermined" = "未设置";
+"permission.screenRecording.name" = "屏幕录制";
+"permission.screenRecording.desc" = "用于捕获 Android 设备投屏画面（仅备用方案需要）";
+
+// MARK: - Background Color Mode
+"background.followTheme" = "跟随主题";
+"background.custom" = "自定义";
+
+// MARK: - Connection State
+"connection.notConnected" = "未连接";
+"connection.connecting" = "连接中...";
+"connection.waitingAuth" = "等待授权";
+"connection.connected" = "已连接";
+"connection.error" = "错误: %@";
+"connection.abnormalState" = "设备状态异常: %@";
+"connection.disconnected" = "设备断开连接";
+
+// MARK: - Overlay
+"overlay.startCapture" = "开始捕获";
+"overlay.stop" = "停止";
+"overlay.connectDevice" = "使用 USB 数据线连接设备";
+"overlay.waitingConnection" = "等待连接...";
+"overlay.deviceReady" = "设备已就绪";
+
+// MARK: - Device Info
+"deviceInfo.unknownModel" = "未知型号";
+"deviceInfo.unknownVersion" = "未知版本";
+"deviceInfo.unknown" = "未知";
+
+// MARK: - Toolchain Errors
+"toolchain.bundled" = "内嵌 v%@";
+"toolchain.notFound.adb" = "未找到 adb";
+"toolchain.notFound.scrcpy" = "未找到 scrcpy";
+"toolchain.installHomebrew" = "请先安装 Homebrew";
+"toolchain.installFailed" = "安装失败";
+"toolchain.installScrcpyHint" = "需要安装 scrcpy 才能投屏 Android 设备";
+"toolchain.installScrcpyButton" = "一键安装 scrcpy";
+
+// MARK: - Android Connection
+"android.authTimeout" = "等待授权超时，请在手机上点击「允许 USB 调试」";
+"android.mirrorStartFailed" = "启动投屏失败: %@";
+"android.mirrorTerminated" = "投屏意外终止 (退出码: %d)";
+"android.cannotGetIp" = "无法获取设备 IP 地址";
+
+// MARK: - Process Errors
+"process.notFound" = "找不到可执行文件: %@";
+"process.failed" = "执行失败 (退出码: %d): %@";
+"process.timeout" = "执行超时";
+"process.cancelled" = "执行已取消";
+
+// MARK: - ADB Service
+"adb.startFailed" = "无法启动 adb 服务: %@";
+"adb.stopFailed" = "无法停止 adb 服务: %@";
+
+// MARK: - Device Capture Errors
+"capture.deviceNotConnected" = "设备未连接";
+"capture.sessionNotInitialized" = "捕获会话未初始化";
+"capture.cannotGetDevice" = "无法获取捕获设备: %@";
+"capture.cannotAddInput" = "无法添加视频输入";
+"capture.inputFailed" = "创建视频输入失败: %@";
+"capture.cannotAddOutput" = "无法添加视频输出";
+
+// MARK: - iOS Screen Mirror
+"ios.enableFailed" = "启用失败，错误码: %d";
+
+// MARK: - iOS Device Type
+"ios.deviceType.unknown" = "未知";
+
+// MARK: - Mobile Device
+"mobileDevice.loadFailed" = "无法加载 MobileDevice.framework: %@";
+
+// MARK: - Installation Log
+"install.checkingHomebrew" = "🔍 正在检查 Homebrew...\n";
+"install.homebrewNotFound" = "❌ 未检测到 Homebrew\n\n";
+"install.installHomebrewPrompt" = "请先安装 Homebrew:\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"";
+"install.homebrewFound" = "✅ 找到 Homebrew: %@\n\n";
+"install.startInstall" = "📦 正在安装 scrcpy（可能需要几分钟）...\n";
+"install.installSuccess" = "✅ scrcpy 安装成功\n";
+"install.installFailed" = "❌ 安装失败: %@\n";
+"install.verifyingInstall" = "🔍 正在验证安装...\n";
+

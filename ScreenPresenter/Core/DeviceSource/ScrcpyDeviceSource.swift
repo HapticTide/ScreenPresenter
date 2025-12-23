@@ -41,8 +41,23 @@ struct ScrcpyConfiguration {
     /// 是否保持唤醒
     var stayAwake: Bool = true
 
+    /// 是否禁用音频
+    var noAudio: Bool = true
+
     /// 视频编解码器
     var videoCodec: VideoCodec = .h264
+
+    /// 窗口标题（用于 scrcpy 窗口模式）
+    var windowTitle: String?
+
+    /// 窗口置顶
+    var alwaysOnTop: Bool = false
+
+    /// 录屏文件路径
+    var recordPath: String?
+
+    /// 录制格式
+    var recordFormat: RecordFormat = .mp4
 
     /// 视频编解码器枚举
     enum VideoCodec: String {
@@ -55,6 +70,12 @@ struct ScrcpyConfiguration {
             case .h265: kCMVideoCodecType_HEVC
             }
         }
+    }
+
+    /// 录制格式枚举
+    enum RecordFormat: String {
+        case mp4
+        case mkv
     }
 
     /// 构建命令行参数（用于原始流输出）
@@ -86,6 +107,45 @@ struct ScrcpyConfiguration {
 
         return args
     }
+
+    /// 构建命令行参数（用于窗口显示模式）
+    func buildWindowArguments() -> [String] {
+        var args: [String] = []
+
+        args.append("-s")
+        args.append(serial)
+
+        if noAudio {
+            args.append("--no-audio")
+        }
+        if stayAwake {
+            args.append("--stay-awake")
+        }
+        if turnScreenOff {
+            args.append("--turn-screen-off")
+        }
+        if maxSize > 0 {
+            args.append("--max-size=\(maxSize)")
+        }
+        if maxFps > 0 {
+            args.append("--max-fps=\(maxFps)")
+        }
+        if bitrate > 0 {
+            args.append("--video-bit-rate=\(bitrate)")
+        }
+        if let windowTitle {
+            args.append("--window-title=\(windowTitle)")
+        }
+        if alwaysOnTop {
+            args.append("--always-on-top")
+        }
+        if let recordPath {
+            args.append("--record=\(recordPath)")
+            args.append("--record-format=\(recordFormat.rawValue)")
+        }
+
+        return args
+    }
 }
 
 // MARK: - Scrcpy 设备源
@@ -103,8 +163,11 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
     private let toolchainManager: ToolchainManager
 
+    /// 最新的 CVPixelBuffer 存储
+    private var _latestPixelBuffer: CVPixelBuffer?
+
     /// 最新的 CVPixelBuffer（供渲染使用）
-    private(set) var latestPixelBuffer: CVPixelBuffer?
+    override var latestPixelBuffer: CVPixelBuffer? { _latestPixelBuffer }
 
     /// 帧回调
     var onFrame: ((CVPixelBuffer) -> Void)?
@@ -150,7 +213,8 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         AppLogger.connection.info("开始连接 Android 设备: \(configuration.serial)")
 
         // 检查 scrcpy 是否可用
-        guard toolchainManager.scrcpyStatus.isReady else {
+        let scrcpyReady = await MainActor.run { toolchainManager.scrcpyStatus.isReady }
+        guard scrcpyReady else {
             let error = DeviceSourceError.connectionFailed("scrcpy 未安装")
             updateState(.error(error))
             throw error
@@ -185,7 +249,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
         // 清理解码器
         decoder = nil
-        latestPixelBuffer = nil
+        _latestPixelBuffer = nil
 
         updateState(.disconnected)
     }
@@ -194,7 +258,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
     override func startCapture() async throws {
         guard state == .connected || state == .paused else {
-            throw DeviceSourceError.captureStartFailed("设备未连接")
+            throw DeviceSourceError.captureStartFailed(L10n.capture.deviceNotConnected)
         }
 
         AppLogger.capture.info("开始捕获 Android 设备: \(displayName)")
@@ -237,17 +301,27 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     // MARK: - Scrcpy 进程管理
 
     private func startScrcpyProcess() async throws {
-        let scrcpyPath = toolchainManager.scrcpyPath
+        // 在主线程获取工具链路径
+        let (scrcpyPath, adbPath, scrcpyServerPath) = await MainActor.run {
+            (toolchainManager.scrcpyPath, toolchainManager.adbPath, toolchainManager.scrcpyServerPath)
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: scrcpyPath)
         process.arguments = configuration.buildRawStreamArguments()
 
-        // 设置环境变量（确保能找到 adb）
+        // 设置环境变量（确保能找到 adb 和 scrcpy-server）
         var environment = ProcessInfo.processInfo.environment
-        let adbDir = (toolchainManager.adbPath as NSString).deletingLastPathComponent
+        let adbDir = (adbPath as NSString).deletingLastPathComponent
         environment["PATH"] = "\(adbDir):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-        environment["ADB"] = toolchainManager.adbPath
+        environment["ADB"] = adbPath
+
+        // 设置 scrcpy-server 路径（内置版本使用 portable 模式）
+        if let serverPath = scrcpyServerPath {
+            environment["SCRCPY_SERVER_PATH"] = serverPath
+            AppLogger.process.info("使用 scrcpy-server: \(serverPath)")
+        }
+
         process.environment = environment
 
         // 配置输出管道
@@ -308,7 +382,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         guard state == .capturing else { return }
 
         // 更新最新帧
-        latestPixelBuffer = pixelBuffer
+        _latestPixelBuffer = pixelBuffer
 
         // 更新捕获尺寸
         let width = CVPixelBufferGetWidth(pixelBuffer)

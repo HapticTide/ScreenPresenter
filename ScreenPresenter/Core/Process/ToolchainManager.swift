@@ -78,6 +78,32 @@ final class ToolchainManager {
         return Bundle.main.path(forResource: "scrcpy", ofType: nil, inDirectory: "tools")
     }
 
+    /// 内嵌的 scrcpy-server 路径
+    var bundledScrcpyServerPath: String? {
+        if
+            let path = Bundle.main
+                .path(forResource: "scrcpy-server", ofType: nil, inDirectory: Self.toolsDirectoryName) {
+            return path
+        }
+        return Bundle.main.path(forResource: "scrcpy-server", ofType: nil, inDirectory: "tools")
+    }
+
+    /// scrcpy-server 路径（优先使用内嵌版本）
+    var scrcpyServerPath: String? {
+        if let bundled = bundledScrcpyServerPath, FileManager.default.fileExists(atPath: bundled) {
+            return bundled
+        }
+        // 系统安装的 scrcpy 会在 share/scrcpy 目录下
+        if let systemPath = systemScrcpyPath {
+            let dir = (systemPath as NSString).deletingLastPathComponent
+            let serverPath = (dir as NSString).appendingPathComponent("../share/scrcpy/scrcpy-server")
+            if FileManager.default.fileExists(atPath: serverPath) {
+                return serverPath
+            }
+        }
+        return nil
+    }
+
     /// 系统安装的 adb 路径
     private var systemAdbPath: String?
 
@@ -136,7 +162,7 @@ final class ToolchainManager {
             await ensureExecutable(bundledPath)
 
             if let version = await getToolVersion(bundledPath, versionArgs: ["version"]) {
-                adbStatus = .installed(version: "内嵌 v\(version)")
+                adbStatus = .installed(version: L10n.prefs.toolchain.bundled(version))
                 AppLogger.app.info("使用内嵌 adb: \(bundledPath)")
                 return
             }
@@ -153,7 +179,7 @@ final class ToolchainManager {
         }
 
         // 3. 未找到 adb
-        adbStatus = .error("未找到 adb")
+        adbStatus = .error(L10n.prefs.toolchain.notFoundAdb)
         AppLogger.app.warning("未找到 adb")
     }
 
@@ -168,7 +194,7 @@ final class ToolchainManager {
             await ensureExecutable(bundledPath)
 
             if let version = await getToolVersion(bundledPath, versionArgs: ["--version"]) {
-                scrcpyStatus = .installed(version: "内嵌 v\(version)")
+                scrcpyStatus = .installed(version: L10n.prefs.toolchain.bundled(version))
                 AppLogger.app.info("使用内嵌 scrcpy: \(bundledPath)")
                 return
             }
@@ -215,19 +241,19 @@ final class ToolchainManager {
         guard !isInstallingScrcpy else { return }
 
         isInstallingScrcpy = true
-        installLog = "🔍 正在检查 Homebrew...\n"
+        installLog = L10n.install.checkingHomebrew
         scrcpyStatus = .installing
 
         guard let brewPath = await findBrewPath() else {
-            installLog += "❌ 未检测到 Homebrew\n\n"
-            installLog += "请先安装 Homebrew:\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-            scrcpyStatus = .error("请先安装 Homebrew")
+            installLog += L10n.install.homebrewNotFound
+            installLog += L10n.install.installHomebrewPrompt
+            scrcpyStatus = .error(L10n.prefs.toolchain.installHomebrew)
             isInstallingScrcpy = false
             return
         }
 
-        installLog += "✅ 找到 Homebrew: \(brewPath)\n\n"
-        installLog += "🍺 正在通过 Homebrew 安装 scrcpy...\n\n"
+        installLog += L10n.install.homebrewFound(brewPath)
+        installLog += L10n.install.startInstall
 
         do {
             _ = try await processRunner.startBackground(
@@ -241,18 +267,18 @@ final class ToolchainManager {
                 onTermination: { [weak self] exitCode in
                     Task { @MainActor in
                         if exitCode == 0 {
-                            self?.installLog += "\n\n✅ scrcpy 安装成功！"
+                            self?.installLog += "\n\n" + L10n.install.installSuccess
                             await self?.refresh()
                         } else {
-                            self?.installLog += "\n\n❌ 安装失败 (退出码: \(exitCode))"
-                            self?.scrcpyStatus = .error("安装失败")
+                            self?.installLog += "\n\n" + L10n.install.installFailed("\(exitCode)")
+                            self?.scrcpyStatus = .error(L10n.prefs.toolchain.installFailed)
                         }
                         self?.isInstallingScrcpy = false
                     }
                 }
             )
         } catch {
-            installLog += "\n\n❌ 错误: \(error.localizedDescription)"
+            installLog += "\n\n" + L10n.install.installFailed(error.localizedDescription)
             scrcpyStatus = .error(error.localizedDescription)
             isInstallingScrcpy = false
         }
@@ -346,9 +372,9 @@ extension ToolchainManager {
     var adbVersionDescription: String {
         switch adbStatus {
         case .notInstalled:
-            "未安装"
+            L10n.prefs.toolchain.notInstalled
         case .installing:
-            "检查中..."
+            L10n.common.checking
         case let .installed(version):
             version
         case let .error(message):
@@ -360,9 +386,9 @@ extension ToolchainManager {
     var scrcpyVersionDescription: String {
         switch scrcpyStatus {
         case .notInstalled:
-            "未安装 - 点击安装"
+            L10n.prefs.toolchain.notInstalled
         case .installing:
-            "安装中..."
+            L10n.prefs.toolchain.installing
         case let .installed(version):
             "v\(version)"
         case let .error(message):

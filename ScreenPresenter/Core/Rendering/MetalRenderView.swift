@@ -22,6 +22,11 @@ final class MetalRenderView: NSView {
     private var renderer: MetalRenderer?
     private var displayLink: CVDisplayLink?
 
+    // MARK: - 渲染队列
+
+    /// 专用渲染队列（避免主线程渲染）
+    private let renderQueue = DispatchQueue(label: "com.screenPresenter.render", qos: .userInteractive)
+
     // MARK: - 状态
 
     private(set) var isRendering = false
@@ -193,7 +198,8 @@ final class MetalRenderView: NSView {
 
         guard isRendering else { return }
 
-        DispatchQueue.main.async { [weak self] in
+        // 在专用渲染队列执行渲染，避免阻塞主线程
+        renderQueue.async { [weak self] in
             self?.renderFrame()
         }
     }
@@ -203,10 +209,14 @@ final class MetalRenderView: NSView {
     private func renderFrame() {
         guard let renderer, let metalLayer else { return }
 
-        // 通知外部获取新帧
-        onRenderFrame?()
+        // 通知外部获取新帧（可能需要在主线程执行）
+        if let callback = onRenderFrame {
+            DispatchQueue.main.async {
+                callback()
+            }
+        }
 
-        // 执行渲染
+        // 在渲染队列执行 Metal 渲染（线程安全）
         renderer.render(to: metalLayer)
     }
 

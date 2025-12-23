@@ -91,8 +91,8 @@ enum SplitLayout: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .sideBySide: "左右"
-        case .topBottom: "上下"
+        case .sideBySide: L10n.layout.sideBySide
+        case .topBottom: L10n.layout.topBottom
         }
     }
 

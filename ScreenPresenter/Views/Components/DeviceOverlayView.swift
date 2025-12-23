@@ -28,6 +28,7 @@ final class DeviceOverlayView: NSView {
 
     private var onStartAction: (() -> Void)?
     private var onStopAction: (() -> Void)?
+    private var onInstallAction: (() -> Void)?
 
     // MARK: - 状态
 
@@ -35,6 +36,7 @@ final class DeviceOverlayView: NSView {
         case disconnected
         case connected
         case capturing
+        case toolchainMissing // 工具链缺失
     }
 
     private var currentState: OverlayState = .disconnected
@@ -96,7 +98,7 @@ final class DeviceOverlayView: NSView {
         containerView.addSubview(subtitleLabel)
 
         // 操作按钮
-        actionButton = NSButton(title: "开始捕获", target: self, action: #selector(actionTapped))
+        actionButton = NSButton(title: L10n.overlayUI.startCapture, target: self, action: #selector(actionTapped))
         actionButton.bezelStyle = .rounded
         actionButton.controlSize = .regular
         actionButton.translatesAutoresizingMaskIntoConstraints = false
@@ -105,7 +107,7 @@ final class DeviceOverlayView: NSView {
         // 停止按钮
         stopButton = NSButton(
             title: "",
-            image: NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "停止")!,
+            image: NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.overlayUI.stop)!,
             target: self,
             action: #selector(stopTapped)
         )
@@ -178,9 +180,9 @@ final class DeviceOverlayView: NSView {
         iconImageView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
 
         titleLabel.stringValue = platform == .ios ? "iPhone" : "Android"
-        subtitleLabel.stringValue = "使用 USB 数据线连接设备"
+        subtitleLabel.stringValue = L10n.overlayUI.connectDevice
 
-        actionButton.title = "等待连接..."
+        actionButton.title = L10n.overlayUI.waitingConnection
         actionButton.isEnabled = false
         actionButton.isHidden = false
 
@@ -200,9 +202,9 @@ final class DeviceOverlayView: NSView {
         iconImageView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
 
         titleLabel.stringValue = deviceName
-        subtitleLabel.stringValue = "设备已就绪"
+        subtitleLabel.stringValue = L10n.overlayUI.deviceReady
 
-        actionButton.title = "开始捕获"
+        actionButton.title = L10n.overlayUI.startCapture
         actionButton.isEnabled = true
         actionButton.isHidden = false
 
@@ -219,7 +221,7 @@ final class DeviceOverlayView: NSView {
         currentState = .capturing
 
         titleLabel.stringValue = deviceName
-        subtitleLabel.stringValue = "捕获中"
+        subtitleLabel.stringValue = L10n.device.capturing
 
         actionButton.isHidden = true
 
@@ -240,6 +242,29 @@ final class DeviceOverlayView: NSView {
 
         // 添加脉冲动画
         addPulseAnimation()
+    }
+
+    /// 显示工具链缺失状态（scrcpy 未安装）
+    func showToolchainMissing(toolName: String, onInstall: @escaping () -> Void) {
+        currentState = .toolchainMissing
+
+        iconImageView.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
+        iconImageView.contentTintColor = .systemOrange
+
+        titleLabel.stringValue = L10n.prefs.toolchain.notFoundScrcpy
+        subtitleLabel.stringValue = L10n.toolchain.installScrcpyHint
+
+        actionButton.title = L10n.toolchain.installScrcpyButton
+        actionButton.isEnabled = true
+        actionButton.isHidden = false
+
+        stopButton.isHidden = true
+        fpsLabel.isHidden = true
+
+        statusIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
+
+        onInstallAction = onInstall
+        onStartAction = onInstall // 点击安装按钮
     }
 
     /// 更新帧率

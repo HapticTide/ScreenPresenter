@@ -178,7 +178,15 @@ final class MainViewController: NSViewController {
         }
 
         // 右侧：Android 设备
-        if appState.androidCapturing {
+        // 检查 scrcpy 是否已安装
+        let scrcpyReady = appState.toolchainManager.scrcpyStatus.isReady
+
+        if !scrcpyReady {
+            // scrcpy 未安装，显示安装提示
+            rightOverlayView.showToolchainMissing(toolName: "scrcpy") { [weak self] in
+                self?.installScrcpy()
+            }
+        } else if appState.androidCapturing {
             rightOverlayView.showCapturing(
                 deviceName: appState.androidDeviceName ?? "Android",
                 fps: renderView.rightFPS
@@ -202,17 +210,17 @@ final class MainViewController: NSViewController {
         var statusParts: [String] = []
 
         if appState.iosConnected {
-            let status = appState.iosCapturing ? "捕获中" : "已连接"
-            statusParts.append("iOS: \(status)")
+            let status = appState.iosCapturing ? L10n.device.capturing : L10n.device.connected
+            statusParts.append(L10n.statusBar.ios(status))
         }
 
         if appState.androidConnected {
-            let status = appState.androidCapturing ? "捕获中" : "已连接"
-            statusParts.append("Android: \(status)")
+            let status = appState.androidCapturing ? L10n.device.capturing : L10n.device.connected
+            statusParts.append(L10n.statusBar.android(status))
         }
 
         if statusParts.isEmpty {
-            statusBar.setStatus("等待设备连接...")
+            statusBar.setStatus(L10n.statusBar.waitingDevice)
         } else {
             statusBar.setStatus(statusParts.joined(separator: " | "))
         }
@@ -234,7 +242,7 @@ final class MainViewController: NSViewController {
             do {
                 try await AppState.shared.startIOSCapture()
             } catch {
-                showError("启动 iOS 捕获失败: \(error.localizedDescription)")
+                showError(L10n.error.startCaptureFailed(L10n.platform.ios, error.localizedDescription))
             }
         }
     }
@@ -244,17 +252,30 @@ final class MainViewController: NSViewController {
             do {
                 try await AppState.shared.startAndroidCapture()
             } catch {
-                showError("启动 Android 捕获失败: \(error.localizedDescription)")
+                showError(L10n.error.startCaptureFailed(L10n.platform.android, error.localizedDescription))
             }
+        }
+    }
+
+    private func installScrcpy() {
+        Task {
+            // 显示安装进度
+            rightOverlayView.showDisconnected(platform: .android)
+
+            // 开始安装
+            await AppState.shared.toolchainManager.installScrcpy()
+
+            // 安装完成后刷新 UI
+            updateUI()
         }
     }
 
     private func showError(_ message: String) {
         let alert = NSAlert()
-        alert.messageText = "错误"
+        alert.messageText = L10n.common.error
         alert.informativeText = message
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: L10n.common.ok)
         alert.runModal()
     }
 

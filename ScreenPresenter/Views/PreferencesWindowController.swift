@@ -23,12 +23,12 @@ final class PreferencesWindowController: NSWindowController {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "偏好设置"
+        window.title = L10n.window.preferences
         window.center()
 
         self.init(window: window)
@@ -71,19 +71,19 @@ final class PreferencesViewController: NSViewController {
 
         // 通用设置标签页
         let generalTab = NSTabViewItem(identifier: "general")
-        generalTab.label = "通用"
+        generalTab.label = L10n.prefs.tab.general
         generalTab.view = createGeneralView()
         tabView.addTabViewItem(generalTab)
 
         // 工具链标签页
         let toolchainTab = NSTabViewItem(identifier: "toolchain")
-        toolchainTab.label = "工具链"
+        toolchainTab.label = L10n.prefs.tab.toolchain
         toolchainTab.view = createToolchainView()
         tabView.addTabViewItem(toolchainTab)
 
         // 关于标签页
         let aboutTab = NSTabViewItem(identifier: "about")
-        aboutTab.label = "关于"
+        aboutTab.label = L10n.prefs.tab.about
         aboutTab.view = createAboutView()
         tabView.addTabViewItem(aboutTab)
 
@@ -102,20 +102,54 @@ final class PreferencesViewController: NSViewController {
         let containerView = NSView()
 
         // 标题
-        let titleLabel = createLabel(text: "显示设置", font: .systemFont(ofSize: 13, weight: .semibold))
+        let titleLabel = createLabel(
+            text: L10n.prefs.general.displaySettings,
+            font: .systemFont(ofSize: 13, weight: .semibold)
+        )
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(titleLabel)
 
         // 启动时自动开始捕获
-        let autoStartCheckbox = NSButton(checkboxWithTitle: "启动时自动开始捕获", target: nil, action: nil)
+        let autoStartCheckbox = NSButton(
+            checkboxWithTitle: L10n.prefs.general.autoStartCapture,
+            target: nil,
+            action: nil
+        )
         autoStartCheckbox.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(autoStartCheckbox)
 
         // 显示帧率
-        let showFPSCheckbox = NSButton(checkboxWithTitle: "显示帧率统计", target: nil, action: nil)
+        let showFPSCheckbox = NSButton(checkboxWithTitle: L10n.prefs.general.showFPS, target: nil, action: nil)
         showFPSCheckbox.state = .on
         showFPSCheckbox.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(showFPSCheckbox)
+
+        // 语言设置标签
+        let languageLabel = createLabel(text: L10n.prefs.general.language, font: .systemFont(ofSize: 13))
+        languageLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(languageLabel)
+
+        // 语言选择器
+        let languagePopup = NSPopUpButton()
+        languagePopup.translatesAutoresizingMaskIntoConstraints = false
+        for lang in AppLanguage.allCases {
+            languagePopup.addItem(withTitle: lang.nativeName)
+            languagePopup.lastItem?.representedObject = lang
+        }
+        // 选中当前语言
+        let currentLang = UserPreferences.shared.appLanguage
+        if let index = AppLanguage.allCases.firstIndex(of: currentLang) {
+            languagePopup.selectItem(at: index)
+        }
+        languagePopup.target = self
+        languagePopup.action = #selector(languageChanged(_:))
+        containerView.addSubview(languagePopup)
+
+        // 语言说明
+        let languageNote = createLabel(text: L10n.prefs.general.languageNote, font: .systemFont(ofSize: 11))
+        languageNote.textColor = .secondaryLabelColor
+        languageNote.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(languageNote)
 
         // 约束
         NSLayoutConstraint.activate([
@@ -127,9 +161,24 @@ final class PreferencesViewController: NSViewController {
 
             showFPSCheckbox.topAnchor.constraint(equalTo: autoStartCheckbox.bottomAnchor, constant: 8),
             showFPSCheckbox.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+
+            languageLabel.topAnchor.constraint(equalTo: showFPSCheckbox.bottomAnchor, constant: 24),
+            languageLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+
+            languagePopup.centerYAnchor.constraint(equalTo: languageLabel.centerYAnchor),
+            languagePopup.leadingAnchor.constraint(equalTo: languageLabel.trailingAnchor, constant: 12),
+            languagePopup.widthAnchor.constraint(equalToConstant: 150),
+
+            languageNote.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 8),
+            languageNote.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
         ])
 
         return containerView
+    }
+
+    @objc private func languageChanged(_ sender: NSPopUpButton) {
+        guard let lang = sender.selectedItem?.representedObject as? AppLanguage else { return }
+        UserPreferences.shared.appLanguage = lang
     }
 
     // MARK: - 工具链设置
@@ -138,28 +187,39 @@ final class PreferencesViewController: NSViewController {
         let containerView = NSView()
 
         // 标题
-        let titleLabel = createLabel(text: "工具链状态", font: .systemFont(ofSize: 13, weight: .semibold))
+        let titleLabel = createLabel(text: L10n.prefs.toolchain.title, font: .systemFont(ofSize: 13, weight: .semibold))
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(titleLabel)
 
         // adb 状态
-        let adbLabel = createLabel(text: "adb: 检查中...", font: .systemFont(ofSize: 12))
+        let adbLabel = createLabel(text: L10n.prefs.toolchain.adb(L10n.common.checking), font: .systemFont(ofSize: 12))
         adbLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(adbLabel)
 
         // scrcpy 状态
-        let scrcpyLabel = createLabel(text: "scrcpy: 检查中...", font: .systemFont(ofSize: 12))
+        let scrcpyLabel = createLabel(
+            text: L10n.prefs.toolchain.scrcpy(L10n.common.checking),
+            font: .systemFont(ofSize: 12)
+        )
         scrcpyLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(scrcpyLabel)
 
         // 刷新按钮
-        let refreshButton = NSButton(title: "刷新状态", target: self, action: #selector(refreshToolchain))
+        let refreshButton = NSButton(
+            title: L10n.prefs.toolchain.refresh,
+            target: self,
+            action: #selector(refreshToolchain)
+        )
         refreshButton.bezelStyle = .rounded
         refreshButton.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(refreshButton)
 
         // 安装 scrcpy 按钮
-        let installButton = NSButton(title: "安装 scrcpy (Homebrew)", target: self, action: #selector(installScrcpy))
+        let installButton = NSButton(
+            title: L10n.prefs.toolchain.installScrcpy,
+            target: self,
+            action: #selector(installScrcpy)
+        )
         installButton.bezelStyle = .rounded
         installButton.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(installButton)
@@ -185,8 +245,8 @@ final class PreferencesViewController: NSViewController {
         // 更新工具链状态
         Task { @MainActor in
             let toolchain = AppState.shared.toolchainManager
-            adbLabel.stringValue = "adb: \(toolchain.adbVersionDescription)"
-            scrcpyLabel.stringValue = "scrcpy: \(toolchain.scrcpyVersionDescription)"
+            adbLabel.stringValue = L10n.prefs.toolchain.adb(toolchain.adbVersionDescription)
+            scrcpyLabel.stringValue = L10n.prefs.toolchain.scrcpy(toolchain.scrcpyVersionDescription)
         }
 
         return containerView
@@ -205,14 +265,14 @@ final class PreferencesViewController: NSViewController {
         containerView.addSubview(iconView)
 
         // 应用名称
-        let nameLabel = createLabel(text: "ScreenPresenter", font: .systemFont(ofSize: 18, weight: .bold))
+        let nameLabel = createLabel(text: L10n.app.name, font: .systemFont(ofSize: 18, weight: .bold))
         nameLabel.alignment = .center
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(nameLabel)
 
         // 版本
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let versionLabel = createLabel(text: "版本 \(version)", font: .systemFont(ofSize: 12))
+        let versionLabel = createLabel(text: L10n.prefs.about.version(version), font: .systemFont(ofSize: 12))
         versionLabel.textColor = .secondaryLabelColor
         versionLabel.alignment = .center
         versionLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -220,7 +280,7 @@ final class PreferencesViewController: NSViewController {
 
         // 描述
         let descLabel = createLabel(
-            text: "macOS 设备投屏工具\n同时展示 iOS 和 Android 设备屏幕",
+            text: L10n.app.description,
             font: .systemFont(ofSize: 12)
         )
         descLabel.textColor = .secondaryLabelColor

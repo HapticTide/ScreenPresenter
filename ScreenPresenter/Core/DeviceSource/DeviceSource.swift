@@ -74,13 +74,13 @@ enum DeviceSourceState: Equatable {
 
     var displayText: String {
         switch self {
-        case .idle: "空闲"
-        case .connecting: "连接中..."
-        case .connected: "已连接"
-        case .capturing: "捕获中"
-        case .paused: "已暂停"
-        case let .error(error): "错误: \(error.localizedDescription)"
-        case .disconnected: "已断开"
+        case .idle: L10n.device.idle
+        case .connecting: L10n.device.connecting
+        case .connected: L10n.device.connected
+        case .capturing: L10n.device.capturing
+        case .paused: L10n.device.paused
+        case let .error(error): L10n.device.error(error.localizedDescription)
+        case .disconnected: L10n.device.disconnected
         }
     }
 }
@@ -93,22 +93,25 @@ enum DeviceSourceError: Error, Equatable {
     case captureStartFailed(String)
     case processTerminated(Int32)
     case timeout
+    case deviceInUse(String) // 设备被其他应用占用
     case unknown(String)
 
     var localizedDescription: String {
         switch self {
         case let .connectionFailed(reason):
-            "连接失败: \(reason)"
+            L10n.error.connectionFailed(reason)
         case .permissionDenied:
-            "权限被拒绝"
+            L10n.error.permissionDenied
         case .windowNotFound:
-            "未找到投屏窗口"
+            L10n.error.windowNotFound
         case let .captureStartFailed(reason):
-            "捕获启动失败: \(reason)"
+            L10n.error.captureStartFailed(reason)
         case let .processTerminated(code):
-            "进程已终止 (退出码: \(code))"
+            L10n.error.processTerminated(code)
         case .timeout:
-            "连接超时"
+            L10n.error.timeout
+        case let .deviceInUse(app):
+            L10n.ios.hint.occupied(app)
         case let .unknown(message):
             message
         }
@@ -310,11 +313,11 @@ class BaseDeviceSource: NSObject, DeviceSource {
     }
 
     func startCapture() async throws {
-        fatalError("子类必须实现 startCapture()")
+        fatalError("Subclass must implement startCapture()")
     }
 
     func stopCapture() async {
-        fatalError("子类必须实现 stopCapture()")
+        fatalError("Subclass must implement stopCapture()")
     }
 
     func pauseCapture() {

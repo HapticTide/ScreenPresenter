@@ -36,7 +36,7 @@ struct IOSDevice: Identifiable, Hashable {
     /// 连接类型枚举
     enum ConnectionType: String {
         case usb = "USB"
-        case unknown = "未知"
+        case unknown = "Unknown"
 
         var icon: String {
             switch self {

@@ -13,6 +13,7 @@
 //  - 绝不能因为 MobileDevice 失败而阻止 CMIO+AVFoundation 工作
 //
 
+import AppKit
 import Foundation
 
 // MARK: - 设备信息结构
@@ -59,8 +60,8 @@ struct IOSDeviceInsight {
             udid: udid,
             deviceName: "iOS 设备",
             modelIdentifier: "unknown",
-            modelName: "未知型号",
-            systemVersion: "未知版本",
+            modelName: L10n.deviceInfo.unknownModel,
+            systemVersion: L10n.deviceInfo.unknownVersion,
             isTrusted: true, // 假设已信任，让主流程继续
             isOccupied: false,
             occupiedBy: nil,
@@ -104,7 +105,7 @@ final class DeviceInsightService {
 
         guard let handle = dlopen(frameworkPath, RTLD_NOW) else {
             let error = String(cString: dlerror())
-            initializationError = "无法加载 MobileDevice.framework: \(error)"
+            initializationError = L10n.mobileDevice.loadFailed(error)
             AppLogger.device.warning("MobileDevice.framework 不可用: \(error)")
             isMobileDeviceAvailable = false
             return
@@ -172,11 +173,11 @@ final class DeviceInsightService {
     /// - Returns: 用户提示文案（如果有问题需要提示）
     func getUserPrompt(for insight: IOSDeviceInsight) -> String? {
         if !insight.isTrusted {
-            return "请在设备上点击"信任此电脑"以允许访问"
+            return L10n.ios.hint.trust
         }
 
         if insight.isOccupied, let occupiedBy = insight.occupiedBy {
-            return "设备可能被 \(occupiedBy) 占用，请关闭后重试"
+            return L10n.ios.hint.occupied(occupiedBy)
         }
 
         return nil
@@ -199,7 +200,7 @@ final class DeviceInsightService {
             deviceName: "iOS 设备",
             modelIdentifier: "unknown",
             modelName: "iPhone/iPad",
-            systemVersion: "未知",
+            systemVersion: L10n.deviceInfo.unknown,
             isTrusted: true,
             isOccupied: false,
             occupiedBy: nil,

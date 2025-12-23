@@ -58,7 +58,7 @@ final class ToolbarView: NSView {
 
         // 布局分段控件
         layoutSegmentedControl = NSSegmentedControl(
-            labels: ["左右", "上下", "单屏"],
+            labels: [L10n.layout.sideBySide, L10n.layout.topBottom, L10n.layout.single],
             trackingMode: .selectOne,
             target: self,
             action: #selector(layoutChanged)
@@ -85,36 +85,36 @@ final class ToolbarView: NSView {
         // 交换按钮
         swapButton = NSButton(
             title: "",
-            image: NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: "交换")!,
+            image: NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: L10n.toolbar.swap)!,
             target: self,
             action: #selector(swapTapped)
         )
         swapButton.bezelStyle = .rounded
-        swapButton.toolTip = "交换设备位置"
+        swapButton.toolTip = L10n.toolbar.swapTooltip
         swapButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(swapButton)
 
         // 刷新按钮
         refreshButton = NSButton(
             title: "",
-            image: NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "刷新")!,
+            image: NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: L10n.toolbar.refresh)!,
             target: self,
             action: #selector(refreshTapped)
         )
         refreshButton.bezelStyle = .rounded
-        refreshButton.toolTip = "刷新设备列表"
+        refreshButton.toolTip = L10n.toolbar.refreshTooltip
         refreshButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(refreshButton)
 
         // 偏好设置按钮
         preferencesButton = NSButton(
             title: "",
-            image: NSImage(systemSymbolName: "gear", accessibilityDescription: "设置")!,
+            image: NSImage(systemSymbolName: "gear", accessibilityDescription: L10n.toolbar.preferences)!,
             target: self,
             action: #selector(preferencesTapped)
         )
         preferencesButton.bezelStyle = .rounded
-        preferencesButton.toolTip = "偏好设置"
+        preferencesButton.toolTip = L10n.toolbar.preferencesTooltip
         preferencesButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(preferencesButton)
 

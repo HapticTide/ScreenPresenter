@@ -32,13 +32,13 @@ enum ProcessError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .executableNotFound(path):
-            "找不到可执行文件: \(path)"
+            L10n.process.notFound(path)
         case let .executionFailed(exitCode, stderr):
-            "执行失败 (退出码: \(exitCode)): \(stderr)"
+            L10n.process.failed(exitCode, stderr)
         case .timeout:
-            "执行超时"
+            L10n.process.timeout
         case .cancelled:
-            "执行已取消"
+            L10n.process.cancelled
         }
     }
 }
