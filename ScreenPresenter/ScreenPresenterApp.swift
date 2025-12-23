@@ -16,7 +16,6 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 窗口
 
-7_199_422_000
     private var mainWindow: NSWindow?
     private var mainViewController: MainViewController?
 
