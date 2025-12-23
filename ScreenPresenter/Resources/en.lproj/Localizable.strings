@@ -22,8 +22,21 @@
 "common.checking" = "Checking...";
 
 // MARK: - Menu
+"menu.about" = "About ScreenPresenter";
 "menu.preferences" = "Preferences...";
+"menu.services" = "Services";
+"menu.hide" = "Hide ScreenPresenter";
+"menu.hideOthers" = "Hide Others";
+"menu.showAll" = "Show All";
+"menu.quit" = "Quit ScreenPresenter";
+"menu.file" = "File";
 "menu.refreshDevices" = "Refresh Devices";
+"menu.close" = "Close";
+"menu.window" = "Window";
+"menu.minimize" = "Minimize";
+"menu.zoom" = "Zoom";
+"menu.bringAllToFront" = "Bring All to Front";
+"menu.help" = "Help";
 
 // MARK: - Window
 "window.preferences" = "Preferences";
@@ -70,8 +83,23 @@
 
 // MARK: - Preferences - Tabs
 "prefs.tab.general" = "General";
+"prefs.tab.capture" = "Capture";
+"prefs.tab.scrcpy" = "Scrcpy";
+"prefs.tab.permissions" = "Permissions";
 "prefs.tab.toolchain" = "Toolchain";
 "prefs.tab.about" = "About";
+
+// MARK: - Preferences - Sections
+"prefs.section.language" = "Language";
+"prefs.section.appearance" = "Appearance";
+"prefs.section.layout" = "Layout";
+"prefs.section.connection" = "Connection";
+"prefs.section.frameRate" = "Frame Rate";
+"prefs.section.video" = "Video";
+"prefs.section.display" = "Display";
+"prefs.section.advanced" = "Advanced";
+"prefs.section.systemPermissions" = "System Permissions";
+"prefs.section.androidToolchain" = "Android Toolchain";
 
 // MARK: - Preferences - General
 "prefs.general.displaySettings" = "Display Settings";
@@ -80,15 +108,48 @@
 "prefs.general.language" = "Language";
 "prefs.general.languageNote" = "Restart app to apply language change";
 
+// MARK: - Preferences - Appearance
+"prefs.appearance.backgroundOpacity" = "Background Opacity";
+
+// MARK: - Preferences - Layout
+"prefs.layout.default" = "Default Layout";
+"prefs.layout.sideBySide" = "Side by Side";
+"prefs.layout.topBottom" = "Top & Bottom";
+
+// MARK: - Preferences - Connection
+"prefs.connection.autoReconnect" = "Auto Reconnect";
+"prefs.connection.reconnectDelay" = "Reconnect Delay";
+"prefs.connection.maxAttempts" = "Max Reconnect Attempts";
+"prefs.connection.seconds" = "%d sec";
+"prefs.connection.times" = "%d times";
+
+// MARK: - Preferences - Capture
+"prefs.capture.frameRate" = "Capture Frame Rate";
+"prefs.capture.frameRateNote" = "Higher frame rate increases CPU and GPU load";
+
+// MARK: - Preferences - Scrcpy
+"prefs.scrcpy.bitrate" = "Bitrate";
+"prefs.scrcpy.maxSize" = "Max Size";
+"prefs.scrcpy.maxSizeNote" = "Limiting size can reduce CPU load";
+"prefs.scrcpy.showTouches" = "Show Touches";
+"prefs.scrcpy.advancedNote" = "See official documentation for more scrcpy options";
+"prefs.scrcpy.github" = "scrcpy GitHub";
+"prefs.scrcpy.noLimit" = "No Limit";
+"prefs.scrcpy.pixels" = "%d pixels";
+"prefs.scrcpy.mbps" = "%d Mbps";
+
 // MARK: - Preferences - Toolchain
 "prefs.toolchain.title" = "Toolchain Status";
 "prefs.toolchain.adb" = "adb: %@";
 "prefs.toolchain.scrcpy" = "scrcpy: %@";
 "prefs.toolchain.refresh" = "Refresh Status";
+"prefs.toolchain.refreshStatus" = "Refresh Status";
 "prefs.toolchain.installScrcpy" = "Install scrcpy (Homebrew)";
-"prefs.toolchain.notInstalled" = "Not Installed - Click to Install";
+"prefs.toolchain.notInstalled" = "Not Installed";
 "prefs.toolchain.installing" = "Installing...";
 "prefs.toolchain.bundled" = "Bundled v%@";
+"prefs.toolchain.adbDesc" = "Android Debug Bridge";
+"prefs.toolchain.scrcpyDesc" = "Android Screen Mirror Tool";
 
 // MARK: - Preferences - About
 "prefs.about.version" = "Version %@";
@@ -122,9 +183,13 @@
 
 // MARK: - Toolbar
 "toolbar.refresh" = "Refresh";
+"toolbar.refreshing" = "Refreshing...";
 "toolbar.layout" = "Layout";
 "toolbar.swap" = "Swap";
 "toolbar.preferences" = "Preferences";
+"toolbar.background" = "Background";
+"toolbar.sideBySide" = "Side by Side";
+"toolbar.topBottom" = "Top & Bottom";
 "toolbar.swap.tooltip" = "Swap device positions";
 "toolbar.refresh.tooltip" = "Refresh device list";
 "toolbar.preferences.tooltip" = "Preferences";
@@ -137,6 +202,7 @@
 "permission.notDetermined" = "Not Determined";
 "permission.screenRecording.name" = "Screen Recording";
 "permission.screenRecording.desc" = "For capturing Android device screen (fallback only)";
+"permission.openSystemPrefs" = "Open System Preferences";
 
 // MARK: - Background Color Mode
 "background.followTheme" = "Follow Theme";
@@ -152,11 +218,19 @@
 "connection.disconnected" = "Device disconnected";
 
 // MARK: - Overlay
-"overlay.startCapture" = "Start Capture";
+"overlay.startCapture" = "Start Mirroring";
 "overlay.stop" = "Stop";
 "overlay.connectDevice" = "Connect device via USB cable";
+"overlay.connectIOS" = "Connect iPhone via USB cable";
+"overlay.connectAndroid" = "Connect Android device via USB cable";
 "overlay.waitingConnection" = "Waiting for connection...";
 "overlay.deviceReady" = "Device ready";
+"overlay.deviceDetected" = "Device detected";
+"overlay.captureIOSHint" = "Capture iPhone screen directly";
+"overlay.captureAndroidHint" = "Start scrcpy mirroring";
+"overlay.toolNotInstalled" = "%@ Not Installed";
+"overlay.needInstall" = "%@ is required";
+"overlay.installTool" = "Install %@";
 
 // MARK: - Device Info
 "deviceInfo.unknownModel" = "Unknown Model";

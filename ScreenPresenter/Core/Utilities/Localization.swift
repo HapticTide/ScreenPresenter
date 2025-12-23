@@ -168,8 +168,21 @@ enum L10n {
     // MARK: - Menu
 
     enum menu {
+        static var about: String { "menu.about".localized }
         static var preferences: String { "menu.preferences".localized }
+        static var services: String { "menu.services".localized }
+        static var hide: String { "menu.hide".localized }
+        static var hideOthers: String { "menu.hideOthers".localized }
+        static var showAll: String { "menu.showAll".localized }
+        static var quit: String { "menu.quit".localized }
+        static var file: String { "menu.file".localized }
         static var refreshDevices: String { "menu.refreshDevices".localized }
+        static var close: String { "menu.close".localized }
+        static var window: String { "menu.window".localized }
+        static var minimize: String { "menu.minimize".localized }
+        static var zoom: String { "menu.zoom".localized }
+        static var bringAllToFront: String { "menu.bringAllToFront".localized }
+        static var help: String { "menu.help".localized }
     }
 
     // MARK: - Window
@@ -244,8 +257,24 @@ enum L10n {
     enum prefs {
         enum tab {
             static var general: String { "prefs.tab.general".localized }
+            static var capture: String { "prefs.tab.capture".localized }
+            static var scrcpy: String { "prefs.tab.scrcpy".localized }
+            static var permissions: String { "prefs.tab.permissions".localized }
             static var toolchain: String { "prefs.tab.toolchain".localized }
             static var about: String { "prefs.tab.about".localized }
+        }
+
+        enum section {
+            static var language: String { "prefs.section.language".localized }
+            static var appearance: String { "prefs.section.appearance".localized }
+            static var layout: String { "prefs.section.layout".localized }
+            static var connection: String { "prefs.section.connection".localized }
+            static var frameRate: String { "prefs.section.frameRate".localized }
+            static var video: String { "prefs.section.video".localized }
+            static var display: String { "prefs.section.display".localized }
+            static var advanced: String { "prefs.section.advanced".localized }
+            static var systemPermissions: String { "prefs.section.systemPermissions".localized }
+            static var androidToolchain: String { "prefs.section.androidToolchain".localized }
         }
 
         enum general {
@@ -256,14 +285,52 @@ enum L10n {
             static var languageNote: String { "prefs.general.languageNote".localized }
         }
 
+        enum appearance {
+            static var backgroundOpacity: String { "prefs.appearance.backgroundOpacity".localized }
+        }
+
+        enum layoutPref {
+            static var defaultLayout: String { "prefs.layout.default".localized }
+            static var sideBySide: String { "prefs.layout.sideBySide".localized }
+            static var topBottom: String { "prefs.layout.topBottom".localized }
+        }
+
+        enum connectionPref {
+            static var autoReconnect: String { "prefs.connection.autoReconnect".localized }
+            static var reconnectDelay: String { "prefs.connection.reconnectDelay".localized }
+            static var maxAttempts: String { "prefs.connection.maxAttempts".localized }
+            static func seconds(_ n: Int) -> String { "prefs.connection.seconds".localized(n) }
+            static func times(_ n: Int) -> String { "prefs.connection.times".localized(n) }
+        }
+
+        enum capturePref {
+            static var frameRate: String { "prefs.capture.frameRate".localized }
+            static var frameRateNote: String { "prefs.capture.frameRateNote".localized }
+        }
+
+        enum scrcpyPref {
+            static var bitrate: String { "prefs.scrcpy.bitrate".localized }
+            static var maxSize: String { "prefs.scrcpy.maxSize".localized }
+            static var maxSizeNote: String { "prefs.scrcpy.maxSizeNote".localized }
+            static var showTouches: String { "prefs.scrcpy.showTouches".localized }
+            static var advancedNote: String { "prefs.scrcpy.advancedNote".localized }
+            static var github: String { "prefs.scrcpy.github".localized }
+            static var noLimit: String { "prefs.scrcpy.noLimit".localized }
+            static func pixels(_ n: Int) -> String { "prefs.scrcpy.pixels".localized(n) }
+            static func mbps(_ n: Int) -> String { "prefs.scrcpy.mbps".localized(n) }
+        }
+
         enum toolchain {
             static var title: String { "prefs.toolchain.title".localized }
             static func adb(_ status: String) -> String { "prefs.toolchain.adb".localized(status) }
             static func scrcpy(_ status: String) -> String { "prefs.toolchain.scrcpy".localized(status) }
             static var refresh: String { "prefs.toolchain.refresh".localized }
+            static var refreshStatus: String { "prefs.toolchain.refreshStatus".localized }
             static var installScrcpy: String { "prefs.toolchain.installScrcpy".localized }
             static var notInstalled: String { "prefs.toolchain.notInstalled".localized }
             static var installing: String { "prefs.toolchain.installing".localized }
+            static var adbDesc: String { "prefs.toolchain.adbDesc".localized }
+            static var scrcpyDesc: String { "prefs.toolchain.scrcpyDesc".localized }
             static func bundled(_ version: String) -> String { "toolchain.bundled".localized(version) }
             static var notFoundAdb: String { "toolchain.notFound.adb".localized }
             static var notFoundScrcpy: String { "toolchain.notFound.scrcpy".localized }
@@ -337,9 +404,13 @@ enum L10n {
 
     enum toolbar {
         static var refresh: String { "toolbar.refresh".localized }
+        static var refreshing: String { "toolbar.refreshing".localized }
         static var layout: String { "toolbar.layout".localized }
         static var swap: String { "toolbar.swap".localized }
         static var preferences: String { "toolbar.preferences".localized }
+        static var background: String { "toolbar.background".localized }
+        static var sideBySide: String { "toolbar.sideBySide".localized }
+        static var topBottom: String { "toolbar.topBottom".localized }
         static var swapTooltip: String { "toolbar.swap.tooltip".localized }
         static var refreshTooltip: String { "toolbar.refresh.tooltip".localized }
         static var preferencesTooltip: String { "toolbar.preferences.tooltip".localized }
@@ -355,6 +426,7 @@ enum L10n {
         static var notDetermined: String { "permission.notDetermined".localized }
         static var screenRecordingName: String { "permission.screenRecording.name".localized }
         static var screenRecordingDesc: String { "permission.screenRecording.desc".localized }
+        static var openSystemPrefs: String { "permission.openSystemPrefs".localized }
     }
 
     // MARK: - Background
@@ -382,8 +454,16 @@ enum L10n {
         static var startCapture: String { "overlay.startCapture".localized }
         static var stop: String { "overlay.stop".localized }
         static var connectDevice: String { "overlay.connectDevice".localized }
+        static var connectIOS: String { "overlay.connectIOS".localized }
+        static var connectAndroid: String { "overlay.connectAndroid".localized }
         static var waitingConnection: String { "overlay.waitingConnection".localized }
         static var deviceReady: String { "overlay.deviceReady".localized }
+        static var deviceDetected: String { "overlay.deviceDetected".localized }
+        static var captureIOSHint: String { "overlay.captureIOSHint".localized }
+        static var captureAndroidHint: String { "overlay.captureAndroidHint".localized }
+        static func toolNotInstalled(_ tool: String) -> String { "overlay.toolNotInstalled".localized(tool) }
+        static func needInstall(_ tool: String) -> String { "overlay.needInstall".localized(tool) }
+        static func installTool(_ tool: String) -> String { "overlay.installTool".localized(tool) }
     }
 
     // MARK: - Device Info

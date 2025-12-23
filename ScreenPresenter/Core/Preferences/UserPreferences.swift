@@ -11,38 +11,6 @@
 import AppKit
 import Foundation
 
-// MARK: - 主题模式
-
-/// 主题模式
-enum ThemeMode: String, CaseIterable, Codable {
-    case system
-    case light
-    case dark
-
-    var displayName: String {
-        switch self {
-        case .system: L10n.theme.system
-        case .light: L10n.theme.light
-        case .dark: L10n.theme.dark
-        }
-    }
-}
-
-// MARK: - 背景色模式
-
-/// 预览区域背景色模式
-enum BackgroundColorMode: String, CaseIterable, Codable {
-    case followTheme // 跟随主题
-    case custom // 自定义颜色
-
-    var displayName: String {
-        switch self {
-        case .followTheme: L10n.background.followTheme
-        case .custom: L10n.background.custom
-        }
-    }
-}
-
 // MARK: - 用户偏好设置模型
 
 /// 用户偏好设置
@@ -58,10 +26,8 @@ final class UserPreferences {
         static let autoReconnect = "autoReconnect"
         static let reconnectDelay = "reconnectDelay"
         static let maxReconnectAttempts = "maxReconnectAttempts"
-        static let themeMode = "themeMode"
         static let appLanguage = "appLanguage"
-        static let backgroundColorMode = "backgroundColorMode"
-        static let customBackgroundColor = "customBackgroundColor"
+        static let backgroundOpacity = "backgroundOpacity"
         static let captureFrameRate = "captureFrameRate"
         static let scrcpyBitrate = "scrcpyBitrate"
         static let scrcpyMaxSize = "scrcpyMaxSize"
@@ -117,19 +83,6 @@ final class UserPreferences {
 
     // MARK: - Display Settings
 
-    /// 主题模式
-    var themeMode: ThemeMode {
-        get {
-            guard
-                let raw = defaults.string(forKey: Keys.themeMode),
-                let mode = ThemeMode(rawValue: raw) else {
-                return .system
-            }
-            return mode
-        }
-        set { defaults.set(newValue.rawValue, forKey: Keys.themeMode) }
-    }
-
     /// 应用语言
     var appLanguage: AppLanguage {
         get {
@@ -147,39 +100,24 @@ final class UserPreferences {
         }
     }
 
-    /// 背景色模式
-    var backgroundColorMode: BackgroundColorMode {
+    /// 背景透明度 (0.0 - 1.0)
+    var backgroundOpacity: CGFloat {
         get {
-            guard
-                let raw = defaults.string(forKey: Keys.backgroundColorMode),
-                let mode = BackgroundColorMode(rawValue: raw) else {
-                return .followTheme
+            let value = defaults.double(forKey: Keys.backgroundOpacity)
+            // 如果值为 0 且从未设置过，返回默认值 1.0
+            if value == 0, defaults.object(forKey: Keys.backgroundOpacity) == nil {
+                return 1.0
             }
-            return mode
+            return CGFloat(value)
         }
-        set { defaults.set(newValue.rawValue, forKey: Keys.backgroundColorMode) }
-    }
-
-    /// 自定义背景色（十六进制字符串）
-    var customBackgroundColorHex: String {
-        get { defaults.string(forKey: Keys.customBackgroundColor) ?? "1C1C1E" }
-        set { defaults.set(newValue, forKey: Keys.customBackgroundColor) }
-    }
-
-    /// 自定义背景色
-    var customBackgroundColor: NSColor {
-        get { NSColor(hex: customBackgroundColorHex) }
-        set { customBackgroundColorHex = newValue.toHex() }
-    }
-
-    /// 获取当前有效的背景色
-    func effectiveBackgroundColor(isDarkMode: Bool) -> NSColor {
-        switch backgroundColorMode {
-        case .followTheme:
-            NSColor.windowBackgroundColor
-        case .custom:
-            customBackgroundColor
+        set {
+            defaults.set(Double(newValue), forKey: Keys.backgroundOpacity)
         }
+    }
+
+    /// 获取背景色（固定黑色，透明度可调）
+    var backgroundColor: NSColor {
+        NSColor.black.withAlphaComponent(backgroundOpacity)
     }
 
     // MARK: - Capture Settings
@@ -231,6 +169,7 @@ final class UserPreferences {
             Keys.autoReconnect: true,
             Keys.reconnectDelay: 3.0,
             Keys.maxReconnectAttempts: 5,
+            Keys.backgroundOpacity: 1.0,
             Keys.captureFrameRate: 60,
             Keys.scrcpyBitrate: 8,
             Keys.scrcpyMaxSize: 1920,

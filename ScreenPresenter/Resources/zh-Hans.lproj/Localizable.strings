@@ -22,8 +22,21 @@
 "common.checking" = "检查中...";
 
 // MARK: - Menu
+"menu.about" = "关于 ScreenPresenter";
 "menu.preferences" = "偏好设置...";
+"menu.services" = "服务";
+"menu.hide" = "隐藏 ScreenPresenter";
+"menu.hideOthers" = "隐藏其他";
+"menu.showAll" = "全部显示";
+"menu.quit" = "退出 ScreenPresenter";
+"menu.file" = "文件";
 "menu.refreshDevices" = "刷新设备";
+"menu.close" = "关闭";
+"menu.window" = "窗口";
+"menu.minimize" = "最小化";
+"menu.zoom" = "缩放";
+"menu.bringAllToFront" = "前置全部窗口";
+"menu.help" = "帮助";
 
 // MARK: - Window
 "window.preferences" = "偏好设置";
@@ -70,8 +83,23 @@
 
 // MARK: - Preferences - Tabs
 "prefs.tab.general" = "通用";
+"prefs.tab.capture" = "捕获";
+"prefs.tab.scrcpy" = "Scrcpy";
+"prefs.tab.permissions" = "权限";
 "prefs.tab.toolchain" = "工具链";
 "prefs.tab.about" = "关于";
+
+// MARK: - Preferences - Sections
+"prefs.section.language" = "语言";
+"prefs.section.appearance" = "外观";
+"prefs.section.layout" = "布局";
+"prefs.section.connection" = "连接";
+"prefs.section.frameRate" = "帧率";
+"prefs.section.video" = "视频";
+"prefs.section.display" = "显示";
+"prefs.section.advanced" = "高级";
+"prefs.section.systemPermissions" = "系统权限";
+"prefs.section.androidToolchain" = "Android 工具链";
 
 // MARK: - Preferences - General
 "prefs.general.displaySettings" = "显示设置";
@@ -80,15 +108,48 @@
 "prefs.general.language" = "语言";
 "prefs.general.languageNote" = "更改语言后需重启应用生效";
 
+// MARK: - Preferences - Appearance
+"prefs.appearance.backgroundOpacity" = "背景透明度";
+
+// MARK: - Preferences - Layout
+"prefs.layout.default" = "默认布局";
+"prefs.layout.sideBySide" = "左右";
+"prefs.layout.topBottom" = "上下";
+
+// MARK: - Preferences - Connection
+"prefs.connection.autoReconnect" = "自动重连";
+"prefs.connection.reconnectDelay" = "重连延迟";
+"prefs.connection.maxAttempts" = "最大重连次数";
+"prefs.connection.seconds" = "%d 秒";
+"prefs.connection.times" = "%d 次";
+
+// MARK: - Preferences - Capture
+"prefs.capture.frameRate" = "捕获帧率";
+"prefs.capture.frameRateNote" = "更高的帧率会增加 CPU 和 GPU 负载";
+
+// MARK: - Preferences - Scrcpy
+"prefs.scrcpy.bitrate" = "比特率";
+"prefs.scrcpy.maxSize" = "最大尺寸";
+"prefs.scrcpy.maxSizeNote" = "限制尺寸可以降低 CPU 负载";
+"prefs.scrcpy.showTouches" = "显示触摸点";
+"prefs.scrcpy.advancedNote" = "更多 scrcpy 配置请参考官方文档";
+"prefs.scrcpy.github" = "scrcpy GitHub";
+"prefs.scrcpy.noLimit" = "不限制";
+"prefs.scrcpy.pixels" = "%d 像素";
+"prefs.scrcpy.mbps" = "%d Mbps";
+
 // MARK: - Preferences - Toolchain
 "prefs.toolchain.title" = "工具链状态";
 "prefs.toolchain.adb" = "adb: %@";
 "prefs.toolchain.scrcpy" = "scrcpy: %@";
 "prefs.toolchain.refresh" = "刷新状态";
+"prefs.toolchain.refreshStatus" = "刷新状态";
 "prefs.toolchain.installScrcpy" = "安装 scrcpy (Homebrew)";
-"prefs.toolchain.notInstalled" = "未安装 - 点击安装";
+"prefs.toolchain.notInstalled" = "未安装";
 "prefs.toolchain.installing" = "安装中...";
 "prefs.toolchain.bundled" = "内嵌 v%@";
+"prefs.toolchain.adbDesc" = "Android 调试工具";
+"prefs.toolchain.scrcpyDesc" = "Android 投屏工具";
 
 // MARK: - Preferences - About
 "prefs.about.version" = "版本 %@";
@@ -122,9 +183,13 @@
 
 // MARK: - Toolbar
 "toolbar.refresh" = "刷新";
+"toolbar.refreshing" = "刷新中...";
 "toolbar.layout" = "布局";
 "toolbar.swap" = "交换";
 "toolbar.preferences" = "偏好设置";
+"toolbar.background" = "背景色";
+"toolbar.sideBySide" = "左右";
+"toolbar.topBottom" = "上下";
 "toolbar.swap.tooltip" = "交换设备位置";
 "toolbar.refresh.tooltip" = "刷新设备列表";
 "toolbar.preferences.tooltip" = "偏好设置";
@@ -137,6 +202,7 @@
 "permission.notDetermined" = "未设置";
 "permission.screenRecording.name" = "屏幕录制";
 "permission.screenRecording.desc" = "用于捕获 Android 设备投屏画面（仅备用方案需要）";
+"permission.openSystemPrefs" = "打开系统偏好设置";
 
 // MARK: - Background Color Mode
 "background.followTheme" = "跟随主题";
@@ -152,11 +218,19 @@
 "connection.disconnected" = "设备断开连接";
 
 // MARK: - Overlay
-"overlay.startCapture" = "开始捕获";
+"overlay.startCapture" = "开始投屏";
 "overlay.stop" = "停止";
 "overlay.connectDevice" = "使用 USB 数据线连接设备";
+"overlay.connectIOS" = "使用 USB 数据线连接 iPhone";
+"overlay.connectAndroid" = "使用 USB 数据线连接 Android 设备";
 "overlay.waitingConnection" = "等待连接...";
 "overlay.deviceReady" = "设备已就绪";
+"overlay.deviceDetected" = "已检测到设备";
+"overlay.captureIOSHint" = "直接捕获 iPhone 屏幕";
+"overlay.captureAndroidHint" = "启动 scrcpy 投屏";
+"overlay.toolNotInstalled" = "%@ 未安装";
+"overlay.needInstall" = "需要安装 %@";
+"overlay.installTool" = "一键安装 %@";
 
 // MARK: - Device Info
 "deviceInfo.unknownModel" = "未知型号";

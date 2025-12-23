@@ -47,6 +47,13 @@ final class MetalRenderer {
     var layoutMode: LayoutMode = .sideBySide
     var isSwapped: Bool = false
 
+    // MARK: - 屏幕区域（用于渲染到设备边框内）
+
+    /// 左侧/上方设备的屏幕区域（在视图坐标系中）
+    var primaryScreenFrame: CGRect = .zero
+    /// 右侧/下方设备的屏幕区域（在视图坐标系中）
+    var secondaryScreenFrame: CGRect = .zero
+
     // MARK: - 初始化
 
     init?() {
@@ -156,7 +163,7 @@ final class MetalRenderer {
         let renderPassDescriptor = MTLRenderPassDescriptor()
         renderPassDescriptor.colorAttachments[0].texture = drawable.texture
         renderPassDescriptor.colorAttachments[0].loadAction = .clear
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
         renderPassDescriptor.colorAttachments[0].storeAction = .store
 
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
@@ -191,76 +198,52 @@ final class MetalRenderer {
 
     /// 左右并排渲染
     private func renderSideBySide(encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
-        let halfWidth = drawableSize.width / 2
-
         // 确定左右纹理
         let (leftTex, rightTex) = isSwapped ? (rightTexture, leftTexture) : (leftTexture, rightTexture)
 
-        // 渲染左侧
+        // 渲染左侧（主屏幕区域）
         if let texture = leftTex {
-            let viewport = MTLViewport(
-                originX: 0, originY: 0,
-                width: Double(halfWidth), height: Double(drawableSize.height),
-                znear: 0, zfar: 1
-            )
-            renderTexture(
+            renderTextureInScreenFrame(
                 texture,
                 encoder: encoder,
-                viewport: viewport,
-                containerSize: CGSize(width: halfWidth, height: drawableSize.height)
+                screenFrame: primaryScreenFrame,
+                drawableSize: drawableSize
             )
         }
 
-        // 渲染右侧
+        // 渲染右侧（次屏幕区域）
         if let texture = rightTex {
-            let viewport = MTLViewport(
-                originX: Double(halfWidth), originY: 0,
-                width: Double(halfWidth), height: Double(drawableSize.height),
-                znear: 0, zfar: 1
-            )
-            renderTexture(
+            renderTextureInScreenFrame(
                 texture,
                 encoder: encoder,
-                viewport: viewport,
-                containerSize: CGSize(width: halfWidth, height: drawableSize.height)
+                screenFrame: secondaryScreenFrame,
+                drawableSize: drawableSize
             )
         }
     }
 
     /// 上下布局渲染
     private func renderTopBottom(encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
-        let halfHeight = drawableSize.height / 2
-
         // 确定上下纹理
         let (topTex, bottomTex) = isSwapped ? (rightTexture, leftTexture) : (leftTexture, rightTexture)
 
-        // 渲染上方
+        // 渲染上方（主屏幕区域）
         if let texture = topTex {
-            let viewport = MTLViewport(
-                originX: 0, originY: Double(halfHeight),
-                width: Double(drawableSize.width), height: Double(halfHeight),
-                znear: 0, zfar: 1
-            )
-            renderTexture(
+            renderTextureInScreenFrame(
                 texture,
                 encoder: encoder,
-                viewport: viewport,
-                containerSize: CGSize(width: drawableSize.width, height: halfHeight)
+                screenFrame: primaryScreenFrame,
+                drawableSize: drawableSize
             )
         }
 
-        // 渲染下方
+        // 渲染下方（次屏幕区域）
         if let texture = bottomTex {
-            let viewport = MTLViewport(
-                originX: 0, originY: 0,
-                width: Double(drawableSize.width), height: Double(halfHeight),
-                znear: 0, zfar: 1
-            )
-            renderTexture(
+            renderTextureInScreenFrame(
                 texture,
                 encoder: encoder,
-                viewport: viewport,
-                containerSize: CGSize(width: drawableSize.width, height: halfHeight)
+                screenFrame: secondaryScreenFrame,
+                drawableSize: drawableSize
             )
         }
     }
@@ -270,13 +253,50 @@ final class MetalRenderer {
         let texture = isSwapped ? rightTexture : leftTexture
 
         if let texture {
-            let viewport = MTLViewport(
-                originX: 0, originY: 0,
-                width: Double(drawableSize.width), height: Double(drawableSize.height),
-                znear: 0, zfar: 1
+            renderTextureInScreenFrame(
+                texture,
+                encoder: encoder,
+                screenFrame: primaryScreenFrame,
+                drawableSize: drawableSize
             )
-            renderTexture(texture, encoder: encoder, viewport: viewport, containerSize: drawableSize)
         }
+    }
+
+    /// 渲染纹理到指定的屏幕区域
+    private func renderTextureInScreenFrame(
+        _ texture: MTLTexture,
+        encoder: MTLRenderCommandEncoder,
+        screenFrame: CGRect,
+        drawableSize: CGSize
+    ) {
+        guard screenFrame.width > 0, screenFrame.height > 0 else { return }
+
+        // 计算视口比例（从视图坐标转换为 drawable 坐标）
+        let viewWidth = drawableSize.width / (NSScreen.main?.backingScaleFactor ?? 2.0)
+        let viewHeight = drawableSize.height / (NSScreen.main?.backingScaleFactor ?? 2.0)
+
+        let scaleX = drawableSize.width / viewWidth
+        let scaleY = drawableSize.height / viewHeight
+
+        // Metal 坐标系原点在左下角，而 NSView 坐标系原点在左下角（但 Y 向上）
+        // 所以需要翻转 Y 坐标
+        let flippedY = viewHeight - screenFrame.maxY
+
+        let viewport = MTLViewport(
+            originX: Double(screenFrame.minX * scaleX),
+            originY: Double(flippedY * scaleY),
+            width: Double(screenFrame.width * scaleX),
+            height: Double(screenFrame.height * scaleY),
+            znear: 0,
+            zfar: 1
+        )
+
+        renderTexture(
+            texture,
+            encoder: encoder,
+            viewport: viewport,
+            containerSize: screenFrame.size
+        )
     }
 
     /// 渲染单个纹理（保持纵横比）
@@ -350,6 +370,12 @@ final class MetalRenderer {
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
         descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        // 启用 alpha 混合以支持透明背景
+        descriptor.colorAttachments[0].isBlendingEnabled = true
+        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
         do {
             return try device.makeRenderPipelineState(descriptor: descriptor)
@@ -372,9 +398,9 @@ final class MetalRenderer {
         vertex VertexOut vertexShader(uint vertexID [[vertex_id]],
                                        constant float4 *vertices [[buffer(0)]]) {
             VertexOut out;
-            float4 vertex = vertices[vertexID];
-            out.position = float4(vertex.xy, 0.0, 1.0);
-            out.texCoord = vertex.zw;
+            float4 v = vertices[vertexID];
+            out.position = float4(v.xy, 0.0, 1.0);
+            out.texCoord = v.zw;
             return out;
         }
 

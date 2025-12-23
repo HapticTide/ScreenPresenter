@@ -4,11 +4,12 @@
 //
 //  Created by Sun on 2025/12/22.
 //
-//  工具栏视图（纯 AppKit）
-//  包含布局切换、刷新等操作按钮
+//  工具栏视图
+//  包含布局切换、交换、刷新、偏好设置按钮
 //
 
 import AppKit
+import SnapKit
 
 // MARK: - 工具栏代理协议
 
@@ -28,15 +29,19 @@ final class ToolbarView: NSView {
 
     // MARK: - UI 组件
 
+    private var layoutLabel: NSTextField!
     private var layoutSegmentedControl: NSSegmentedControl!
     private var swapButton: NSButton!
     private var refreshButton: NSButton!
+    private var refreshSpinner: NSProgressIndicator!
     private var preferencesButton: NSButton!
+    private var divider: NSBox!
 
     // MARK: - 状态
 
     private var isSwapped = false
     private var currentLayout: LayoutMode = .sideBySide
+    private var isRefreshing = false
 
     // MARK: - 初始化
 
@@ -56,104 +61,136 @@ final class ToolbarView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        // 布局分段控件
+        setupLayoutSection()
+        setupSwapButton()
+        setupRefreshButton()
+        setupPreferencesButton()
+        setupDividers()
+        setupConstraints()
+    }
+
+    private func setupLayoutSection() {
+        layoutLabel = NSTextField(labelWithString: L10n.toolbar.layout)
+        layoutLabel.font = NSFont.systemFont(ofSize: 11)
+        layoutLabel.textColor = .secondaryLabelColor
+        addSubview(layoutLabel)
+
         layoutSegmentedControl = NSSegmentedControl(
-            labels: [L10n.layout.sideBySide, L10n.layout.topBottom, L10n.layout.single],
+            images: [
+                NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: L10n.layout.sideBySide)!,
+                NSImage(systemSymbolName: "rectangle.split.1x2", accessibilityDescription: L10n.layout.topBottom)!,
+            ],
             trackingMode: .selectOne,
             target: self,
             action: #selector(layoutChanged)
         )
         layoutSegmentedControl.selectedSegment = 0
-        layoutSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-
-        // 设置图标
-        layoutSegmentedControl.setImage(
-            NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: nil),
-            forSegment: 0
-        )
-        layoutSegmentedControl.setImage(
-            NSImage(systemSymbolName: "rectangle.split.1x2", accessibilityDescription: nil),
-            forSegment: 1
-        )
-        layoutSegmentedControl.setImage(
-            NSImage(systemSymbolName: "rectangle", accessibilityDescription: nil),
-            forSegment: 2
-        )
-
+        layoutSegmentedControl.setLabel(L10n.toolbar.sideBySide, forSegment: 0)
+        layoutSegmentedControl.setLabel(L10n.toolbar.topBottom, forSegment: 1)
         addSubview(layoutSegmentedControl)
+    }
 
-        // 交换按钮
-        swapButton = NSButton(
-            title: "",
-            image: NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: L10n.toolbar.swap)!,
-            target: self,
-            action: #selector(swapTapped)
+    private func setupSwapButton() {
+        swapButton = NSButton(title: "", target: self, action: #selector(swapTapped))
+        swapButton.image = NSImage(
+            systemSymbolName: "arrow.left.arrow.right",
+            accessibilityDescription: L10n.toolbar.swap
         )
+        swapButton.title = L10n.toolbar.swap
+        swapButton.imagePosition = .imageLeading
         swapButton.bezelStyle = .rounded
+        swapButton.font = NSFont.systemFont(ofSize: 11)
         swapButton.toolTip = L10n.toolbar.swapTooltip
-        swapButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(swapButton)
+    }
 
-        // 刷新按钮
-        refreshButton = NSButton(
-            title: "",
-            image: NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: L10n.toolbar.refresh)!,
-            target: self,
-            action: #selector(refreshTapped)
+    private func setupRefreshButton() {
+        refreshButton = NSButton(title: "", target: self, action: #selector(refreshTapped))
+        refreshButton.image = NSImage(
+            systemSymbolName: "arrow.clockwise",
+            accessibilityDescription: L10n.toolbar.refresh
         )
+        refreshButton.title = L10n.toolbar.refresh
+        refreshButton.imagePosition = .imageLeading
         refreshButton.bezelStyle = .rounded
+        refreshButton.font = NSFont.systemFont(ofSize: 11)
         refreshButton.toolTip = L10n.toolbar.refreshTooltip
-        refreshButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(refreshButton)
 
-        // 偏好设置按钮
-        preferencesButton = NSButton(
-            title: "",
-            image: NSImage(systemSymbolName: "gear", accessibilityDescription: L10n.toolbar.preferences)!,
-            target: self,
-            action: #selector(preferencesTapped)
-        )
+        refreshSpinner = NSProgressIndicator()
+        refreshSpinner.style = .spinning
+        refreshSpinner.controlSize = .small
+        refreshSpinner.isHidden = true
+        addSubview(refreshSpinner)
+    }
+
+    private func setupPreferencesButton() {
+        preferencesButton = NSButton(title: "", target: self, action: #selector(preferencesTapped))
+        preferencesButton.image = NSImage(systemSymbolName: "gear", accessibilityDescription: L10n.toolbar.preferences)
+        preferencesButton.title = L10n.toolbar.preferences
+        preferencesButton.imagePosition = .imageLeading
         preferencesButton.bezelStyle = .rounded
+        preferencesButton.font = NSFont.systemFont(ofSize: 11)
         preferencesButton.toolTip = L10n.toolbar.preferencesTooltip
-        preferencesButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(preferencesButton)
+    }
 
-        // 分隔线
-        let separator = NSBox()
-        separator.boxType = .separator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(separator)
+    private func setupDividers() {
+        divider = NSBox()
+        divider.boxType = .separator
+        addSubview(divider)
 
-        // 约束
-        NSLayoutConstraint.activate([
-            // 布局控件
-            layoutSegmentedControl.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            layoutSegmentedControl.centerYAnchor.constraint(equalTo: centerYAnchor),
+        let bottomSeparator = NSBox()
+        bottomSeparator.boxType = .separator
+        addSubview(bottomSeparator)
+        bottomSeparator.snp.makeConstraints { make in
+            make.leading.trailing.bottom.equalToSuperview()
+            make.height.equalTo(1)
+        }
+    }
 
-            // 交换按钮
-            swapButton.leadingAnchor.constraint(equalTo: layoutSegmentedControl.trailingAnchor, constant: 12),
-            swapButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+    private func setupConstraints() {
+        layoutLabel.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.centerY.equalToSuperview()
+        }
 
-            // 刷新按钮
-            refreshButton.trailingAnchor.constraint(equalTo: preferencesButton.leadingAnchor, constant: -8),
-            refreshButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+        layoutSegmentedControl.snp.makeConstraints { make in
+            make.leading.equalTo(layoutLabel.snp.trailing).offset(6)
+            make.centerY.equalToSuperview()
+        }
 
-            // 偏好设置按钮
-            preferencesButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            preferencesButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+        divider.snp.makeConstraints { make in
+            make.leading.equalTo(layoutSegmentedControl.snp.trailing).offset(12)
+            make.centerY.equalToSuperview()
+            make.width.equalTo(1)
+            make.height.equalTo(20)
+        }
 
-            // 分隔线
-            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.bottomAnchor.constraint(equalTo: bottomAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1),
-        ])
+        swapButton.snp.makeConstraints { make in
+            make.leading.equalTo(divider.snp.trailing).offset(12)
+            make.centerY.equalToSuperview()
+        }
+
+        preferencesButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-16)
+            make.centerY.equalToSuperview()
+        }
+
+        refreshButton.snp.makeConstraints { make in
+            make.trailing.equalTo(preferencesButton.snp.leading).offset(-8)
+            make.centerY.equalToSuperview()
+        }
+
+        refreshSpinner.snp.makeConstraints { make in
+            make.center.equalTo(refreshButton)
+        }
     }
 
     // MARK: - 操作
 
     @objc private func layoutChanged() {
-        let layouts: [LayoutMode] = [.sideBySide, .topBottom, .single]
+        let layouts: [LayoutMode] = [.sideBySide, .topBottom]
         currentLayout = layouts[layoutSegmentedControl.selectedSegment]
         delegate?.toolbarDidChangeLayout(currentLayout)
     }
@@ -162,26 +199,47 @@ final class ToolbarView: NSView {
         isSwapped.toggle()
         delegate?.toolbarDidToggleSwap(isSwapped)
 
-        // 更新按钮状态
-        if isSwapped {
-            swapButton.contentTintColor = .controlAccentColor
-        } else {
-            swapButton.contentTintColor = .labelColor
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.allowsImplicitAnimation = true
+            if isSwapped {
+                swapButton.contentTintColor = .controlAccentColor
+            } else {
+                swapButton.contentTintColor = .labelColor
+            }
         }
     }
 
     @objc private func refreshTapped() {
+        guard !isRefreshing else { return }
+
+        setRefreshing(true)
         delegate?.toolbarDidRequestRefresh()
 
-        // 添加旋转动画
-        let animation = CABasicAnimation(keyPath: "transform.rotation.z")
-        animation.fromValue = 0
-        animation.toValue = CGFloat.pi * 2
-        animation.duration = 0.5
-        refreshButton.layer?.add(animation, forKey: "rotation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.setRefreshing(false)
+        }
     }
 
     @objc private func preferencesTapped() {
         delegate?.toolbarDidRequestPreferences()
+    }
+
+    // MARK: - 公开方法
+
+    func setRefreshing(_ refreshing: Bool) {
+        isRefreshing = refreshing
+
+        if refreshing {
+            refreshButton.title = L10n.toolbar.refreshing
+            refreshButton.isEnabled = false
+            refreshSpinner.startAnimation(nil)
+            refreshSpinner.isHidden = false
+        } else {
+            refreshButton.title = L10n.toolbar.refresh
+            refreshButton.isEnabled = true
+            refreshSpinner.stopAnimation(nil)
+            refreshSpinner.isHidden = true
+        }
     }
 }

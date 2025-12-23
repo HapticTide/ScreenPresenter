@@ -4,12 +4,13 @@
 //
 //  Created by Sun on 2025/12/22.
 //
-//  主视图控制器（纯 AppKit）
-//  包含工具栏、预览区域和状态栏
+//  主视图控制器
+//  包含工具栏和预览区域
 //
 
 import AppKit
 import Combine
+import SnapKit
 
 // MARK: - 主视图控制器
 
@@ -17,17 +18,22 @@ final class MainViewController: NSViewController {
     // MARK: - UI 组件
 
     private var toolbarView: ToolbarView!
+    private var previewContainerView: NSView!
     private var renderView: MetalRenderView!
-    private var statusBar: StatusBarView!
 
-    // MARK: - 叠加层
+    // MARK: - 设备面板
 
-    private var leftOverlayView: DeviceOverlayView!
-    private var rightOverlayView: DeviceOverlayView!
+    /// Android 面板（默认在左侧/上方）
+    private var androidPanelView: DevicePanelView!
+    /// iOS 面板（默认在右侧/下方）
+    private var iosPanelView: DevicePanelView!
+    private var dividerView: NSBox!
 
     // MARK: - 状态
 
     private var cancellables = Set<AnyCancellable>()
+    private var currentLayout: LayoutMode = .sideBySide
+    private var isSwapped: Bool = false
 
     // MARK: - 生命周期
 
@@ -43,6 +49,11 @@ final class MainViewController: NSViewController {
         setupUI()
         setupBindings()
         startRendering()
+
+        // 延迟初始化渲染区域（等待初始布局完成）
+        DispatchQueue.main.async { [weak self] in
+            self?.updateRenderScreenFrames()
+        }
     }
 
     override func viewWillDisappear() {
@@ -53,70 +64,147 @@ final class MainViewController: NSViewController {
     // MARK: - UI 设置
 
     private func setupUI() {
-        // 工具栏
+        setupToolbar()
+        setupPreviewContainer()
+        setupDevicePanels()
+        updatePanelLayout()
+    }
+
+    private func setupToolbar() {
         toolbarView = ToolbarView()
-        toolbarView.translatesAutoresizingMaskIntoConstraints = false
         toolbarView.delegate = self
         view.addSubview(toolbarView)
+        toolbarView.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.height.equalTo(44)
+        }
+    }
 
-        // Metal 渲染视图
+    private func setupPreviewContainer() {
+        previewContainerView = NSView()
+        previewContainerView.wantsLayer = true
+        previewContainerView.layer?.backgroundColor = UserPreferences.shared.backgroundColor.cgColor
+        view.addSubview(previewContainerView)
+        previewContainerView.snp.makeConstraints { make in
+            make.top.equalTo(toolbarView.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
+        }
+
         renderView = MetalRenderView()
-        renderView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(renderView)
+        previewContainerView.addSubview(renderView)
+        renderView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+    }
 
-        // 设备叠加层
-        leftOverlayView = DeviceOverlayView()
-        leftOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(leftOverlayView)
+    private func setupDevicePanels() {
+        androidPanelView = DevicePanelView()
+        previewContainerView.addSubview(androidPanelView)
 
-        rightOverlayView = DeviceOverlayView()
-        rightOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(rightOverlayView)
+        iosPanelView = DevicePanelView()
+        previewContainerView.addSubview(iosPanelView)
 
-        // 状态栏
-        statusBar = StatusBarView()
-        statusBar.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(statusBar)
+        dividerView = NSBox()
+        dividerView.boxType = .custom
+        dividerView.fillColor = NSColor.separatorColor
+        dividerView.borderWidth = 0
+        dividerView.contentViewMargins = .zero
+        previewContainerView.addSubview(dividerView)
+    }
 
-        // 约束
-        NSLayoutConstraint.activate([
-            // 工具栏
-            toolbarView.topAnchor.constraint(equalTo: view.topAnchor),
-            toolbarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            toolbarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 44),
+    private func updatePanelLayout() {
+        // 更新面板内容
+        updateAndroidPanel(androidPanelView)
+        updateIOSPanel(iosPanelView)
 
-            // 渲染视图
-            renderView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
-            renderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            renderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            renderView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+        // 重置约束
+        androidPanelView.snp.removeConstraints()
+        iosPanelView.snp.removeConstraints()
+        dividerView.snp.removeConstraints()
 
-            // 左侧叠加层
-            leftOverlayView.topAnchor.constraint(equalTo: renderView.topAnchor, constant: 8),
-            leftOverlayView.leadingAnchor.constraint(equalTo: renderView.leadingAnchor, constant: 8),
-            leftOverlayView.widthAnchor.constraint(equalTo: renderView.widthAnchor, multiplier: 0.5, constant: -12),
+        // 根据 isSwapped 决定哪个面板在主位置（左/上）
+        let primaryPanel = isSwapped ? iosPanelView! : androidPanelView!
+        let secondaryPanel = isSwapped ? androidPanelView! : iosPanelView!
 
-            // 右侧叠加层
-            rightOverlayView.topAnchor.constraint(equalTo: renderView.topAnchor, constant: 8),
-            rightOverlayView.trailingAnchor.constraint(equalTo: renderView.trailingAnchor, constant: -8),
-            rightOverlayView.widthAnchor.constraint(equalTo: renderView.widthAnchor, multiplier: 0.5, constant: -12),
+        switch currentLayout {
+        case .sideBySide:
+            primaryPanel.snp.makeConstraints { make in
+                make.top.leading.bottom.equalToSuperview()
+                make.width.equalToSuperview().multipliedBy(0.5).offset(-0.5)
+            }
 
-            // 状态栏
-            statusBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            statusBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            statusBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            statusBar.heightAnchor.constraint(equalToConstant: 24),
-        ])
+            dividerView.snp.makeConstraints { make in
+                make.centerX.top.bottom.equalToSuperview()
+                make.width.equalTo(1)
+            }
 
-        // 初始状态
-        updateOverlays()
+            secondaryPanel.snp.makeConstraints { make in
+                make.top.trailing.bottom.equalToSuperview()
+                make.width.equalToSuperview().multipliedBy(0.5).offset(-0.5)
+            }
+
+            secondaryPanel.isHidden = false
+            dividerView.isHidden = false
+
+        case .topBottom:
+            primaryPanel.snp.makeConstraints { make in
+                make.top.leading.trailing.equalToSuperview()
+                make.height.equalToSuperview().multipliedBy(0.5).offset(-0.5)
+            }
+
+            dividerView.snp.makeConstraints { make in
+                make.centerY.leading.trailing.equalToSuperview()
+                make.height.equalTo(1)
+            }
+
+            secondaryPanel.snp.makeConstraints { make in
+                make.bottom.leading.trailing.equalToSuperview()
+                make.height.equalToSuperview().multipliedBy(0.5).offset(-0.5)
+            }
+
+            secondaryPanel.isHidden = false
+            dividerView.isHidden = false
+
+        case .single:
+            primaryPanel.snp.makeConstraints { make in
+                make.edges.equalToSuperview()
+            }
+
+            secondaryPanel.isHidden = true
+            dividerView.isHidden = true
+        }
+
+        // 动画
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.allowsImplicitAnimation = true
+            previewContainerView.layoutSubtreeIfNeeded()
+        } completionHandler: { [weak self] in
+            // 布局完成后更新渲染区域
+            self?.updateRenderScreenFrames()
+        }
+    }
+
+    /// 更新渲染器的屏幕区域
+    private func updateRenderScreenFrames() {
+        let primaryPanel = isSwapped ? iosPanelView! : androidPanelView!
+        let secondaryPanel = isSwapped ? androidPanelView! : iosPanelView!
+
+        // 获取面板的屏幕区域并转换为 renderView 的坐标系
+        let primaryFrame = primaryPanel.convert(primaryPanel.screenFrame, to: renderView)
+        renderView.setPrimaryScreenFrame(primaryFrame)
+
+        if currentLayout != .single {
+            let secondaryFrame = secondaryPanel.convert(secondaryPanel.screenFrame, to: renderView)
+            renderView.setSecondaryScreenFrame(secondaryFrame)
+        } else {
+            renderView.setSecondaryScreenFrame(.zero)
+        }
     }
 
     // MARK: - 绑定
 
     private func setupBindings() {
-        // 监听应用状态变化
         AppState.shared.stateChangedPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
@@ -124,10 +212,21 @@ final class MainViewController: NSViewController {
             }
             .store(in: &cancellables)
 
-        // 渲染帧回调
         renderView.onRenderFrame = { [weak self] in
             self?.updateTextures()
         }
+
+        // 监听背景色变化
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleBackgroundColorChange),
+            name: .backgroundColorDidChange,
+            object: nil
+        )
+    }
+
+    @objc private func handleBackgroundColorChange() {
+        previewContainerView.layer?.backgroundColor = UserPreferences.shared.backgroundColor.cgColor
     }
 
     // MARK: - 渲染
@@ -136,64 +235,53 @@ final class MainViewController: NSViewController {
         renderView.startRendering()
     }
 
-    /// 更新纹理
     private func updateTextures() {
-        // 更新 iOS 纹理（左侧）
         if let pixelBuffer = AppState.shared.iosDeviceSource?.latestPixelBuffer {
-            renderView.updateLeftTexture(from: pixelBuffer)
+            if isSwapped {
+                renderView.updateLeftTexture(from: pixelBuffer)
+            } else {
+                renderView.updateRightTexture(from: pixelBuffer)
+            }
         }
 
-        // 更新 Android 纹理（右侧）
         if let pixelBuffer = AppState.shared.androidDeviceSource?.latestPixelBuffer {
-            renderView.updateRightTexture(from: pixelBuffer)
+            if isSwapped {
+                renderView.updateRightTexture(from: pixelBuffer)
+            } else {
+                renderView.updateLeftTexture(from: pixelBuffer)
+            }
         }
     }
 
     // MARK: - UI 更新
 
     private func updateUI() {
-        updateOverlays()
-        updateStatusBar()
+        updateAndroidPanel(androidPanelView)
+        updateIOSPanel(iosPanelView)
     }
 
-    private func updateOverlays() {
+    private func updateAndroidPanel(_ panel: DevicePanelView) {
         let appState = AppState.shared
-
-        // 左侧：iOS 设备
-        if appState.iosCapturing {
-            leftOverlayView.showCapturing(
-                deviceName: appState.iosDeviceName ?? "iOS",
-                fps: renderView.leftFPS
-            )
-        } else if appState.iosConnected {
-            leftOverlayView.showConnected(
-                deviceName: appState.iosDeviceName ?? "iOS",
-                platform: .ios,
-                userPrompt: appState.iosDeviceUserPrompt,
-                onStart: { [weak self] in
-                    self?.startIOSCapture()
-                }
-            )
-        } else {
-            leftOverlayView.showDisconnected(platform: .ios)
-        }
-
-        // 右侧：Android 设备
-        // 检查 scrcpy 是否已安装
         let scrcpyReady = appState.toolchainManager.scrcpyStatus.isReady
+        // Android texture 位置: !isSwapped -> left, isSwapped -> right
+        let androidFPS = isSwapped ? renderView.rightFPS : renderView.leftFPS
 
         if !scrcpyReady {
-            // scrcpy 未安装，显示安装提示
-            rightOverlayView.showToolchainMissing(toolName: "scrcpy") { [weak self] in
+            panel.showToolchainMissing(toolName: "scrcpy") { [weak self] in
                 self?.installScrcpy()
             }
         } else if appState.androidCapturing {
-            rightOverlayView.showCapturing(
+            panel.showCapturing(
                 deviceName: appState.androidDeviceName ?? "Android",
-                fps: renderView.rightFPS
+                platform: .android,
+                fps: androidFPS,
+                resolution: appState.androidDeviceSource?.captureSize ?? .zero,
+                onStop: { [weak self] in
+                    self?.stopAndroidCapture()
+                }
             )
         } else if appState.androidConnected {
-            rightOverlayView.showConnected(
+            panel.showConnected(
                 deviceName: appState.androidDeviceName ?? "Android",
                 platform: .android,
                 onStart: { [weak self] in
@@ -201,38 +289,36 @@ final class MainViewController: NSViewController {
                 }
             )
         } else {
-            rightOverlayView.showDisconnected(platform: .android)
+            panel.showDisconnected(platform: .android, connectionGuide: L10n.overlayUI.connectAndroid)
         }
     }
 
-    private func updateStatusBar() {
+    private func updateIOSPanel(_ panel: DevicePanelView) {
         let appState = AppState.shared
+        // iOS texture 位置: !isSwapped -> right, isSwapped -> left
+        let iosFPS = isSwapped ? renderView.leftFPS : renderView.rightFPS
 
-        var statusParts: [String] = []
-
-        if appState.iosConnected {
-            let status = appState.iosCapturing ? L10n.device.capturing : L10n.device.connected
-            statusParts.append(L10n.statusBar.ios(status))
-        }
-
-        if appState.androidConnected {
-            let status = appState.androidCapturing ? L10n.device.capturing : L10n.device.connected
-            statusParts.append(L10n.statusBar.android(status))
-        }
-
-        if statusParts.isEmpty {
-            statusBar.setStatus(L10n.statusBar.waitingDevice)
+        if appState.iosCapturing {
+            panel.showCapturing(
+                deviceName: appState.iosDeviceName ?? "iPhone",
+                platform: .ios,
+                fps: iosFPS,
+                resolution: appState.iosDeviceSource?.captureSize ?? .zero,
+                onStop: { [weak self] in
+                    self?.stopIOSCapture()
+                }
+            )
+        } else if appState.iosConnected {
+            panel.showConnected(
+                deviceName: appState.iosDeviceName ?? "iPhone",
+                platform: .ios,
+                userPrompt: appState.iosDeviceUserPrompt,
+                onStart: { [weak self] in
+                    self?.startIOSCapture()
+                }
+            )
         } else {
-            statusBar.setStatus(statusParts.joined(separator: " | "))
-        }
-
-        // 显示帧率
-        if appState.iosCapturing || appState.androidCapturing {
-            let leftFPS = Int(renderView.leftFPS)
-            let rightFPS = Int(renderView.rightFPS)
-            statusBar.setFPS(left: leftFPS, right: rightFPS)
-        } else {
-            statusBar.setFPS(left: 0, right: 0)
+            panel.showDisconnected(platform: .ios, connectionGuide: L10n.overlayUI.connectIOS)
         }
     }
 
@@ -248,6 +334,12 @@ final class MainViewController: NSViewController {
         }
     }
 
+    private func stopIOSCapture() {
+        Task {
+            await AppState.shared.stopIOSCapture()
+        }
+    }
+
     private func startAndroidCapture() {
         Task {
             do {
@@ -258,15 +350,15 @@ final class MainViewController: NSViewController {
         }
     }
 
+    private func stopAndroidCapture() {
+        Task {
+            await AppState.shared.stopAndroidCapture()
+        }
+    }
+
     private func installScrcpy() {
         Task {
-            // 显示安装进度
-            rightOverlayView.showDisconnected(platform: .android)
-
-            // 开始安装
             await AppState.shared.toolchainManager.installScrcpy()
-
-            // 安装完成后刷新 UI
             updateUI()
         }
     }
@@ -283,8 +375,11 @@ final class MainViewController: NSViewController {
     // MARK: - 窗口事件
 
     func handleWindowResize() {
-        // 更新渲染视图
         renderView.needsDisplay = true
+        // 延迟更新屏幕区域，等待布局完成
+        DispatchQueue.main.async { [weak self] in
+            self?.updateRenderScreenFrames()
+        }
     }
 }
 
@@ -294,20 +389,20 @@ extension MainViewController: ToolbarViewDelegate {
     func toolbarDidRequestRefresh() {
         Task {
             await AppState.shared.refreshDevices()
+            toolbarView.setRefreshing(false)
         }
     }
 
     func toolbarDidChangeLayout(_ layout: LayoutMode) {
+        currentLayout = layout
         renderView.setLayoutMode(layout)
+        updatePanelLayout()
     }
 
     func toolbarDidToggleSwap(_ swapped: Bool) {
+        isSwapped = swapped
         renderView.setSwapped(swapped)
-
-        // 交换叠加层
-        let temp = leftOverlayView.frame
-        leftOverlayView.frame = rightOverlayView.frame
-        rightOverlayView.frame = temp
+        updatePanelLayout()
     }
 
     func toolbarDidRequestPreferences() {

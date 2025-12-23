@@ -22,19 +22,20 @@
 		A441335D2EF93201003DCDD3 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441331F2EF93201003DCDD3 /* Logger.swift */; };
 		A44133622EF93201003DCDD3 /* Tools in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* Tools */; };
 		A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A44133242EF93201003DCDD3 /* Assets.xcassets */; };
-		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
-		/* New files */
 		B1000001000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000001 /* AppState.swift */; };
 		B1000001000000000002 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000002 /* MetalRenderer.swift */; };
 		B1000001000000000003 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000003 /* MetalRenderView.swift */; };
 		B1000001000000000004 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000004 /* MainViewController.swift */; };
 		B1000001000000000005 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000005 /* PreferencesWindowController.swift */; };
-		B1000001000000000006 /* DeviceOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000006 /* DeviceOverlayView.swift */; };
-		B1000001000000000007 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000007 /* StatusBarView.swift */; };
 		B1000001000000000008 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000008 /* ToolbarView.swift */; };
 		B1000001000000000009 /* DeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000009 /* DeviceInsightService.swift */; };
 		B1000001000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000010 /* Localization.swift */; };
 		B1000001000000000011 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B1000002000000000011 /* Localizable.strings */; };
+		C1000001000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000002000000000001 /* main.swift */; };
+		D1000001000000000001 /* DevicePanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000001 /* DevicePanelView.swift */; };
+		D1000001000000000002 /* DeviceBezelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000002 /* DeviceBezelView.swift */; };
+		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
+		E1000001000000000001 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000001 /* SnapKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,21 +56,21 @@
 		A441331F2EF93201003DCDD3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		A44133222EF93201003DCDD3 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = "<group>"; };
 		A44133242EF93201003DCDD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceProvider.swift; sourceTree = "<group>"; };
-		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
-		/* New file references */
 		B1000002000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		B1000002000000000002 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
 		B1000002000000000003 /* MetalRenderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderView.swift; sourceTree = "<group>"; };
 		B1000002000000000004 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		B1000002000000000005 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
-		B1000002000000000006 /* DeviceOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOverlayView.swift; sourceTree = "<group>"; };
-		B1000002000000000007 /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		B1000002000000000008 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
 		B1000002000000000009 /* DeviceInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInsightService.swift; sourceTree = "<group>"; };
 		B1000002000000000010 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		B1000002000000000012 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B1000002000000000013 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceProvider.swift; sourceTree = "<group>"; };
+		C1000002000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		D1000002000000000001 /* DevicePanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePanelView.swift; sourceTree = "<group>"; };
+		D1000002000000000002 /* DeviceBezelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceBezelView.swift; sourceTree = "<group>"; };
+		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,6 +78,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1000001000000000001 /* SnapKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +98,7 @@
 			children = (
 				A1000001241A001E000001A1 /* ScreenPresenter.entitlements */,
 				A1000001241A001D000001A1 /* Info.plist */,
+				C1000002000000000001 /* main.swift */,
 				A1000001241A0002000001A1 /* AppDelegate.swift */,
 				A44133212EF93201003DCDD3 /* Core */,
 				A44133252EF93201003DCDD3 /* Resources */,
@@ -121,14 +124,6 @@
 				C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */,
 			);
 			path = DeviceDiscovery;
-			sourceTree = "<group>";
-		};
-		B1000003000000000010 /* DeviceInsight */ = {
-			isa = PBXGroup;
-			children = (
-				B1000002000000000009 /* DeviceInsightService.swift */,
-			);
-			path = DeviceInsight;
 			sourceTree = "<group>";
 		};
 		A44133092EF93201003DCDD3 /* DeviceSource */ = {
@@ -203,16 +198,6 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		B1000003000000000011 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				B1000002000000000006 /* DeviceOverlayView.swift */,
-				B1000002000000000007 /* StatusBarView.swift */,
-				B1000002000000000008 /* ToolbarView.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
 		A44133392EF93201003DCDD3 /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -223,19 +208,25 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-/* End PBXGroup section */
-
-/* Begin PBXVariantGroup section */
-		B1000002000000000011 /* Localizable.strings */ = {
-			isa = PBXVariantGroup;
+		B1000003000000000010 /* DeviceInsight */ = {
+			isa = PBXGroup;
 			children = (
-				B1000002000000000012 /* en */,
-				B1000002000000000013 /* zh-Hans */,
+				B1000002000000000009 /* DeviceInsightService.swift */,
 			);
-			name = Localizable.strings;
+			path = DeviceInsight;
 			sourceTree = "<group>";
 		};
-/* End PBXVariantGroup section */
+		B1000003000000000011 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				D1000002000000000002 /* DeviceBezelView.swift */,
+				D1000002000000000001 /* DevicePanelView.swift */,
+				B1000002000000000008 /* ToolbarView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
 		A10000012419FFFF000001A1 /* ScreenPresenter */ = {
@@ -251,6 +242,9 @@
 			dependencies = (
 			);
 			name = ScreenPresenter;
+			packageProductDependencies = (
+				E1000002000000000001 /* SnapKit */,
+			);
 			productName = ScreenPresenter;
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
 			productType = "com.apple.product-type.application";
@@ -280,6 +274,9 @@
 				"zh-Hans",
 			);
 			mainGroup = A10000012419FFF7000001A1;
+			packageReferences = (
+				E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */,
+			);
 			productRefGroup = A1000001241A0001000001A3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -307,6 +304,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1000001000000000001 /* main.swift in Sources */,
 				A441333F2EF93201003DCDD3 /* ProcessRunner.swift in Sources */,
 				A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */,
 				A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */,
@@ -321,21 +319,32 @@
 				87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */,
 				DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */,
 				908C36A37CB44D844E526D8E /* IOSScreenMirrorActivator.swift in Sources */,
-				/* New source files */
 				B1000001000000000001 /* AppState.swift in Sources */,
 				B1000001000000000002 /* MetalRenderer.swift in Sources */,
 				B1000001000000000003 /* MetalRenderView.swift in Sources */,
 				B1000001000000000004 /* MainViewController.swift in Sources */,
 				B1000001000000000005 /* PreferencesWindowController.swift in Sources */,
-				B1000001000000000006 /* DeviceOverlayView.swift in Sources */,
-				B1000001000000000007 /* StatusBarView.swift in Sources */,
 				B1000001000000000008 /* ToolbarView.swift in Sources */,
+				D1000001000000000001 /* DevicePanelView.swift in Sources */,
+				D1000001000000000002 /* DeviceBezelView.swift in Sources */,
 				B1000001000000000009 /* DeviceInsightService.swift in Sources */,
 				B1000001000000000010 /* Localization.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		B1000002000000000011 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B1000002000000000012 /* en */,
+				B1000002000000000013 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		A1000001241A001F100001A1 /* Debug */ = {
@@ -474,11 +483,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ScreenPresenter/Info.plist;
@@ -509,11 +516,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ScreenPresenter/Info.plist;
@@ -554,6 +559,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SnapKit/SnapKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E1000002000000000001 /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000012419FFF8000001A1 /* Project object */;
 }
