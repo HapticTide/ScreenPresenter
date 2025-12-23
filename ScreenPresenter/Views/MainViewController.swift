@@ -540,6 +540,18 @@ final class MainViewController: NSViewController {
         // 更新面板布局（包含上下缩进）
         updatePanelLayout()
     }
+
+    // MARK: - 语言变更
+
+    /// 更新本地化文本（语言切换时调用）
+    func updateLocalizedTexts() {
+        // 更新交换按钮的 tooltip
+        swapButton.toolTip = L10n.toolbar.swapTooltip
+
+        // 更新设备面板的本地化文本
+        iosPanelView.updateLocalizedTexts()
+        androidPanelView.updateLocalizedTexts()
+    }
 }
 
 // MARK: - NSImage 扩展

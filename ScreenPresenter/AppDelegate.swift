@@ -43,12 +43,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 创建主窗口
         setupMainWindow()
 
+        // 监听语言变更
+        setupLanguageObserver()
+
         // 初始化应用状态
         Task {
             AppLogger.app.info("开始异步初始化应用状态...")
             await AppState.shared.initialize()
             AppLogger.app.info("应用状态初始化完成")
         }
+    }
+
+    private func setupLanguageObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLanguageChange),
+            name: LocalizationManager.languageDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleLanguageChange() {
+        // 重建主菜单
+        setupMainMenu()
+
+        // 更新主窗口标题
+        mainWindow?.title = L10n.window.main
+
+        // 重建工具栏以更新按钮文字
+        if let window = mainWindow {
+            rebuildWindowToolbar(for: window)
+        }
+
+        // 通知主视图控制器更新本地化文本
+        mainViewController?.updateLocalizedTexts()
+    }
+
+    private func rebuildWindowToolbar(for window: NSWindow) {
+        // 移除旧工具栏
+        window.toolbar = nil
+        refreshToolbarItem = nil
+
+        // 创建新工具栏
+        setupWindowToolbar(for: window)
     }
 
     /// 请求摄像头权限

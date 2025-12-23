@@ -88,6 +88,39 @@ final class PreferencesViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupLanguageObserver()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    private func setupLanguageObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLanguageChange),
+            name: LocalizationManager.languageDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleLanguageChange() {
+        // 保存当前选中的 tab
+        let selectedTab = currentTabIndex
+
+        // 移除所有子视图
+        view.subviews.forEach { $0.removeFromSuperview() }
+        tabViews.removeAll()
+
+        // 重建 UI
+        setupUI()
+
+        // 恢复选中的 tab
+        segmentedControl.selectedSegment = selectedTab
+        showTab(at: selectedTab)
+
+        // 更新窗口标题
+        view.window?.title = L10n.window.preferences
     }
 
     // MARK: - UI 设置
@@ -174,10 +207,6 @@ final class PreferencesViewController: NSViewController {
             popup.action = #selector(languageChanged(_:))
             return popup
         })
-        let languageNote = NSTextField(labelWithString: L10n.prefs.general.languageNote)
-        languageNote.font = NSFont.systemFont(ofSize: 11)
-        languageNote.textColor = .secondaryLabelColor
-        languageGroup.addArrangedSubview(languageNote)
         addSettingsGroup(languageGroup, to: stackView)
 
         // 外观设置组
@@ -233,8 +262,8 @@ final class PreferencesViewController: NSViewController {
         let connectionGroup = createSettingsGroup(title: L10n.prefs.section.connection, icon: "cable.connector")
         let autoReconnectCheckbox = NSButton(
             checkboxWithTitle: L10n.prefs.connectionPref.autoReconnect,
-            target: nil,
-            action: nil
+            target: self,
+            action: #selector(autoReconnectChanged(_:))
         )
         autoReconnectCheckbox.state = UserPreferences.shared.autoReconnect ? .on : .off
         connectionGroup.addArrangedSubview(autoReconnectCheckbox)
@@ -246,9 +275,13 @@ final class PreferencesViewController: NSViewController {
             stepper.minValue = 1
             stepper.maxValue = 30
             stepper.intValue = Int32(UserPreferences.shared.reconnectDelay)
+            stepper.target = self
+            stepper.action = #selector(reconnectDelayChanged(_:))
+            stepper.tag = 2001 // 用于查找关联的 label
             stack.addArrangedSubview(stepper)
             let label = NSTextField(labelWithString: L10n.prefs.connectionPref
                 .seconds(Int(UserPreferences.shared.reconnectDelay)))
+            label.tag = 2001
             stack.addArrangedSubview(label)
             return stack
         })
@@ -260,9 +293,13 @@ final class PreferencesViewController: NSViewController {
             stepper.minValue = 1
             stepper.maxValue = 20
             stepper.intValue = Int32(UserPreferences.shared.maxReconnectAttempts)
+            stepper.target = self
+            stepper.action = #selector(maxAttemptsChanged(_:))
+            stepper.tag = 2002 // 用于查找关联的 label
             stack.addArrangedSubview(stepper)
             let label = NSTextField(labelWithString: L10n.prefs.connectionPref
                 .times(UserPreferences.shared.maxReconnectAttempts))
+            label.tag = 2002
             stack.addArrangedSubview(label)
             return stack
         })
@@ -284,8 +321,8 @@ final class PreferencesViewController: NSViewController {
             let segmented = NSSegmentedControl(
                 labels: ["30 FPS", "60 FPS", "120 FPS"],
                 trackingMode: .selectOne,
-                target: nil,
-                action: nil
+                target: self,
+                action: #selector(frameRateChanged(_:))
             )
             switch UserPreferences.shared.captureFrameRate {
             case 30: segmented.selectedSegment = 0
@@ -326,6 +363,8 @@ final class PreferencesViewController: NSViewController {
             case 16: popup.selectItem(at: 2)
             default: popup.selectItem(at: 3)
             }
+            popup.target = self
+            popup.action = #selector(scrcpyBitrateChanged(_:))
             return popup
         })
         videoGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.maxSize) {
@@ -342,6 +381,8 @@ final class PreferencesViewController: NSViewController {
             case 1920: popup.selectItem(at: 2)
             default: popup.selectItem(at: 3)
             }
+            popup.target = self
+            popup.action = #selector(scrcpyMaxSizeChanged(_:))
             return popup
         })
         let videoNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.maxSizeNote)
@@ -354,8 +395,8 @@ final class PreferencesViewController: NSViewController {
         let displayGroup = createSettingsGroup(title: L10n.prefs.section.display, icon: "hand.tap")
         let showTouchesCheckbox = NSButton(
             checkboxWithTitle: L10n.prefs.scrcpyPref.showTouches,
-            target: nil,
-            action: nil
+            target: self,
+            action: #selector(scrcpyShowTouchesChanged(_:))
         )
         showTouchesCheckbox.state = UserPreferences.shared.scrcpyShowTouches ? .on : .off
         displayGroup.addArrangedSubview(showTouchesCheckbox)
@@ -795,6 +836,55 @@ final class PreferencesViewController: NSViewController {
 
     @objc private func devicePositionChanged(_ sender: NSSegmentedControl) {
         UserPreferences.shared.iosOnLeft = sender.selectedSegment == 0
+    }
+
+    @objc private func autoReconnectChanged(_ sender: NSButton) {
+        UserPreferences.shared.autoReconnect = sender.state == .on
+    }
+
+    @objc private func reconnectDelayChanged(_ sender: NSStepper) {
+        UserPreferences.shared.reconnectDelay = sender.doubleValue
+        // 更新关联的标签
+        if
+            let label = sender.superview?.subviews
+                .first(where: { $0.tag == 2001 && $0 is NSTextField }) as? NSTextField {
+            label.stringValue = L10n.prefs.connectionPref.seconds(Int(sender.intValue))
+        }
+    }
+
+    @objc private func maxAttemptsChanged(_ sender: NSStepper) {
+        UserPreferences.shared.maxReconnectAttempts = Int(sender.intValue)
+        // 更新关联的标签
+        if
+            let label = sender.superview?.subviews
+                .first(where: { $0.tag == 2002 && $0 is NSTextField }) as? NSTextField {
+            label.stringValue = L10n.prefs.connectionPref.times(Int(sender.intValue))
+        }
+    }
+
+    @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
+        let frameRates = [30, 60, 120]
+        UserPreferences.shared.captureFrameRate = frameRates[sender.selectedSegment]
+    }
+
+    @objc private func scrcpyBitrateChanged(_ sender: NSPopUpButton) {
+        let bitrates = [4, 8, 16, 32]
+        let index = sender.indexOfSelectedItem
+        if index >= 0, index < bitrates.count {
+            UserPreferences.shared.scrcpyBitrate = bitrates[index]
+        }
+    }
+
+    @objc private func scrcpyMaxSizeChanged(_ sender: NSPopUpButton) {
+        let sizes = [0, 1280, 1920, 2560]
+        let index = sender.indexOfSelectedItem
+        if index >= 0, index < sizes.count {
+            UserPreferences.shared.scrcpyMaxSize = sizes[index]
+        }
+    }
+
+    @objc private func scrcpyShowTouchesChanged(_ sender: NSButton) {
+        UserPreferences.shared.scrcpyShowTouches = sender.state == .on
     }
 
     @objc private func refreshToolchain() {

@@ -28,9 +28,10 @@ enum AppLanguage: String, CaseIterable, Codable {
     }
 
     /// 原生名称（用于选择器显示）
+    /// 注意：.system 使用本地化字符串，其他语言使用固定名称（方便用户识别）
     var nativeName: String {
         switch self {
-        case .system: "System"
+        case .system: L10n.language.system // 跟随系统 / Follow System
         case .en: "English"
         case .zhHans: "简体中文"
         }

@@ -175,7 +175,8 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     // MARK: - 初始化
 
     init(device: AndroidDevice, toolchainManager: ToolchainManager, configuration: ScrcpyConfiguration? = nil) {
-        var config = configuration ?? ScrcpyConfiguration(serial: device.serial)
+        // 使用传入的配置或从用户偏好设置构建配置
+        var config = configuration ?? UserPreferences.shared.buildScrcpyConfiguration(serial: device.serial)
         config.serial = device.serial
         self.configuration = config
         self.toolchainManager = toolchainManager

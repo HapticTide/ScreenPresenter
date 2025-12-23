@@ -54,6 +54,7 @@ final class DevicePanelView: NSView {
     private var statusContainerView: NSView!
 
     // 状态 UI 组件（不再使用图标）
+    private var loadingIndicator: NSProgressIndicator!
     private var titleLabel: NSTextField!
     private var statusStackView: NSStackView!
     private var statusIndicator: NSView!
@@ -265,6 +266,19 @@ final class DevicePanelView: NSView {
             make.trailing.lessThanOrEqualToSuperview().offset(-16).priority(.high)
         }
 
+        // 加载指示器（菊花）
+        loadingIndicator = NSProgressIndicator()
+        loadingIndicator.style = .spinning
+        loadingIndicator.controlSize = .regular
+        loadingIndicator.isIndeterminate = true
+        loadingIndicator.isHidden = true
+        contentContainer.addSubview(loadingIndicator)
+        loadingIndicator.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.centerX.equalToSuperview()
+            make.size.equalTo(32)
+        }
+
         // 标题（设备名称或提示文案）
         titleLabel = NSTextField(labelWithString: "")
         titleLabel.font = NSFont.systemFont(ofSize: 28, weight: .semibold)
@@ -274,7 +288,7 @@ final class DevicePanelView: NSView {
         titleLabel.maximumNumberOfLines = 1
         contentContainer.addSubview(titleLabel)
         titleLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview()
+            make.top.equalTo(loadingIndicator.snp.bottom).offset(16)
             make.centerX.equalToSuperview()
             make.leading.greaterThanOrEqualToSuperview()
             make.trailing.lessThanOrEqualToSuperview()
@@ -425,6 +439,10 @@ final class DevicePanelView: NSView {
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
 
+        // 隐藏加载指示器
+        loadingIndicator.stopAnimation(nil)
+        loadingIndicator.isHidden = true
+
         // 通过文案区分设备类型（边框已经展示了设备外观）
         titleLabel.stringValue = platform == .ios ? L10n.overlayUI.waitingForIPhone : L10n.overlayUI.waitingForAndroid
         titleLabel.textColor = Colors.titleSecondary
@@ -458,6 +476,10 @@ final class DevicePanelView: NSView {
         renderView.isHidden = true
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
+
+        // 隐藏加载指示器
+        loadingIndicator.stopAnimation(nil)
+        loadingIndicator.isHidden = true
 
         // 显示设备名称
         titleLabel.stringValue = deviceName
@@ -504,6 +526,9 @@ final class DevicePanelView: NSView {
         renderView.isHidden = false
         statusContainerView.isHidden = true
 
+        // 停止加载指示器（虽然 statusContainerView 已隐藏）
+        loadingIndicator.stopAnimation(nil)
+
         // 初始隐藏 captureBarView，只有鼠标悬停时才显示
         captureBarView.isHidden = !isMouseInside
         captureBarView.alphaValue = isMouseInside ? 1.0 : 0.0
@@ -538,6 +563,10 @@ final class DevicePanelView: NSView {
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
 
+        // 显示加载指示器
+        loadingIndicator.isHidden = false
+        loadingIndicator.startAnimation(nil)
+
         // 显示加载提示
         titleLabel.stringValue = L10n.common.loading
         titleLabel.textColor = Colors.titleSecondary
@@ -561,6 +590,10 @@ final class DevicePanelView: NSView {
         renderView.isHidden = true
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
+
+        // 隐藏加载指示器
+        loadingIndicator.stopAnimation(nil)
+        loadingIndicator.isHidden = true
 
         // 通过文案说明工具链缺失（不使用图标）
         titleLabel.stringValue = L10n.overlayUI.toolNotInstalled(toolName)
@@ -722,11 +755,10 @@ final class DevicePanelView: NSView {
 
         // 计算顶部偏移：存在顶部特征， y 从顶部底部开始
         // 如果没有顶部特征（topFeatureBottomInset < 1），则从屏幕顶部下移 12pt
-        let topOffset: CGFloat
-        if topFeatureBottomInset < 1 {
-            topOffset = 12
+        let topOffset: CGFloat = if topFeatureBottomInset < 1 {
+            12
         } else {
-            topOffset = topFeatureBottomInset
+            topFeatureBottomInset
         }
 
         captureBarView.frame = CGRect(
@@ -735,5 +767,49 @@ final class DevicePanelView: NSView {
             width: screen.width - horizontalInset * 2,
             height: barHeight
         )
+    }
+
+    // MARK: - 语言变更
+
+    /// 更新本地化文本（语言切换时调用）
+    func updateLocalizedTexts() {
+        // 更新停止按钮的 accessibilityDescription
+        stopButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.overlayUI.stop)
+
+        // 根据当前状态更新文本
+        switch currentState {
+        case .loading:
+            titleLabel.stringValue = L10n.common.loading
+
+        case .disconnected:
+            titleLabel.stringValue = currentPlatform == .ios
+                ? L10n.overlayUI.waitingForIPhone
+                : L10n.overlayUI.waitingForAndroid
+            subtitleLabel.stringValue = currentPlatform == .ios
+                ? L10n.overlayUI.connectIOS
+                : L10n.overlayUI.connectAndroid
+
+        case .connected:
+            // 设备名称不需要本地化，只更新状态和按钮文本
+            if statusLabel.stringValue.hasPrefix("⚠️") == false {
+                statusLabel.stringValue = L10n.overlayUI.deviceDetected
+            }
+            setActionButtonTitle(L10n.overlayUI.startCapture)
+            subtitleLabel.stringValue = currentPlatform == .ios
+                ? L10n.overlayUI.captureIOSHint
+                : L10n.overlayUI.captureAndroidHint
+
+        case .capturing:
+            if captureStatusLabel.stringValue.hasPrefix("⚠️") == false {
+                captureStatusLabel.stringValue = L10n.device.capturing
+            }
+
+        case .toolchainMissing:
+            let toolName = "scrcpy"
+            titleLabel.stringValue = L10n.overlayUI.toolNotInstalled(toolName)
+            statusLabel.stringValue = L10n.overlayUI.needInstall(toolName)
+            setActionButtonTitle(L10n.overlayUI.installTool(toolName))
+            subtitleLabel.stringValue = L10n.toolchain.installScrcpyHint
+        }
     }
 }
