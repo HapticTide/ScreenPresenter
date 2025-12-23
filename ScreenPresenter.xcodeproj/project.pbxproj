@@ -20,7 +20,7 @@
 		A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133112EF93201003DCDD3 /* ToolchainManager.swift */; };
 		A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133032EF93201003DCDD3 /* AndroidDevice.swift */; };
 		A441335D2EF93201003DCDD3 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441331F2EF93201003DCDD3 /* Logger.swift */; };
-		A44133622EF93201003DCDD3 /* adb in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* adb */; };
+		A44133622EF93201003DCDD3 /* Tools in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* Tools */; };
 		A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A44133242EF93201003DCDD3 /* Assets.xcassets */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		/* New files */
@@ -53,7 +53,7 @@
 		A44133112EF93201003DCDD3 /* ToolchainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolchainManager.swift; sourceTree = "<group>"; };
 		A44133192EF93201003DCDD3 /* FramePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePipeline.swift; sourceTree = "<group>"; };
 		A441331F2EF93201003DCDD3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
-		A44133222EF93201003DCDD3 /* adb */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = adb; sourceTree = "<group>"; };
+		A44133222EF93201003DCDD3 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = "<group>"; };
 		A44133242EF93201003DCDD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceProvider.swift; sourceTree = "<group>"; };
 		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
@@ -193,18 +193,10 @@
 			path = Core;
 			sourceTree = "<group>";
 		};
-		A44133232EF93201003DCDD3 /* tools */ = {
-			isa = PBXGroup;
-			children = (
-				A44133222EF93201003DCDD3 /* adb */,
-			);
-			path = tools;
-			sourceTree = "<group>";
-		};
 		A44133252EF93201003DCDD3 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				A44133232EF93201003DCDD3 /* tools */,
+				A44133222EF93201003DCDD3 /* Tools */,
 				A44133242EF93201003DCDD3 /* Assets.xcassets */,
 				B1000002000000000011 /* Localizable.strings */,
 			);
@@ -302,7 +294,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A44133622EF93201003DCDD3 /* adb in Resources */,
+				A44133622EF93201003DCDD3 /* Tools in Resources */,
 				A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */,
 				B1000001000000000011 /* Localizable.strings in Resources */,
 			);

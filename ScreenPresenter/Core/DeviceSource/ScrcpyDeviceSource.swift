@@ -589,7 +589,7 @@ private final class VideoToolboxDecoder {
 
         // 创建 CMBlockBuffer
         var blockBuffer: CMBlockBuffer?
-        var data = nalUnit.data
+        let data = nalUnit.data
 
         // 添加 NAL 长度前缀（4字节大端序）
         var length = UInt32(data.count).bigEndian

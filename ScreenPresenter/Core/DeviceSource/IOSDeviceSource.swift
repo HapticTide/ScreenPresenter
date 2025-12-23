@@ -9,7 +9,7 @@
 //  这是 QuickTime 同款路径，稳定可靠
 //
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 import CoreMedia
 import CoreMediaIO
@@ -18,7 +18,7 @@ import Foundation
 
 // MARK: - iOS 设备源
 
-final class IOSDeviceSource: BaseDeviceSource {
+final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     // MARK: - 属性
 
     /// 关联的 iOS 设备
