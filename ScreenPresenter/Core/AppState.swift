@@ -317,6 +317,21 @@ final class AppState {
         androidDeviceProvider.devices.first?.displayName
     }
 
+    /// Android 设备状态
+    var androidDeviceState: AndroidDeviceState? {
+        androidDeviceProvider.devices.first?.state
+    }
+
+    /// Android 设备用户提示（授权状态等）
+    var androidDeviceUserPrompt: String? {
+        androidDeviceProvider.devices.first?.state.actionHint
+    }
+
+    /// Android 设备是否可捕获（已授权）
+    var androidDeviceReady: Bool {
+        androidDeviceProvider.devices.first?.state == .device
+    }
+
     /// Android 是否正在捕获
     var androidCapturing: Bool {
         androidDeviceSource?.state == .capturing

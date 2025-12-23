@@ -127,30 +127,20 @@ final class MainViewController: NSViewController {
 
     @objc private func swapTapped() {
         isSwapped.toggle()
-
-        // 只对图标 layer 做水平翻转动画
-        // X 轴翻转动画：1 → -1 → 1
-        let flipAnimation = CAKeyframeAnimation(keyPath: "transform.scale.x")
-        flipAnimation.values = [1.0, -1.0, 1.0]
-        flipAnimation.keyTimes = [0, 0.5, 1.0]
-        flipAnimation.duration = 0.3
-        flipAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-        swapButtonIconLayer.add(flipAnimation, forKey: "swapFlip")
-
         updatePanelLayout()
     }
 
     private func setupSwapButtonTracking() {
         // 移除旧的追踪区域
         if let oldArea = swapButtonTrackingArea {
-            view.removeTrackingArea(oldArea)
+            previewContainerView.removeTrackingArea(oldArea)
         }
 
-        // 创建中间区域的追踪范围（比按钮大一些，方便触发）
+        // 创建中间区域的追踪范围（基于 previewContainerView，比按钮大一些方便触发）
+        // swapButton 在 previewContainerView 的中心，所以基于 previewContainerView.bounds 计算
         let centerRect = CGRect(
-            x: view.bounds.midX - 60,
-            y: view.bounds.midY - 60,
+            x: previewContainerView.bounds.midX - 60,
+            y: previewContainerView.bounds.midY - 60,
             width: 120,
             height: 120
         )
@@ -161,23 +151,42 @@ final class MainViewController: NSViewController {
             owner: self,
             userInfo: nil
         )
-        view.addTrackingArea(trackingArea)
+        previewContainerView.addTrackingArea(trackingArea)
         swapButtonTrackingArea = trackingArea
+
+        // 重建 tracking area 后，主动检查鼠标当前位置
+        // 避免依赖系统的 mouseEntered/mouseExited 事件（它们的时序可能不确定）
+        updateMouseInSwapAreaState()
     }
 
-    private func updateSwapButtonVisibility(animated: Bool = true) {
-        let shouldShow = !isFullScreen || isMouseInSwapArea
-        let targetAlpha: CGFloat = shouldShow ? 1.0 : 0.0
-
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                context.allowsImplicitAnimation = true
-                swapButton.animator().alphaValue = targetAlpha
-            }
-        } else {
-            swapButton.alphaValue = targetAlpha
+    /// 根据鼠标当前位置更新 isMouseInSwapArea 状态
+    private func updateMouseInSwapAreaState() {
+        guard let window = view.window else {
+            isMouseInSwapArea = false
+            return
         }
+
+        // 获取鼠标在窗口中的位置
+        let mouseLocationInWindow = window.mouseLocationOutsideOfEventStream
+        // 转换到 previewContainerView 的坐标系
+        let mouseLocationInContainer = previewContainerView.convert(mouseLocationInWindow, from: nil)
+
+        // 计算 tracking 区域
+        let centerRect = CGRect(
+            x: previewContainerView.bounds.midX - 60,
+            y: previewContainerView.bounds.midY - 60,
+            width: 120,
+            height: 120
+        )
+
+        isMouseInSwapArea = centerRect.contains(mouseLocationInContainer)
+    }
+
+    private func updateSwapButtonVisibility() {
+        // 非全屏时始终显示，全屏时仅当鼠标在区域内时显示
+        let shouldShow = !isFullScreen || isMouseInSwapArea
+        swapButton.isHidden = !shouldShow
+        swapButton.alphaValue = shouldShow ? 1.0 : 0.0
     }
 
     private func updateTitlebarVisibility(animated: Bool = true) {
@@ -212,23 +221,21 @@ final class MainViewController: NSViewController {
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
         isMouseInSwapArea = true
-        if isFullScreen {
-            updateSwapButtonVisibility()
-        }
+        updateSwapButtonVisibility()
     }
 
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
         isMouseInSwapArea = false
-        if isFullScreen {
-            updateSwapButtonVisibility()
-        }
+        updateSwapButtonVisibility()
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
         // 当视图大小改变时更新追踪区域
         setupSwapButtonTracking()
+        // 更新按钮可见性
+        updateSwapButtonVisibility()
     }
 
     private func updatePanelLayout() {
@@ -380,13 +387,27 @@ final class MainViewController: NSViewController {
                 }
             )
         } else if appState.androidConnected {
+            // 检查设备是否已授权（state == .device）
+            let isDeviceReady = appState.androidDeviceReady
+            let userPrompt = appState.androidDeviceUserPrompt
+
             panel.showConnected(
                 deviceName: appState.androidDeviceName ?? "Android",
                 platform: .android,
+                userPrompt: userPrompt,
                 onStart: { [weak self] in
-                    self?.startAndroidCapture()
+                    // 只有设备已授权才允许捕获
+                    if isDeviceReady {
+                        self?.startAndroidCapture()
+                    }
                 }
             )
+
+            // 如果设备未授权，禁用开始按钮
+            if !isDeviceReady {
+                panel.setActionButtonEnabled(false)
+            }
+
             panel.renderView.clearTexture()
         } else {
             panel.showDisconnected(platform: .android, connectionGuide: L10n.overlayUI.connectAndroid)
@@ -534,11 +555,12 @@ final class MainViewController: NSViewController {
         // 更新 titlebar 显示状态（全屏时隐藏 toolbar）
         updateTitlebarVisibility(animated: false)
 
-        // 更新 swap 按钮显示状态（全屏时默认隐藏）
-        updateSwapButtonVisibility()
-
         // 更新面板布局（包含上下缩进）
         updatePanelLayout()
+
+        // 根据鼠标实际位置更新状态，然后更新按钮可见性
+        updateMouseInSwapAreaState()
+        updateSwapButtonVisibility()
     }
 
     // MARK: - 语言变更

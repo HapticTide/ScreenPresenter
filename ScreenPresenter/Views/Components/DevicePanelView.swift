@@ -614,6 +614,14 @@ final class DevicePanelView: NSView {
         subtitleLabel.isHidden = false
     }
 
+    // MARK: - 按钮控制
+
+    /// 设置操作按钮的启用状态
+    func setActionButtonEnabled(_ enabled: Bool) {
+        actionButton.isEnabled = enabled
+        actionButton.alphaValue = enabled ? 1.0 : 0.5
+    }
+
     // MARK: - 会话中断状态
 
     /// 显示会话中断提示（设备锁屏等）
