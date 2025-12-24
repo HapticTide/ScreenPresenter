@@ -91,6 +91,7 @@ final class ToolchainManager {
     /// scrcpy-server 路径（优先使用内嵌版本）
     var scrcpyServerPath: String? {
         if let bundled = bundledScrcpyServerPath, FileManager.default.fileExists(atPath: bundled) {
+            AppLogger.app.debug("使用内嵌 scrcpy-server: \(bundled)")
             return bundled
         }
         // 系统安装的 scrcpy 会在 share/scrcpy 目录下
@@ -98,9 +99,11 @@ final class ToolchainManager {
             let dir = (systemPath as NSString).deletingLastPathComponent
             let serverPath = (dir as NSString).appendingPathComponent("../share/scrcpy/scrcpy-server")
             if FileManager.default.fileExists(atPath: serverPath) {
+                AppLogger.app.debug("使用系统 scrcpy-server: \(serverPath)")
                 return serverPath
             }
         }
+        AppLogger.app.warning("未找到 scrcpy-server")
         return nil
     }
 
@@ -113,17 +116,23 @@ final class ToolchainManager {
     /// adb 路径（优先使用内嵌版本）
     var adbPath: String {
         if let bundled = bundledAdbPath, FileManager.default.fileExists(atPath: bundled) {
+            AppLogger.app.debug("使用内嵌 adb: \(bundled)")
             return bundled
         }
-        return systemAdbPath ?? "/usr/local/bin/adb"
+        let fallback = systemAdbPath ?? "/usr/local/bin/adb"
+        AppLogger.app.debug("使用系统 adb: \(fallback)")
+        return fallback
     }
 
     /// scrcpy 路径（优先使用内嵌版本）
     var scrcpyPath: String {
         if let bundled = bundledScrcpyPath, FileManager.default.fileExists(atPath: bundled) {
+            AppLogger.app.debug("使用内嵌 scrcpy: \(bundled)")
             return bundled
         }
-        return systemScrcpyPath ?? "/opt/homebrew/bin/scrcpy"
+        let fallback = systemScrcpyPath ?? "/opt/homebrew/bin/scrcpy"
+        AppLogger.app.debug("使用系统 scrcpy: \(fallback)")
+        return fallback
     }
 
     // MARK: - 私有属性

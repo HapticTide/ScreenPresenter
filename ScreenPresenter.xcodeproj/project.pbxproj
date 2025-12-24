@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -38,7 +38,10 @@
 		D1000001000000000004 /* ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000004 /* ToastView.swift */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		E1000001000000000001 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000001 /* SnapKit */; };
+		E1000001000000000002 /* FBDeviceControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000002 /* FBDeviceControlKit */; };
 		F1000001000000000001 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000002000000000001 /* Colors.swift */; };
+		FB000001000000000001 /* IOSDeviceStateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000001 /* IOSDeviceStateMapper.swift */; };
+		FB000001000000000005 /* FBDeviceControlService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000006 /* FBDeviceControlService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +80,8 @@
 		D1000002000000000004 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
 		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
 		F1000002000000000001 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
+		FB000002000000000001 /* IOSDeviceStateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDeviceStateMapper.swift; sourceTree = "<group>"; };
+		FB000002000000000006 /* FBDeviceControlService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FBDeviceControlService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +90,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1000001000000000001 /* SnapKit in Frameworks */,
+				E1000001000000000002 /* FBDeviceControlKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,8 +132,10 @@
 			children = (
 				A44133032EF93201003DCDD3 /* AndroidDevice.swift */,
 				A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */,
+				FB000003000000000001 /* DeviceControl */,
 				DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */,
 				C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */,
+				FB000002000000000001 /* IOSDeviceStateMapper.swift */,
 			);
 			path = DeviceDiscovery;
 			sourceTree = "<group>";
@@ -235,6 +243,14 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		FB000003000000000001 /* DeviceControl */ = {
+			isa = PBXGroup;
+			children = (
+				FB000002000000000006 /* FBDeviceControlService.swift */,
+			);
+			path = DeviceControl;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -253,6 +269,7 @@
 			name = ScreenPresenter;
 			packageProductDependencies = (
 				E1000002000000000001 /* SnapKit */,
+				E1000002000000000002 /* FBDeviceControlKit */,
 			);
 			productName = ScreenPresenter;
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
@@ -285,6 +302,7 @@
 			mainGroup = A10000012419FFF7000001A1;
 			packageReferences = (
 				E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */,
+				E1000003000000000002 /* XCLocalSwiftPackageReference "FBDeviceControlKit" */,
 			);
 			productRefGroup = A1000001241A0001000001A3 /* Products */;
 			projectDirPath = "";
@@ -341,6 +359,8 @@
 				B1000001000000000009 /* DeviceInsightService.swift in Sources */,
 				B1000001000000000010 /* Localization.swift in Sources */,
 				F1000001000000000001 /* Colors.swift in Sources */,
+				FB000001000000000001 /* IOSDeviceStateMapper.swift in Sources */,
+				FB000001000000000005 /* FBDeviceControlService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -572,6 +592,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E1000003000000000002 /* XCLocalSwiftPackageReference "FBDeviceControlKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = FBDeviceControlKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -588,6 +615,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E1000003000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */;
 			productName = SnapKit;
+		};
+		E1000002000000000002 /* FBDeviceControlKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FBDeviceControlKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

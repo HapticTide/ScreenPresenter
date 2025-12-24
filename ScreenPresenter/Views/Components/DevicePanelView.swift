@@ -75,6 +75,13 @@ final class DevicePanelView: NSView {
     private var onStartAction: (() -> Void)?
     private var onStopAction: (() -> Void)?
     private var onInstallAction: (() -> Void)?
+    private var onRefreshAction: (() -> Void)?
+
+    /// 当前设备状态提示（用于 Toast 显示）
+    private var currentUserPrompt: String?
+
+    /// 刷新按钮
+    private var refreshButton: NSButton!
 
     // MARK: - 颜色定义（适配黑色背景的屏幕区域）
 
@@ -360,6 +367,31 @@ final class DevicePanelView: NSView {
             make.trailing.lessThanOrEqualToSuperview()
             make.bottom.equalToSuperview()
         }
+
+        // 刷新按钮（右上角）
+        refreshButton = NSButton(
+            image: NSImage(
+                systemSymbolName: "arrow.clockwise",
+                accessibilityDescription: L10n.common.refresh
+            )!,
+            target: self,
+            action: #selector(refreshTapped)
+        )
+        refreshButton.bezelStyle = .circular
+        refreshButton.isBordered = false
+        refreshButton.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        refreshButton.toolTip = L10n.common.refresh
+        refreshButton.isHidden = true
+        statusContainerView.addSubview(refreshButton)
+        refreshButton.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(12)
+            make.trailing.equalToSuperview().offset(-12)
+            make.size.equalTo(24)
+        }
+
+        // 状态栏点击手势（用于显示 Toast 提示）
+        let tapGesture = NSClickGestureRecognizer(target: self, action: #selector(statusTapped))
+        statusStackView.addGestureRecognizer(tapGesture)
     }
 
     private func setupCaptureBar() {
@@ -448,6 +480,10 @@ final class DevicePanelView: NSView {
         loadingIndicator.stopAnimation(nil)
         loadingIndicator.isHidden = true
 
+        // 隐藏刷新按钮
+        refreshButton.isHidden = true
+        currentUserPrompt = nil
+
         // 通过文案区分设备类型（边框已经展示了设备外观）
         titleLabel.stringValue = platform == .ios ? L10n.overlayUI.waitingForIPhone : L10n.overlayUI.waitingForAndroid
         titleLabel.textColor = Colors.titleSecondary
@@ -464,15 +500,32 @@ final class DevicePanelView: NSView {
     }
 
     /// 显示已连接状态
+    /// - Parameters:
+    ///   - deviceName: 设备名称
+    ///   - platform: 设备平台
+    ///   - modelName: 设备型号名称（如 "iPhone 15 Pro"）
+    ///   - systemVersion: 系统版本（如 "18.2"）
+    ///   - buildVersion: 系统 build 版本（如 "22C5125e"）
+    ///   - userPrompt: 用户提示信息（如需要信任、解锁等）
+    ///   - deviceState: 设备状态
+    ///   - onStart: 开始捕获回调
+    ///   - onRefresh: 刷新设备信息回调
     func showConnected(
         deviceName: String,
         platform: DevicePlatform,
+        modelName: String? = nil,
+        systemVersion: String? = nil,
+        buildVersion: String? = nil,
         userPrompt: String? = nil,
-        onStart: @escaping () -> Void
+        deviceState: IOSDevice.State? = nil,
+        onStart: @escaping () -> Void,
+        onRefresh: (() -> Void)? = nil
     ) {
         currentState = .connected
         currentPlatform = platform
         onStartAction = onStart
+        onRefreshAction = onRefresh
+        currentUserPrompt = userPrompt
         stopFPSUpdateTimer()
 
         // 根据设备名称配置对应的边框
@@ -495,9 +548,16 @@ final class DevicePanelView: NSView {
         statusIndicator.isHidden = false
 
         if let prompt = userPrompt {
-            statusIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
+            // 根据设备状态选择颜色
+            let statusColor: NSColor = if let state = deviceState {
+                IOSDeviceStateMapper.statusColor(for: state)
+            } else {
+                .systemOrange
+            }
+
+            statusIndicator.layer?.backgroundColor = statusColor.cgColor
             statusLabel.stringValue = "⚠️ \(prompt)"
-            statusLabel.textColor = .systemOrange
+            statusLabel.textColor = statusColor
         } else {
             statusIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
             statusLabel.stringValue = L10n.overlayUI.deviceDetected
@@ -508,9 +568,53 @@ final class DevicePanelView: NSView {
         actionButton.isEnabled = true
         actionButton.isHidden = false
 
-        subtitleLabel.stringValue = platform == .ios ? L10n.overlayUI.captureIOSHint : L10n.overlayUI.captureAndroidHint
+        // 显示刷新按钮（仅当提供了 onRefresh 回调时）
+        refreshButton.isHidden = onRefresh == nil
+
+        // 构建设备详细信息文本
+        let detailInfo = buildDeviceDetailInfo(
+            platform: platform,
+            modelName: modelName,
+            systemVersion: systemVersion,
+            buildVersion: buildVersion
+        )
+        subtitleLabel.stringValue = detailInfo
         subtitleLabel.textColor = Colors.hint
         subtitleLabel.isHidden = false
+    }
+
+    /// 构建设备详细信息文本
+    private func buildDeviceDetailInfo(
+        platform: DevicePlatform,
+        modelName: String?,
+        systemVersion: String?,
+        buildVersion: String?
+    ) -> String {
+        if platform == .android {
+            return L10n.overlayUI.captureAndroidHint
+        }
+
+        var parts: [String] = []
+
+        // 型号名称（如 iPhone 15 Pro）
+        if let model = modelName, !model.isEmpty {
+            parts.append(model)
+        }
+
+        // iOS 版本
+        if let version = systemVersion, !version.isEmpty {
+            if let build = buildVersion, !build.isEmpty {
+                parts.append("iOS \(version) (\(build))")
+            } else {
+                parts.append("iOS \(version)")
+            }
+        }
+
+        if parts.isEmpty {
+            return L10n.overlayUI.captureIOSHint
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     /// 显示捕获中状态
@@ -591,6 +695,8 @@ final class DevicePanelView: NSView {
         statusStackView.isHidden = true
         actionButton.isHidden = true
         subtitleLabel.isHidden = true
+        refreshButton.isHidden = true
+        currentUserPrompt = nil
     }
 
     /// 显示工具链缺失状态
@@ -629,6 +735,10 @@ final class DevicePanelView: NSView {
         subtitleLabel.stringValue = L10n.toolchain.installScrcpyHint
         subtitleLabel.textColor = Colors.hint
         subtitleLabel.isHidden = false
+
+        // 隐藏刷新按钮
+        refreshButton.isHidden = true
+        currentUserPrompt = nil
     }
 
     // MARK: - 按钮控制
@@ -765,6 +875,24 @@ final class DevicePanelView: NSView {
 
     @objc private func stopTapped() {
         onStopAction?()
+    }
+
+    @objc private func refreshTapped() {
+        // 刷新按钮旋转动画
+        refreshButton.wantsLayer = true
+        let animation = CABasicAnimation(keyPath: "transform.rotation.z")
+        animation.fromValue = 0
+        animation.toValue = Double.pi * 2
+        animation.duration = 0.5
+        refreshButton.layer?.add(animation, forKey: "rotation")
+
+        onRefreshAction?()
+    }
+
+    @objc private func statusTapped() {
+        // 如果有提示信息，显示 Toast
+        guard let prompt = currentUserPrompt, !prompt.isEmpty else { return }
+        ToastView.warning(prompt, in: window)
     }
 
     // MARK: - 动画

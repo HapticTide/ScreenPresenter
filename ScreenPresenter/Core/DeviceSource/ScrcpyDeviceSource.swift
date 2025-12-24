@@ -259,24 +259,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
         monitorTask?.cancel()
         monitorTask = nil
-        readTask?.cancel()
-        readTask = nil
 
+        // stopCapture 会处理 readTask、socket、serverProcess 和 adb forward
         await stopCapture()
-
-        // 关闭视频 socket
-        try? videoSocket?.close()
-        videoSocket = nil
-
-        // 终止 scrcpy-server 进程
-        if let serverProcess, serverProcess.isRunning {
-            serverProcess.terminate()
-            serverProcess.waitUntilExit()
-        }
-        serverProcess = nil
-
-        // 移除 adb 端口转发
-        await removeAdbForward()
 
         // 清理解码器
         decoder = nil
@@ -315,21 +300,41 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     }
 
     override func stopCapture() async {
+        AppLogger.capture.info("停止捕获: \(displayName)")
+
+        // 1. 先取消读取任务
         readTask?.cancel()
+
+        // 2. 关闭 socket 的读取端，这会使 availableData 返回空数据而不是崩溃
+        if let socket = videoSocket {
+            let fd = socket.fileDescriptor
+            if fd >= 0 {
+                // shutdown 读取端，让 availableData 安全返回
+                Darwin.shutdown(fd, SHUT_RD)
+            }
+        }
+
+        // 3. 等待读取任务结束（最多等待 1 秒）
+        if let task = readTask {
+            _ = await Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }.value
+            task.cancel()
+        }
         readTask = nil
 
-        // 关闭视频 socket
+        // 4. 现在可以安全关闭 socket
         try? videoSocket?.close()
         videoSocket = nil
 
-        // 终止 scrcpy-server 进程
+        // 5. 终止 scrcpy-server 进程
         if let serverProcess, serverProcess.isRunning {
             serverProcess.terminate()
             serverProcess.waitUntilExit()
         }
         serverProcess = nil
 
-        // 移除 adb 端口转发
+        // 6. 移除 adb 端口转发
         await removeAdbForward()
 
         if state == .capturing {
@@ -347,7 +352,11 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             (toolchainManager.adbPath, toolchainManager.scrcpyServerPath)
         }
 
+        AppLogger.process.info("adb 路径: \(adbPath)")
+        AppLogger.process.info("scrcpy-server 路径: \(scrcpyServerPath ?? "未找到")")
+
         guard let serverPath = scrcpyServerPath else {
+            AppLogger.process.error("scrcpy-server 未找到，无法启动")
             throw DeviceSourceError.captureStartFailed("scrcpy-server 未找到")
         }
 
@@ -436,6 +445,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     private func startServer(adbPath: String) async throws {
         // 获取 scrcpy 版本（用于服务端验证）
         let scrcpyVersion = await getScrcpyVersion()
+        AppLogger.process.info("scrcpy 版本: \(scrcpyVersion)")
 
         // 构建服务端参数
         var serverArgs: [String] = [
@@ -565,22 +575,53 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             return
         }
 
+        // 保存 socket 的本地引用，避免在循环中访问可能被置空的属性
+        let socket = videoSocket
+
         readTask = Task { [weak self] in
             guard let self else { return }
 
+            AppLogger.capture.info("开始读取视频流...")
+            var totalBytesRead = 0
+            var readCount = 0
+
             // 读取视频流数据
             while !Task.isCancelled {
-                // 读取数据块
-                let data = videoSocket.availableData
-                if data.isEmpty {
-                    // 连接已关闭
-                    AppLogger.capture.info("视频流连接已关闭")
-                    break
+                // 使用 readabilityHandler 或直接读取
+                // FileHandle.availableData 在 socket 关闭时会抛出异常
+                // 我们通过检查 Task.isCancelled 来提前退出
+                autoreleasepool {
+                    let data = socket.availableData
+
+                    guard !data.isEmpty else {
+                        // 空数据表示连接已关闭
+                        return
+                    }
+
+                    totalBytesRead += data.count
+                    readCount += 1
+
+                    // 前几次读取打印详细日志
+                    if readCount <= 5 {
+                        AppLogger.capture.info("读取数据块 #\(readCount): \(data.count) 字节")
+                        if data.count > 0 {
+                            let preview = data.prefix(min(32, data.count)).map { String(format: "%02x", $0) }
+                                .joined(separator: " ")
+                            AppLogger.capture.info("数据预览: \(preview)")
+                        }
+                    }
+
+                    // 送入解码器（在专用解码队列异步执行）
+                    self.decoder?.decode(data: data)
                 }
 
-                // 送入解码器（在专用解码队列异步执行）
-                decoder?.decode(data: data)
+                // 检查是否应该退出
+                if Task.isCancelled {
+                    break
+                }
             }
+
+            AppLogger.capture.info("视频流读取任务结束，共读取 \(totalBytesRead) 字节，\(readCount) 次")
 
             // 流结束后更新状态
             await MainActor.run { [weak self] in
@@ -688,6 +729,8 @@ private final class VideoToolboxDecoder {
 
     /// 解码数据
     /// 将数据送入专用解码队列进行异步解码
+    private var decodeCallCount = 0
+
     func decode(data: Data) {
         decodeQueue.async { [weak self] in
             guard let self else { return }
@@ -695,16 +738,34 @@ private final class VideoToolboxDecoder {
             decoderLock.lock()
             defer { decoderLock.unlock() }
 
+            decodeCallCount += 1
+            if decodeCallCount <= 10 {
+                AppLogger.capture.info("[解码器] 收到数据 #\(decodeCallCount): \(data.count) 字节")
+            }
+
             // 解析 NAL 单元
             let nalUnits = nalParser.parse(data: data)
 
+            if decodeCallCount <= 10 {
+                AppLogger.capture.info("[解码器] 解析出 \(nalUnits.count) 个 NAL 单元")
+            }
+
             for nalUnit in nalUnits {
+                if decodeCallCount <= 10 {
+                    AppLogger.capture
+                        .info(
+                            "[解码器] NAL 类型: \(nalUnit.type), 是参数集: \(nalUnit.isParameterSet), 大小: \(nalUnit.data.count)"
+                        )
+                }
+
                 // 检查是否是参数集
                 if nalUnit.isParameterSet {
                     if !isInitialized {
+                        AppLogger.capture.info("[解码器] 尝试初始化解码器...")
                         // 尝试初始化解码器
                         if initializeDecoder(with: nalUnit) {
                             isInitialized = true
+                            AppLogger.capture.info("[解码器] ✅ 解码器初始化成功！")
                         }
                     }
                     continue
@@ -724,54 +785,82 @@ private final class VideoToolboxDecoder {
         // 实际实现需要正确解析 SPS/PPS (H.264) 或 VPS/SPS/PPS (H.265)
 
         guard let sps = nalParser.sps, let pps = nalParser.pps else {
+            AppLogger.capture.info("等待 SPS/PPS 参数集... (当前 SPS: \(nalParser.sps != nil), PPS: \(nalParser.pps != nil))")
             return false
         }
+
+        AppLogger.capture.info("✅ 收到完整参数集 - SPS: \(sps.count) 字节, PPS: \(pps.count) 字节")
+        AppLogger.capture
+            .info("SPS: \(sps.map { String(format: "%02x", $0) }.joined(separator: " "))")
+        AppLogger.capture
+            .info("PPS: \(pps.map { String(format: "%02x", $0) }.joined(separator: " "))")
+        AppLogger.capture.info("开始创建 H.264 格式描述...")
 
         // 创建格式描述
         var formatDescription: CMFormatDescription?
         let status: OSStatus
 
         if codecType == kCMVideoCodecType_H264 {
-            let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                sps.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-                pps.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-            ]
-            let parameterSetSizes: [Int] = [sps.count, pps.count]
+            // 使用 contiguousBytes 确保数据连续，并在闭包内完成所有操作
+            status = sps.withUnsafeBytes { spsBuffer in
+                pps.withUnsafeBytes { ppsBuffer in
+                    let parameterSetPointers: [UnsafePointer<UInt8>] = [
+                        spsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                        ppsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    ]
+                    let parameterSetSizes: [Int] = [sps.count, pps.count]
 
-            status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                allocator: kCFAllocatorDefault,
-                parameterSetCount: 2,
-                parameterSetPointers: parameterSetPointers,
-                parameterSetSizes: parameterSetSizes,
-                nalUnitHeaderLength: 4,
-                formatDescriptionOut: &formatDescription
-            )
+                    return CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                        allocator: kCFAllocatorDefault,
+                        parameterSetCount: 2,
+                        parameterSetPointers: parameterSetPointers,
+                        parameterSetSizes: parameterSetSizes,
+                        nalUnitHeaderLength: 4,
+                        formatDescriptionOut: &formatDescription
+                    )
+                }
+            }
         } else {
             // H.265 需要 VPS
-            guard let vps = nalParser.vps else { return false }
+            guard let vps = nalParser.vps else {
+                AppLogger.capture.debug("等待 VPS 参数集...")
+                return false
+            }
 
-            let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                vps.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-                sps.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-                pps.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-            ]
-            let parameterSetSizes: [Int] = [vps.count, sps.count, pps.count]
+            AppLogger.capture.info("收到 VPS: \(vps.count) 字节")
 
-            status = CMVideoFormatDescriptionCreateFromHEVCParameterSets(
-                allocator: kCFAllocatorDefault,
-                parameterSetCount: 3,
-                parameterSetPointers: parameterSetPointers,
-                parameterSetSizes: parameterSetSizes,
-                nalUnitHeaderLength: 4,
-                extensions: nil,
-                formatDescriptionOut: &formatDescription
-            )
+            status = vps.withUnsafeBytes { vpsBuffer in
+                sps.withUnsafeBytes { spsBuffer in
+                    pps.withUnsafeBytes { ppsBuffer in
+                        let parameterSetPointers: [UnsafePointer<UInt8>] = [
+                            vpsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                            spsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                            ppsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                        ]
+                        let parameterSetSizes: [Int] = [vps.count, sps.count, pps.count]
+
+                        return CMVideoFormatDescriptionCreateFromHEVCParameterSets(
+                            allocator: kCFAllocatorDefault,
+                            parameterSetCount: 3,
+                            parameterSetPointers: parameterSetPointers,
+                            parameterSetSizes: parameterSetSizes,
+                            nalUnitHeaderLength: 4,
+                            extensions: nil,
+                            formatDescriptionOut: &formatDescription
+                        )
+                    }
+                }
+            }
         }
+
+        AppLogger.capture.info("CMVideoFormatDescriptionCreate 返回状态: \(status)")
 
         guard status == noErr, let description = formatDescription else {
-            AppLogger.capture.error("创建格式描述失败: \(status)")
+            AppLogger.capture.error("❌ 创建格式描述失败，错误码: \(status)")
             return false
         }
+
+        AppLogger.capture.info("✅ 格式描述创建成功")
 
         self.formatDescription = description
 

@@ -9,19 +9,20 @@
 //
 
 import AVFoundation
+import FBDeviceControlKit
 import Foundation
 
 // MARK: - iOS 设备
 
 /// iOS 设备信息
 struct IOSDevice: Identifiable, Hashable {
-    /// 设备唯一 ID
+    /// 设备唯一 ID（UDID）
     let id: String
 
     /// 设备名称（如 "iPhone 15 Pro"）
     let name: String
 
-    /// 设备型号标识
+    /// 设备型号标识（如 "iPhone16,1"）
     let modelID: String?
 
     /// 连接类型
@@ -33,29 +34,46 @@ struct IOSDevice: Identifiable, Hashable {
     /// 关联的 AVCaptureDevice
     weak var captureDevice: AVCaptureDevice?
 
-    // MARK: - MobileDevice 增强信息（可选，不影响主流程）
+    // MARK: - 设备状态
 
-    /// 增强的设备信息（来自 MobileDevice.framework）
-    var insight: IOSDeviceInsight?
+    /// 设备状态（状态机）
+    var state: State = .available
 
-    /// 用户提示信息（信任状态、占用状态等）
-    var userPrompt: String?
+    /// 最后检测时间
+    var lastSeenAt: Date = .init()
 
-    /// 显示名称（优先使用 insight 中的用户设备名）
+    // MARK: - 设备信息（从 AVFoundation 获取）
+
+    /// 用户设置的设备名称（来自 AVCaptureDevice.localizedName）
+    var deviceName: String?
+
+    /// iOS 版本（如 "18.2"）—— AVFoundation 无法获取，始终为 nil
+    var productVersion: String?
+
+    /// 设备型号标识符（如 "iPhone16,1"）
+    var productType: String?
+
+    /// 系统 build 版本（如 "22C5125e"）—— AVFoundation 无法获取，始终为 nil
+    var buildVersion: String?
+
+    /// 是否被其他应用占用
+    var isOccupied: Bool = false
+
+    /// 占用的应用名称
+    var occupiedBy: String?
+
+    // MARK: - 计算属性
+
+    /// 显示名称（优先使用设备名，fallback 到 name）
     var displayName: String {
-        // 优先使用 MobileDevice 提供的用户设置的设备名
-        if let insight, insight.deviceName != "iOS 设备" {
-            return insight.deviceName
+        if let deviceName, !deviceName.isEmpty, deviceName != "iOS 设备" {
+            return deviceName
         }
         return name
     }
 
-    /// 详细型号名称（优先使用 insight 中的型号名）
+    /// 详细型号名称
     var displayModelName: String? {
-        // 优先使用 MobileDevice 提供的型号名
-        if let insight, insight.modelName != L10n.deviceInfo.unknownModel {
-            return insight.modelName
-        }
         // 尝试从 modelID 映射
         if let modelID {
             let mapped = DeviceInsightService.modelName(for: modelID)
@@ -66,27 +84,28 @@ struct IOSDevice: Identifiable, Hashable {
         return modelID
     }
 
-    /// iOS 版本
+    /// iOS 版本（AVFoundation 无法获取，返回 nil）
     var systemVersion: String? {
-        insight?.systemVersion
+        productVersion
     }
 
     /// 是否处于锁屏/息屏状态
     var isLocked: Bool {
-        insight?.isLocked ?? false
+        state == .locked
     }
 
-    /// 是否被其他应用占用
-    var isOccupied: Bool {
-        insight?.isOccupied ?? false
-    }
-
-    /// 是否可以立即开始捕获（未锁屏且未被占用）
+    /// 是否可以立即开始捕获
     var isReadyForCapture: Bool {
-        !isLocked && !isOccupied
+        state == .available && !isOccupied
     }
 
-    /// 连接类型枚举
+    /// 用户提示信息（根据状态自动生成）
+    var userPrompt: String? {
+        IOSDeviceStateMapper.userPrompt(for: state, occupiedBy: occupiedBy)
+    }
+
+    // MARK: - 连接类型枚举
+
     enum ConnectionType: String {
         case usb = "USB"
         case unknown = "Unknown"
@@ -95,6 +114,72 @@ struct IOSDevice: Identifiable, Hashable {
             switch self {
             case .usb: "cable.connector"
             case .unknown: "questionmark.circle"
+            }
+        }
+    }
+
+    // MARK: - 设备状态枚举
+
+    /// iOS 设备状态
+    enum State: Equatable, CustomStringConvertible {
+        /// 可用状态
+        case available
+        /// 未信任此电脑
+        case notTrusted
+        /// 未配对
+        case notPaired
+        /// 设备锁屏/未解锁
+        case locked
+        /// iOS 16+ Developer Mode 关闭
+        case developerModeOff
+        /// 会话繁忙/恢复中
+        case busy
+        /// 不可用（带原因和底层错误）
+        case unavailable(reason: String, underlying: String?)
+
+        var description: String {
+            switch self {
+            case .available: "available"
+            case .notTrusted: "notTrusted"
+            case .notPaired: "notPaired"
+            case .locked: "locked"
+            case .developerModeOff: "developerModeOff"
+            case .busy: "busy"
+            case let .unavailable(reason, _): "unavailable(\(reason))"
+            }
+        }
+
+        /// 是否为问题状态（需要用户干预）
+        var isProblem: Bool {
+            switch self {
+            case .available: false
+            default: true
+            }
+        }
+
+        /// 状态颜色指示
+        var statusColor: String {
+            switch self {
+            case .available: "systemGreen"
+            case .locked, .busy: "systemOrange"
+            case .notTrusted, .notPaired, .developerModeOff: "systemRed"
+            case .unavailable: "systemGray"
+            }
+        }
+
+        static func == (lhs: State, rhs: State) -> Bool {
+            switch (lhs, rhs) {
+            case (.available, .available),
+                 (.notTrusted, .notTrusted),
+                 (.notPaired, .notPaired),
+                 (.locked, .locked),
+                 (.developerModeOff, .developerModeOff),
+                 (.busy, .busy):
+                true
+            case let (.unavailable(r1, u1), .unavailable(r2, u2)):
+                r1 == r2 && u1 == u2
+            default:
+                false
             }
         }
     }
@@ -108,8 +193,13 @@ struct IOSDevice: Identifiable, Hashable {
         connectionType: ConnectionType = .usb,
         locationID: UInt32? = nil,
         captureDevice: AVCaptureDevice? = nil,
-        insight: IOSDeviceInsight? = nil,
-        userPrompt: String? = nil
+        state: State = .available,
+        deviceName: String? = nil,
+        productVersion: String? = nil,
+        productType: String? = nil,
+        buildVersion: String? = nil,
+        isOccupied: Bool = false,
+        occupiedBy: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -117,8 +207,14 @@ struct IOSDevice: Identifiable, Hashable {
         self.connectionType = connectionType
         self.locationID = locationID
         self.captureDevice = captureDevice
-        self.insight = insight
-        self.userPrompt = userPrompt
+        self.state = state
+        self.deviceName = deviceName
+        self.productVersion = productVersion
+        self.productType = productType ?? modelID
+        self.buildVersion = buildVersion
+        self.isOccupied = isOccupied
+        self.occupiedBy = occupiedBy
+        lastSeenAt = Date()
     }
 
     // MARK: - 从 AVCaptureDevice 创建
@@ -165,23 +261,27 @@ struct IOSDevice: Identifiable, Hashable {
         // 清理设备名称，去掉系统添加的后缀
         let displayName = cleanDeviceName(rawName)
 
-        // 获取设备状态（使用 AVFoundation 检测）
-        let insightService = DeviceInsightService.shared
-        let insight = insightService.getDeviceInsight(for: captureDevice)
-        let userPrompt = insightService.getUserPrompt(for: insight)
+        // 使用 AVFoundation 检测设备状态
+        let (state, isOccupied, occupiedBy) = IOSDeviceStateMapper.detectState(from: captureDevice)
+
+        // 获取型号名称
+        let modelName = DeviceInsightService.modelName(for: modelID)
 
         // 记录设备信息和状态
-        var logMessage = "发现 iOS 设备: \(insight.deviceName), 模型: \(insight.modelName)"
-        if insight.isLocked {
+        var logMessage = "发现 iOS 设备: \(displayName), 模型: \(modelName)"
+        if state == .locked {
             logMessage += " [锁屏/息屏]"
         }
-        if insight.isOccupied {
+        if isOccupied {
             logMessage += " [被占用]"
+        }
+        if state.isProblem {
+            logMessage += " [状态: \(state)]"
         }
         AppLogger.device.info("\(logMessage)")
 
         // 记录用户提示
-        if let prompt = userPrompt {
+        if let prompt = IOSDeviceStateMapper.userPrompt(for: state, occupiedBy: occupiedBy) {
             AppLogger.device.warning("设备状态提示: \(prompt)")
         }
 
@@ -192,8 +292,13 @@ struct IOSDevice: Identifiable, Hashable {
             connectionType: .usb,
             locationID: nil,
             captureDevice: captureDevice,
-            insight: insight,
-            userPrompt: userPrompt
+            state: state,
+            deviceName: displayName,
+            productVersion: nil, // AVFoundation 无法获取
+            productType: modelID,
+            buildVersion: nil, // AVFoundation 无法获取
+            isOccupied: isOccupied,
+            occupiedBy: occupiedBy
         )
     }
 
@@ -283,6 +388,66 @@ struct IOSDevice: Identifiable, Hashable {
         }
 
         return cleanName.trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: - 从 FBDeviceInfoDTO 增强信息
+
+    /// 使用 FBDeviceControl 信息增强设备
+    /// - Parameter dto: FBDeviceInfoDTO 数据
+    /// - Returns: 增强后的 IOSDevice
+    func enriched(with dto: FBDeviceInfoDTO) -> IOSDevice {
+        var enriched = self
+
+        // 更新设备名称（优先使用 FBDeviceControl 提供的）
+        if !dto.deviceName.isEmpty, dto.deviceName != "iOS 设备" {
+            enriched.deviceName = dto.deviceName
+        }
+
+        // 更新版本信息（FBDeviceControl 可以获取，AVFoundation 不行）
+        if let version = dto.productVersion {
+            enriched.productVersion = version
+        }
+
+        // 更新型号信息
+        if let productType = dto.productType {
+            enriched.productType = productType
+        }
+
+        // 更新 build 版本
+        if let buildVersion = dto.buildVersion {
+            enriched.buildVersion = buildVersion
+        }
+
+        // 更新状态
+        enriched.state = IOSDeviceStateMapper.mapFromFBDeviceState(dto.rawState)
+
+        // 更新最后检测时间
+        enriched.lastSeenAt = Date()
+
+        return enriched
+    }
+
+    /// 从 FBDeviceInfoDTO 创建 IOSDevice（当 AVFoundation 不可用时的 fallback）
+    /// - Parameter dto: FBDeviceInfoDTO 数据
+    /// - Returns: IOSDevice 实例
+    static func from(dto: FBDeviceInfoDTO) -> IOSDevice {
+        let state = IOSDeviceStateMapper.mapFromFBDeviceState(dto.rawState)
+
+        return IOSDevice(
+            id: dto.udid,
+            name: dto.deviceName,
+            modelID: dto.productType,
+            connectionType: dto.connectionType == .wifi ? .unknown : .usb,
+            locationID: nil,
+            captureDevice: nil,
+            state: state,
+            deviceName: dto.deviceName,
+            productVersion: dto.productVersion,
+            productType: dto.productType,
+            buildVersion: dto.buildVersion,
+            isOccupied: false,
+            occupiedBy: nil
+        )
     }
 
     // MARK: - Hashable

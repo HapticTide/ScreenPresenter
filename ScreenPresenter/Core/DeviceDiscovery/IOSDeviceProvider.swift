@@ -7,14 +7,17 @@
 //  iOS 设备提供者
 //  使用 AVFoundation 发现和管理 USB 连接的 iOS 设备
 //
-//  设备事件监听策略：
-//  - 主要：AVFoundation 通知（连接/断开）— 稳定的公开 API
-//  - 增强：定期刷新 DeviceInsight（状态变化检测）— 轻量级补充
-//  - 不使用 MobileDevice 原生事件，避免私有 API 不稳定性
+//  双层数据源策略：
+//  1. 主层：AVFoundation（设备发现 + 捕获能力检测）— 稳定的公开 API
+//  2. 增强层：FBDeviceControl（详细设备信息）— 可选，failover 到 AVFoundation
+//
+//  数据流：
+//  AVFoundation 发现设备 → FBDeviceControl 补全信息 → IOSDevice 模型 → UI
 //
 
 import AVFoundation
 import Combine
+import FBDeviceControlKit
 import Foundation
 
 // MARK: - iOS 设备提供者
@@ -32,28 +35,38 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     /// 最后一次错误
     @Published private(set) var lastError: String?
 
+    /// FBDeviceControl 是否可用
+    var isFBDeviceControlAvailable: Bool {
+        FBDeviceControlService.shared.isAvailable
+    }
+
     // MARK: - 配置
 
     /// 状态刷新间隔（秒）— 用于检测锁屏/占用状态变化
-    private let insightRefreshInterval: TimeInterval = 2.0
+    private let stateRefreshInterval: TimeInterval = 2.0
 
     // MARK: - 私有属性
 
     private var discoverySession: AVCaptureDevice.DiscoverySession?
     private var deviceObservation: NSKeyValueObservation?
-    private var insightRefreshTask: Task<Void, Never>?
+    private var stateRefreshTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+
+    /// FBDeviceControl 设备信息缓存 (udid -> FBDeviceInfoDTO)
+    private var fbDeviceInfoCache: [String: FBDeviceInfoDTO] = [:]
 
     // MARK: - 初始化
 
     override init() {
         super.init()
         setupNotifications()
+        setupFBDeviceControl()
     }
 
     deinit {
         deviceObservation?.invalidate()
-        insightRefreshTask?.cancel()
+        stateRefreshTask?.cancel()
+        FBDeviceControlService.shared.stopObserving()
     }
 
     // MARK: - 公开方法
@@ -65,7 +78,62 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         isMonitoring = true
         lastError = nil
         setupDiscoverySession()
-        startInsightRefresh()
+        startStateRefresh()
+        startFBDeviceControlObserving()
+    }
+
+    // MARK: - FBDeviceControl 集成
+
+    /// 设置 FBDeviceControl
+    private func setupFBDeviceControl() {
+        if FBDeviceControlService.shared.isAvailable {
+            AppLogger.device.info("FBDeviceControl 可用，将用于增强设备信息")
+        } else {
+            let error = FBDeviceControlService.shared.initializationError ?? "未知错误"
+            AppLogger.device.warning("FBDeviceControl 不可用: \(error)，使用 AVFoundation fallback")
+        }
+    }
+
+    /// 开始 FBDeviceControl 观察
+    private func startFBDeviceControlObserving() {
+        guard FBDeviceControlService.shared.isAvailable else { return }
+
+        FBDeviceControlService.shared.onDevicesChanged = { [weak self] fbDevices in
+            Task { @MainActor in
+                self?.handleFBDeviceControlUpdate(fbDevices)
+            }
+        }
+
+        FBDeviceControlService.shared.startObserving()
+    }
+
+    /// 处理 FBDeviceControl 设备更新
+    private func handleFBDeviceControlUpdate(_ fbDevices: [FBDeviceInfoDTO]) {
+        // 更新缓存
+        fbDeviceInfoCache.removeAll()
+        for dto in fbDevices {
+            fbDeviceInfoCache[dto.udid] = dto
+        }
+
+        AppLogger.device.debug("FBDeviceControl 更新: \(fbDevices.count) 台设备")
+
+        // 触发设备列表刷新以应用新信息
+        refreshDevices()
+    }
+
+    /// 使用 FBDeviceControl 信息增强设备
+    private func enrichDevice(_ device: IOSDevice) -> IOSDevice {
+        // 尝试从缓存获取 FBDeviceControl 信息
+        guard let dto = fbDeviceInfoCache[device.id] else {
+            // 尝试实时获取
+            if let dto = FBDeviceControlService.shared.fetchDeviceInfo(udid: device.id) {
+                fbDeviceInfoCache[device.id] = dto
+                return device.enriched(with: dto)
+            }
+            return device
+        }
+
+        return device.enriched(with: dto)
     }
 
     /// 设置设备发现会话
@@ -186,8 +254,8 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         deviceObservation?.invalidate()
         deviceObservation = nil
         discoverySession = nil
-        insightRefreshTask?.cancel()
-        insightRefreshTask = nil
+        stateRefreshTask?.cancel()
+        stateRefreshTask = nil
 
         AppLogger.device.info("iOS 设备监控已停止")
     }
@@ -224,8 +292,14 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         // 记录原始捕获设备数量（用于调试）
         AppLogger.device.debug("发现 \(captureDevices.count) 个外部视频捕获设备")
 
-        let iosDevices = captureDevices.compactMap { device -> IOSDevice? in
+        // 步骤 1：从 AVFoundation 创建基础设备列表
+        var iosDevices = captureDevices.compactMap { device -> IOSDevice? in
             IOSDevice.from(captureDevice: device)
+        }
+
+        // 步骤 2：使用 FBDeviceControl 增强设备信息（如果可用）
+        if FBDeviceControlService.shared.isAvailable {
+            iosDevices = iosDevices.map { enrichDevice($0) }
         }
 
         // 检查设备列表或状态是否变化
@@ -295,31 +369,31 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         devices.first { $0.id == deviceID }?.userPrompt
     }
 
-    // MARK: - Insight 状态刷新（轻量级增强）
+    // MARK: - 状态刷新（轻量级增强）
 
     /// 启动定期状态刷新
-    /// 用于检测设备状态变化（信任、占用等），补充 AVFoundation 的连接/断开事件
-    private func startInsightRefresh() {
-        insightRefreshTask?.cancel()
-        insightRefreshTask = Task { [weak self] in
+    /// 用于检测设备状态变化（锁屏、占用等），补充 AVFoundation 的连接/断开事件
+    private func startStateRefresh() {
+        stateRefreshTask?.cancel()
+        stateRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64(self?.insightRefreshInterval ?? 5.0) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: UInt64(self?.stateRefreshInterval ?? 5.0) * 1_000_000_000)
 
                 guard !Task.isCancelled, let self else { break }
 
-                // 只在有设备时刷新 insight
+                // 只在有设备时刷新状态
                 if !devices.isEmpty {
-                    await refreshDeviceInsights()
+                    await refreshDeviceStates()
                 }
             }
         }
 
-        AppLogger.device.debug("设备状态刷新已启动，间隔: \(insightRefreshInterval)s")
+        AppLogger.device.debug("设备状态刷新已启动，间隔: \(stateRefreshInterval)s")
     }
 
-    /// 刷新所有设备的 insight 信息
+    /// 刷新所有设备的状态信息
     /// 检测状态变化（锁屏、占用等）并更新 UI
-    private func refreshDeviceInsights() async {
+    private func refreshDeviceStates() async {
         guard let session = discoverySession else { return }
 
         AppLogger.device.debug("开始刷新设备状态，当前设备数: \(devices.count)")
@@ -331,33 +405,34 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
                 continue
             }
 
-            // 重新获取 insight（使用 AVCaptureDevice 以检测最新的锁屏/占用状态）
-            let insightService = DeviceInsightService.shared
-            let newInsight = insightService.getDeviceInsight(for: captureDevice)
-            let newPrompt = insightService.getUserPrompt(for: newInsight)
+            // 使用 IOSDeviceStateMapper 重新检测状态
+            let (newState, newIsOccupied, newOccupiedBy) = IOSDeviceStateMapper.detectState(from: captureDevice)
+            let newPrompt = IOSDeviceStateMapper.userPrompt(for: newState, occupiedBy: newOccupiedBy)
 
-            // 检测状态变化（包括锁屏状态）
+            // 检测状态变化
             let oldPrompt = existingDevice.userPrompt
-            let oldIsLocked = existingDevice.isLocked
-            let newIsLocked = newInsight.isLocked
+            let oldState = existingDevice.state
             let oldIsOccupied = existingDevice.isOccupied
-            let newIsOccupied = newInsight.isOccupied
 
-            if newPrompt != oldPrompt || oldIsLocked != newIsLocked || oldIsOccupied != newIsOccupied {
+            if newState != oldState || newIsOccupied != oldIsOccupied || newPrompt != oldPrompt {
                 hasChanges = true
 
-                if newIsLocked, !oldIsLocked {
+                // 记录状态变化
+                switch (oldState, newState) {
+                case (_, .locked) where oldState != .locked:
                     AppLogger.device.warning("🔒 设备已锁屏/息屏: \(existingDevice.displayName)")
-                } else if !newIsLocked, oldIsLocked {
+                case (.locked, _) where newState != .locked:
                     AppLogger.device.info("🔓 设备已解锁: \(existingDevice.displayName)")
-                } else if newIsOccupied, !oldIsOccupied {
+                case (_, .busy) where !oldIsOccupied && newIsOccupied:
                     AppLogger.device.warning("⚠️ 设备被占用: \(existingDevice.displayName)")
-                } else if !newIsOccupied, oldIsOccupied {
+                case (.busy, _) where oldIsOccupied && !newIsOccupied:
                     AppLogger.device.info("✅ 设备占用已释放: \(existingDevice.displayName)")
-                } else if let prompt = newPrompt, prompt != oldPrompt {
-                    AppLogger.device.warning("设备状态变化: \(existingDevice.displayName) - \(prompt)")
-                } else if oldPrompt != nil, newPrompt == nil {
-                    AppLogger.device.info("设备状态恢复正常: \(existingDevice.displayName)")
+                default:
+                    if let prompt = newPrompt, prompt != oldPrompt {
+                        AppLogger.device.warning("设备状态变化: \(existingDevice.displayName) - \(prompt)")
+                    } else if oldPrompt != nil, newPrompt == nil {
+                        AppLogger.device.info("设备状态恢复正常: \(existingDevice.displayName)")
+                    }
                 }
             }
         }

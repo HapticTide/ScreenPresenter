@@ -461,12 +461,23 @@ final class MainViewController: NSViewController {
             appState.iosDeviceSource?.onSessionInterrupted = nil
             appState.iosDeviceSource?.onSessionResumed = nil
 
+            // 获取设备详细信息
+            let device = appState.iosDeviceProvider.devices.first
+            let deviceState = device?.state
+
             panel.showConnected(
                 deviceName: appState.iosDeviceName ?? "iPhone",
                 platform: .ios,
+                modelName: device?.displayModelName,
+                systemVersion: device?.productVersion,
+                buildVersion: device?.buildVersion,
                 userPrompt: appState.iosDeviceUserPrompt,
+                deviceState: deviceState,
                 onStart: { [weak self] in
                     self?.startIOSCapture()
+                },
+                onRefresh: { [weak self] in
+                    self?.refreshIOSDeviceInfo()
                 }
             )
             panel.renderView.clearTexture()
@@ -494,6 +505,21 @@ final class MainViewController: NSViewController {
             await MainActor.run {
                 ToastView.info(L10n.overlayUI.captureStopped(L10n.platform.ios), in: view.window)
             }
+        }
+    }
+
+    private func refreshIOSDeviceInfo() {
+        // 刷新 iOS 设备信息
+        let appState = AppState.shared
+        if let udid = appState.iosDeviceProvider.devices.first?.id {
+            // 使用 DeviceInsightService 刷新设备信息
+            _ = DeviceInsightService.shared.refresh(udid: udid)
+            // 刷新 IOSDeviceProvider
+            appState.iosDeviceProvider.refreshDevices()
+            // 触发 UI 更新
+            updateUI()
+            // 显示刷新成功提示
+            ToastView.success(L10n.toolbar.refreshComplete, in: view.window)
         }
     }
 
