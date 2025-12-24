@@ -205,8 +205,6 @@ final class ScrcpySocketAcceptor {
     /// 处理新连接
     private func handleNewConnection(_ connection: NWConnection) {
         acceptedConnectionCount += 1
-        print("🔗 [SocketAcceptor] 收到新连接 #\(acceptedConnectionCount)")
-        AppLogger.connection.info("[SocketAcceptor] 收到新连接 #\(acceptedConnectionCount)")
 
         // 第一个连接是视频流
         if acceptedConnectionCount == 1 {
@@ -323,26 +321,16 @@ final class ScrcpySocketAcceptor {
                 guard let self else { return }
 
                 if let error {
-                    print("❌ [SocketAcceptor] 接收数据错误: \(error.localizedDescription)")
                     AppLogger.connection.error("[SocketAcceptor] 接收数据错误: \(error.localizedDescription)")
                     updateState(.error(ScrcpySocketError.receiveError(reason: error.localizedDescription)))
                     return
                 }
 
                 if let data = content, !data.isEmpty {
-                    receivedPacketCount += 1
-                    if receivedPacketCount == 1 {
-                        print("📥 [SocketAcceptor] 首次收到数据: \(data.count) 字节")
-                    }
-                    if receivedPacketCount % 500 == 0 {
-                        print("📥 [SocketAcceptor] 已收到 \(receivedPacketCount) 个数据包")
-                    }
                     onDataReceived?(data)
                 }
 
                 if isComplete {
-                    print("📕 [SocketAcceptor] 连接已关闭")
-                    AppLogger.connection.info("[SocketAcceptor] 连接已关闭")
                     updateState(.disconnected)
                     return
                 }

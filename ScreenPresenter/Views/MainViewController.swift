@@ -421,6 +421,7 @@ final class MainViewController: NSViewController {
             panel.showCapturing(
                 deviceName: appState.androidDeviceName ?? "Android",
                 modelName: appState.androidDeviceModelName,
+                systemVersion: appState.androidDeviceSystemVersion,
                 platform: .android,
                 fps: panel.renderView.fps,
                 resolution: appState.androidDeviceSource?.captureSize ?? .zero,
@@ -517,6 +518,9 @@ final class MainViewController: NSViewController {
             do {
                 try await AppState.shared.startIOSCapture()
             } catch {
+                await MainActor.run {
+                    iosPanelView.stopActionLoading()
+                }
                 showError(L10n.error.startCaptureFailed(L10n.platform.ios, error.localizedDescription))
             }
         }
@@ -585,6 +589,9 @@ final class MainViewController: NSViewController {
             do {
                 try await AppState.shared.startAndroidCapture()
             } catch {
+                await MainActor.run {
+                    androidPanelView.stopActionLoading()
+                }
                 showError(L10n.error.startCaptureFailed(L10n.platform.android, error.localizedDescription))
             }
         }

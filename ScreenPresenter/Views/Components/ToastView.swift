@@ -96,8 +96,13 @@ final class ToastView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         layer?.cornerRadius = 10
+        // 添加细边框（在深色背景下可见）
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.15).cgColor
+        // 添加阴影（在浅色背景下可见）
+        shadow = NSShadow()
         layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.2
+        layer?.shadowOpacity = 0.4
         layer?.shadowOffset = CGSize(width: 0, height: -2)
         layer?.shadowRadius = 10
 

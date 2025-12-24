@@ -125,7 +125,6 @@ final class AppState {
 
     /// 刷新设备
     func refreshDevices() async {
-        AppLogger.device.info("刷新设备列表")
         iosDeviceProvider.refreshDevices()
         await androidDeviceProvider.refreshDevices()
         stateChangedPublisher.send()

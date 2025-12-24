@@ -83,7 +83,6 @@ final class AndroidDeviceProvider: ObservableObject {
 
     /// 手动刷新设备列表
     func refreshDevices() async {
-        AppLogger.device.debug("刷新 Android 设备列表...")
 
         do {
             let result = try await processRunner.run(

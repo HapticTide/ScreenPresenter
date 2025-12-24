@@ -91,34 +91,22 @@ final class ScrcpyServerLauncher {
     /// 必须在启动 Socket 监听器之前调用
     @MainActor
     func prepareEnvironment(configuration _: ScrcpyConfiguration) async throws {
-        print("🚀 [ScrcpyLauncher] prepareEnvironment() 开始，版本: \(scrcpyVersion), scid: \(scid)")
-        AppLogger.process.info("[ScrcpyLauncher] 开始准备环境，客户端版本: \(scrcpyVersion)")
-
         // 1. 推送 scrcpy-server 到设备
-        print("📤 [ScrcpyLauncher] 步骤1: 推送 scrcpy-server...")
         try await pushServer()
-        print("✅ [ScrcpyLauncher] 推送完成")
 
         // 2. 检查协议版本兼容性
-        print("🔍 [ScrcpyLauncher] 步骤2: 检查协议版本...")
         await checkProtocolVersion()
 
         // 3. 设置端口转发（优先使用 reverse，失败则 fallback 到 forward）
-        print("🔌 [ScrcpyLauncher] 步骤3: 设置端口转发...")
         try await setupPortForwarding()
-        print("✅ [ScrcpyLauncher] prepareEnvironment() 完成，模式: \(connectionMode)")
-        AppLogger.process.info("[ScrcpyLauncher] ✅ 环境准备完成，模式: \(connectionMode), 端口: \(port)")
     }
 
     /// 启动 scrcpy-server
     /// 必须在 prepareEnvironment 之后、且 Socket 监听器已启动后调用
     @MainActor
     func startServer(configuration: ScrcpyConfiguration) async throws -> Process {
-        print("🚀 [ScrcpyLauncher] startServer() 开始...")
         let process = try await launchServer(configuration: configuration)
         serverProcess = process
-        print("✅ [ScrcpyLauncher] startServer() 完成")
-        AppLogger.process.info("[ScrcpyLauncher] ✅ scrcpy-server 已启动，scid: \(scid)")
         return process
     }
 

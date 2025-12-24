@@ -61,6 +61,8 @@ final class DevicePanelView: NSView {
     private var statusLabel: NSTextField!
     private var actionButton: PaddedButton!
     private var subtitleLabel: NSTextField!
+    /// 操作按钮加载指示器
+    private var actionLoadingIndicator: NSProgressIndicator!
 
     /// 刷新按钮
     private var refreshButton: PaddedButton!
@@ -70,10 +72,14 @@ final class DevicePanelView: NSView {
     // 捕获中的悬浮栏
     private var captureBarView: NSView!
     private var captureIndicator: NSView!
-    private var captureStatusLabel: NSTextField!
+    private var captureDeviceNameLabel: NSTextField! // 设备名称
+    private var captureDeviceInfoLabel: NSTextField! // 型号 · 系统版本
     private var resolutionLabel: NSTextField!
     private var fpsLabel: NSTextField!
     private var stopButton: NSButton!
+
+    /// 当前设备系统版本（用于 captureBar 显示）
+    private var currentDeviceSystemVersion: String?
 
     // MARK: - 回调
 
@@ -364,6 +370,18 @@ final class DevicePanelView: NSView {
             make.centerX.equalToSuperview()
         }
 
+        // 操作按钮加载指示器（菊花）
+        actionLoadingIndicator = NSProgressIndicator()
+        actionLoadingIndicator.style = .spinning
+        actionLoadingIndicator.controlSize = .small
+        actionLoadingIndicator.isIndeterminate = true
+        actionLoadingIndicator.isHidden = true
+        actionLoadingIndicator.appearance = NSAppearance(named: .darkAqua)
+        actionButton.addSubview(actionLoadingIndicator)
+        actionLoadingIndicator.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+        }
+
         // 副标题/提示
         subtitleLabel = NSTextField(labelWithString: "")
         subtitleLabel.font = NSFont.systemFont(ofSize: 14)
@@ -428,13 +446,22 @@ final class DevicePanelView: NSView {
 
     private func setupCaptureBar() {
         // 捕获中的悬浮栏（放在 bezelView 上层，不遮挡 screenContentView）
-        captureBarView = NSView()
+        captureBarView = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 44)) // 初始 frame，避免约束冲突
         captureBarView.wantsLayer = true
-        captureBarView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        captureBarView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.75).cgColor
         captureBarView.layer?.cornerRadius = 8
+        // 添加细边框（在深色背景下可见）
+        captureBarView.layer?.borderWidth = 0.5
+        captureBarView.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        // 添加阴影（在浅色背景下可见）
+        captureBarView.shadow = NSShadow()
+        captureBarView.layer?.shadowColor = NSColor.black.cgColor
+        captureBarView.layer?.shadowOpacity = 0.5
+        captureBarView.layer?.shadowOffset = CGSize(width: 0, height: -2)
+        captureBarView.layer?.shadowRadius = 8
         captureBarView.isHidden = true
         addSubview(captureBarView)
-        // 约束会在 layout() 中根据 screenFrame 动态更新
+        // frame 会在 layout() 中根据 screenFrame 动态更新
 
         // 状态指示灯
         captureIndicator = NSView()
@@ -448,14 +475,30 @@ final class DevicePanelView: NSView {
             make.size.equalTo(8)
         }
 
-        // 捕获状态文本
-        captureStatusLabel = NSTextField(labelWithString: L10n.device.capturing)
-        captureStatusLabel.font = NSFont.systemFont(ofSize: 10)
-        captureStatusLabel.textColor = .white
-        captureBarView.addSubview(captureStatusLabel)
-        captureStatusLabel.snp.makeConstraints { make in
+        // 设备名称（第一行）
+        captureDeviceNameLabel = NSTextField(labelWithString: "")
+        captureDeviceNameLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        captureDeviceNameLabel.textColor = .white
+        captureDeviceNameLabel.lineBreakMode = .byTruncatingTail
+        captureDeviceNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        // 设备详细信息（第二行：型号 · 系统版本）
+        captureDeviceInfoLabel = NSTextField(labelWithString: "")
+        captureDeviceInfoLabel.font = NSFont.systemFont(ofSize: 10)
+        captureDeviceInfoLabel.textColor = NSColor.white.withAlphaComponent(0.7)
+        captureDeviceInfoLabel.lineBreakMode = .byTruncatingTail
+        captureDeviceInfoLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        // 使用 StackView 将两个 label 作为整体垂直居中
+        let deviceInfoStack = NSStackView(views: [captureDeviceNameLabel, captureDeviceInfoLabel])
+        deviceInfoStack.orientation = .vertical
+        deviceInfoStack.alignment = .leading
+        deviceInfoStack.spacing = 2
+        captureBarView.addSubview(deviceInfoStack)
+        deviceInfoStack.snp.makeConstraints { make in
             make.leading.equalTo(captureIndicator.snp.trailing).offset(6)
             make.centerY.equalToSuperview()
+            make.trailing.lessThanOrEqualToSuperview().offset(-100).priority(.high) // 留空间给右侧信息
         }
 
         // 停止按钮
@@ -660,28 +703,33 @@ final class DevicePanelView: NSView {
         systemVersion: String?,
         buildVersion: String?
     ) -> String {
-        if platform == .android {
-            return L10n.overlayUI.captureAndroidHint
-        }
-
         var parts: [String] = []
 
-        // 型号名称（如 iPhone 15 Pro）
+        // 型号名称（如 iPhone 15 Pro 或 M2007J17C）
         if let model = modelName, !model.isEmpty {
             parts.append(model)
         }
 
-        // iOS 版本
+        // 系统版本
         if let version = systemVersion, !version.isEmpty {
-            if let build = buildVersion, !build.isEmpty {
-                parts.append("iOS \(version) (\(build))")
+            if platform == .ios {
+                // iOS 版本格式：iOS 17.0 (21A5248v)
+                if let build = buildVersion, !build.isEmpty {
+                    parts.append("iOS \(version) (\(build))")
+                } else {
+                    parts.append("iOS \(version)")
+                }
             } else {
-                parts.append("iOS \(version)")
+                // Android 版本格式：Android 12
+                parts.append(version)
             }
         }
 
         if parts.isEmpty {
-            return L10n.overlayUI.captureIOSHint
+            // 如果没有任何信息，返回默认提示
+            return platform == .ios
+                ? L10n.overlayUI.captureIOSHint
+                : L10n.overlayUI.captureAndroidHint
         }
 
         return parts.joined(separator: " · ")
@@ -694,6 +742,9 @@ final class DevicePanelView: NSView {
         resolution: CGSize,
         onStop: @escaping () -> Void
     ) {
+        // 停止加载状态
+        stopActionLoading()
+
         currentState = .capturing
         currentPlatform = .ios
         onStopAction = onStop
@@ -701,6 +752,12 @@ final class DevicePanelView: NSView {
         // 保存设备信息用于更新状态栏
         currentDeviceDisplayName = device.displayName
         currentDeviceModelName = device.displayModelName
+        // iOS 系统版本格式：iOS 17.0
+        if let version = device.productVersion {
+            currentDeviceSystemVersion = "iOS \(version)"
+        } else {
+            currentDeviceSystemVersion = nil
+        }
 
         // 使用 IOSDevice 的 productType 精确配置边框
         configureBezel(for: device, aspectRatio: resolution)
@@ -741,11 +798,15 @@ final class DevicePanelView: NSView {
     func showCapturing(
         deviceName: String,
         modelName: String?,
+        systemVersion: String? = nil,
         platform: DevicePlatform,
         fps: Double,
         resolution: CGSize,
         onStop: @escaping () -> Void
     ) {
+        // 停止加载状态
+        stopActionLoading()
+
         currentState = .capturing
         currentPlatform = platform
         onStopAction = onStop
@@ -753,6 +814,7 @@ final class DevicePanelView: NSView {
         // 保存设备信息用于更新状态栏
         currentDeviceDisplayName = deviceName
         currentDeviceModelName = modelName
+        currentDeviceSystemVersion = systemVersion
 
         // 根据设备名称和实际分辨率配置边框
         configureBezel(for: platform, deviceName: deviceName, aspectRatio: resolution)
@@ -976,20 +1038,25 @@ final class DevicePanelView: NSView {
     private var currentDeviceDisplayName: String?
     private var currentDeviceModelName: String?
 
-    /// 更新捕获状态文本（显示设备型号和名称）
+    /// 更新捕获状态文本（显示设备名称、型号、系统版本）
     private func updateCaptureStatusText() {
-        // 格式：型号名（设备名）或 设备名
-        if let modelName = currentDeviceModelName, !modelName.isEmpty {
-            if let displayName = currentDeviceDisplayName, !displayName.isEmpty, displayName != modelName {
-                captureStatusLabel.stringValue = "\(modelName)（\(displayName)）"
-            } else {
-                captureStatusLabel.stringValue = modelName
-            }
-        } else if let displayName = currentDeviceDisplayName, !displayName.isEmpty {
-            captureStatusLabel.stringValue = displayName
+        // 第一行：设备名称
+        if let displayName = currentDeviceDisplayName, !displayName.isEmpty {
+            captureDeviceNameLabel.stringValue = displayName
         } else {
-            captureStatusLabel.stringValue = L10n.device.capturing
+            captureDeviceNameLabel.stringValue = L10n.device.capturing
         }
+
+        // 第二行：型号 · 系统版本
+        var infoParts: [String] = []
+        if let modelName = currentDeviceModelName, !modelName.isEmpty, modelName != currentDeviceDisplayName {
+            infoParts.append(modelName)
+        }
+        if let systemVersion = currentDeviceSystemVersion, !systemVersion.isEmpty {
+            infoParts.append(systemVersion)
+        }
+        captureDeviceInfoLabel.stringValue = infoParts.joined(separator: " · ")
+        captureDeviceInfoLabel.isHidden = infoParts.isEmpty
     }
 
     private func configureBezel(for platform: DevicePlatform, deviceName: String? = nil, aspectRatio: CGSize? = nil) {
@@ -1024,6 +1091,8 @@ final class DevicePanelView: NSView {
     // MARK: - 操作
 
     @objc private func actionTapped() {
+        // 显示加载状态
+        startActionLoading()
         onStartAction?()
     }
 
@@ -1055,6 +1124,26 @@ final class DevicePanelView: NSView {
         refreshButton.isEnabled = true
         refreshLoadingIndicator.stopAnimation(nil)
         refreshLoadingIndicator.isHidden = true
+    }
+
+    /// 开始操作按钮加载状态
+    func startActionLoading() {
+        actionButton.isEnabled = false
+        actionButton.alphaValue = 0.7
+        // 隐藏按钮文字，显示菊花
+        actionButton.attributedTitle = NSAttributedString(string: "")
+        actionLoadingIndicator.isHidden = false
+        actionLoadingIndicator.startAnimation(nil)
+    }
+
+    /// 停止操作按钮加载状态
+    func stopActionLoading() {
+        actionButton.isEnabled = true
+        actionButton.alphaValue = 1.0
+        actionLoadingIndicator.stopAnimation(nil)
+        actionLoadingIndicator.isHidden = true
+        // 恢复按钮文字
+        setActionButtonTitle(L10n.overlayUI.startCapture)
     }
 
     @objc private func statusTapped() {
@@ -1105,7 +1194,9 @@ final class DevicePanelView: NSView {
         let renderRect = actualRenderRect
         guard renderRect.width > 0, renderRect.height > 0 else { return }
 
-        let barHeight: CGFloat = 28
+        // 高度：如果有第二行信息则增加高度
+        let hasSecondLine = !(captureDeviceInfoLabel.stringValue.isEmpty)
+        let barHeight: CGFloat = hasSecondLine ? 44 : 28
         let horizontalInset: CGFloat = 20
 
         // 计算顶部偏移：存在顶部特征，y 从特征底部 + 12 开始

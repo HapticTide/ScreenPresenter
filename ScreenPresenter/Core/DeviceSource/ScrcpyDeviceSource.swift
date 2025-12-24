@@ -332,31 +332,22 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     // MARK: - 捕获
 
     override func startCapture() async throws {
-        // 使用 print 确保日志可见
-        print("🚀 [ScrcpyDeviceSource] startCapture 开始，设备: \(displayName), 状态: \(state)")
-        AppLogger.capture.info("准备开始捕获 Android 设备: \(displayName), 当前状态: \(state)")
+        AppLogger.capture.info("开始捕获 Android 设备: \(displayName), 状态: \(state)")
 
         guard state == .connected || state == .paused else {
-            print("❌ [ScrcpyDeviceSource] 设备未连接，当前状态: \(state)")
             AppLogger.capture.error("无法开始捕获: 设备未连接，当前状态: \(state)")
             throw DeviceSourceError.captureStartFailed(L10n.capture.deviceNotConnected)
         }
 
-        AppLogger.capture.info("开始捕获 Android 设备: \(displayName)")
-
         do {
             guard let launcher = serverLauncher else {
-                print("❌ [ScrcpyDeviceSource] serverLauncher 未初始化")
                 throw DeviceSourceError.captureStartFailed("服务器启动器未初始化")
             }
 
             // 1. 先推送 scrcpy-server 并设置端口转发
-            print("🚀 [ScrcpyDeviceSource] 准备启动环境...")
             try await launcher.prepareEnvironment(configuration: configuration)
-            print("✅ [ScrcpyDeviceSource] 环境准备完成，连接模式: \(launcher.connectionMode)")
 
             // 2. 创建并启动 Socket 监听器/连接器（必须在服务端启动前！）
-            print("🔌 [ScrcpyDeviceSource] 创建 Socket 接收器...")
             socketAcceptor = ScrcpySocketAcceptor(
                 port: currentPort,
                 connectionMode: launcher.connectionMode
@@ -368,22 +359,16 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             }
 
             // 3. 启动监听/连接
-            print("🔌 [ScrcpyDeviceSource] 启动 Socket 监听...")
             try await socketAcceptor?.start()
-            print("✅ [ScrcpyDeviceSource] Socket 监听已启动")
 
             // 4. 提前设置状态为 capturing，以便接收到数据后立即处理
             // 这样解码后的帧不会因为状态检查而被丢弃
             updateState(.capturing)
-            print("✅ [ScrcpyDeviceSource] 状态已更新为 capturing")
 
             // 5. 现在启动 scrcpy-server（它会连接到我们的监听端口）
-            print("🚀 [ScrcpyDeviceSource] 启动 scrcpy-server...")
             serverProcess = try await launcher.startServer(configuration: configuration)
-            print("✅ [ScrcpyDeviceSource] scrcpy-server 已启动")
 
             // 6. 等待视频连接建立
-            print("⏳ [ScrcpyDeviceSource] 等待视频连接...")
             try await socketAcceptor?.waitForVideoConnection(timeout: 10)
 
             AppLogger.capture.info("捕获已启动: \(displayName)")
@@ -430,34 +415,12 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
     // MARK: - 数据处理
 
-    /// 接收到的数据计数（用于调试）
-    private var receivedDataCount = 0
-    private var receivedBytesTotal = 0
-
     /// 处理接收到的数据
     private func handleReceivedData(_ data: Data) {
-        receivedDataCount += 1
-        receivedBytesTotal += data.count
-
-        // 每收到一定数量的数据包打印一次日志
-        if receivedDataCount == 1 {
-            print("📥 [ScrcpyDeviceSource] 首次收到数据: \(data.count) 字节")
-        }
-        if receivedDataCount % 100 == 0 {
-            print("📥 [ScrcpyDeviceSource] 已收到 \(receivedDataCount) 个数据包，共 \(receivedBytesTotal) 字节")
-        }
-
-        guard let parser = streamParser, let decoder else {
-            print("❌ [ScrcpyDeviceSource] parser 或 decoder 为 nil")
-            return
-        }
+        guard let parser = streamParser, let decoder else { return }
 
         // 解析 NAL 单元
         let nalUnits = parser.append(data)
-
-        if receivedDataCount == 1 {
-            print("📦 [ScrcpyDeviceSource] 首次解析得到 \(nalUnits.count) 个 NAL 单元")
-        }
 
         for nalUnit in nalUnits {
             // 如果是参数集且解码器未初始化，尝试初始化
@@ -471,69 +434,38 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             // 解码非参数集 NAL 单元
             if decoder.isReady, !nalUnit.isParameterSet {
                 decoder.decode(nalUnit: nalUnit)
-            } else if !decoder.isReady, !nalUnit.isParameterSet {
-                // 解码器未就绪，跳过非参数集帧
-                if receivedDataCount <= 5 {
-                    print("⏳ [ScrcpyDeviceSource] 解码器未就绪，跳过 NAL 类型: \(nalUnit.type)")
-                }
             }
         }
     }
 
     /// 初始化解码器（如果需要）
     private func initializeDecoderIfNeeded() {
-        guard let parser = streamParser, let decoder else {
-            print("❌ [ScrcpyDeviceSource] initializeDecoderIfNeeded: parser 或 decoder 为 nil")
-            return
-        }
+        guard let parser = streamParser, let decoder else { return }
         guard !decoder.isReady else { return }
-        guard parser.hasCompleteParameterSets else {
-            print("⏳ [ScrcpyDeviceSource] 等待完整参数集...")
-            return
-        }
-
-        print("🔧 [ScrcpyDeviceSource] 尝试初始化解码器，参数集: \(parser.parameterSetsDescription)")
-        AppLogger.capture.info("尝试初始化解码器，参数集: \(parser.parameterSetsDescription)")
+        guard parser.hasCompleteParameterSets else { return }
 
         initializeDecoder()
     }
 
     /// 初始化解码器
     private func initializeDecoder() {
-        guard let parser = streamParser, let decoder else {
-            print("❌ [ScrcpyDeviceSource] initializeDecoder: parser 或 decoder 为 nil")
-            return
-        }
-        guard parser.hasCompleteParameterSets else {
-            print("❌ [ScrcpyDeviceSource] initializeDecoder: 参数集不完整")
-            return
-        }
+        guard let parser = streamParser, let decoder else { return }
+        guard parser.hasCompleteParameterSets else { return }
 
         // 获取实际的编解码类型（可能从协议元数据更新）
         let codecType = parser.currentCodecType
-        print("🔧 [ScrcpyDeviceSource] 开始初始化解码器，codec: \(codecType == kCMVideoCodecType_H264 ? "H.264" : "H.265")")
 
         do {
             if codecType == kCMVideoCodecType_H264 {
-                guard let sps = parser.sps, let pps = parser.pps else {
-                    print("❌ [ScrcpyDeviceSource] H.264 参数集为 nil")
-                    return
-                }
-                print("🔧 [ScrcpyDeviceSource] 调用 decoder.initializeH264(sps: \(sps.count)B, pps: \(pps.count)B)")
+                guard let sps = parser.sps, let pps = parser.pps else { return }
                 try decoder.initializeH264(sps: sps, pps: pps)
             } else {
-                guard let vps = parser.vps, let sps = parser.sps, let pps = parser.pps else {
-                    print("❌ [ScrcpyDeviceSource] H.265 参数集为 nil")
-                    return
-                }
-                print("🔧 [ScrcpyDeviceSource] 调用 decoder.initializeH265")
+                guard let vps = parser.vps, let sps = parser.sps, let pps = parser.pps else { return }
                 try decoder.initializeH265(vps: vps, sps: sps, pps: pps)
             }
-            print("✅ [ScrcpyDeviceSource] 解码器初始化成功！")
-            AppLogger.capture.info("✅ 解码器初始化成功，协议信息: \(parser.protocolDescription)")
+            AppLogger.capture.info("解码器初始化成功")
         } catch {
-            print("❌ [ScrcpyDeviceSource] 解码器初始化失败: \(error)")
-            AppLogger.capture.error("❌ 解码器初始化失败: \(error.localizedDescription)")
+            AppLogger.capture.error("解码器初始化失败: \(error.localizedDescription)")
         }
     }
 
@@ -549,22 +481,8 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     }
 
     /// 处理解码后的帧
-    private var decodedFrameCount = 0
-
     private func handleDecodedFrame(_ pixelBuffer: CVPixelBuffer) {
-        decodedFrameCount += 1
-
-        // 前几帧打印日志
-        if decodedFrameCount <= 3 {
-            print("🎬 [ScrcpyDeviceSource] 收到解码帧 #\(decodedFrameCount)，状态: \(state)")
-        }
-
-        guard state == .capturing else {
-            if decodedFrameCount <= 3 {
-                print("⚠️ [ScrcpyDeviceSource] 状态不是 capturing，丢弃帧")
-            }
-            return
-        }
+        guard state == .capturing else { return }
 
         // 更新最新帧
         _latestPixelBuffer = pixelBuffer
@@ -572,11 +490,6 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         // 更新捕获尺寸
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
-
-        if decodedFrameCount <= 3 {
-            print("🎬 [ScrcpyDeviceSource] 帧尺寸: \(width)x\(height)")
-        }
-
         updateCaptureSize(CGSize(width: width, height: height))
 
         // 创建 CapturedFrame

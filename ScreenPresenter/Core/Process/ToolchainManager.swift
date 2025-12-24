@@ -104,7 +104,6 @@ final class ToolchainManager {
         // 2. 检查内嵌版本
         if let bundled = bundledScrcpyServerPath {
             if let validPath = validateServerPath(bundled) {
-                AppLogger.app.debug("使用内嵌 scrcpy-server: \(validPath)")
                 return validPath
             }
         }
@@ -169,20 +168,16 @@ final class ToolchainManager {
             let customPath = UserPreferences.shared.customAdbPath,
             !customPath.isEmpty,
             FileManager.default.isExecutableFile(atPath: customPath) {
-            AppLogger.app.debug("使用自定义 adb: \(customPath)")
             return customPath
         }
 
         // 2. 检查内嵌版本
         if let bundled = bundledAdbPath, FileManager.default.fileExists(atPath: bundled) {
-            AppLogger.app.debug("使用内嵌 adb: \(bundled)")
             return bundled
         }
 
         // 3. 系统版本
-        let fallback = systemAdbPath ?? "/usr/local/bin/adb"
-        AppLogger.app.debug("使用系统 adb: \(fallback)")
-        return fallback
+        return systemAdbPath ?? "/usr/local/bin/adb"
     }
 
     /// scrcpy 路径（优先级：自定义路径 > 内嵌版本 > 系统版本）
@@ -193,20 +188,16 @@ final class ToolchainManager {
             let customPath = UserPreferences.shared.customScrcpyPath,
             !customPath.isEmpty,
             FileManager.default.isExecutableFile(atPath: customPath) {
-            AppLogger.app.debug("使用自定义 scrcpy: \(customPath)")
             return customPath
         }
 
         // 2. 检查内嵌版本
         if let bundled = bundledScrcpyPath, FileManager.default.fileExists(atPath: bundled) {
-            AppLogger.app.debug("使用内嵌 scrcpy: \(bundled)")
             return bundled
         }
 
         // 3. 系统版本
-        let fallback = systemScrcpyPath ?? "/opt/homebrew/bin/scrcpy"
-        AppLogger.app.debug("使用系统 scrcpy: \(fallback)")
-        return fallback
+        return systemScrcpyPath ?? "/opt/homebrew/bin/scrcpy"
     }
 
     // MARK: - 私有属性
@@ -246,7 +237,6 @@ final class ToolchainManager {
 
             if let version = await getToolVersion(bundledPath, versionArgs: ["version"]) {
                 adbStatus = .installed(version: L10n.prefs.toolchain.bundled(version))
-                AppLogger.app.info("使用内嵌 adb: \(bundledPath)")
                 return
             }
         }
@@ -278,7 +268,6 @@ final class ToolchainManager {
 
             if let version = await getToolVersion(bundledPath, versionArgs: ["--version"]) {
                 scrcpyStatus = .installed(version: L10n.prefs.toolchain.bundled(version))
-                AppLogger.app.info("使用内嵌 scrcpy: \(bundledPath)")
                 return
             }
         }
