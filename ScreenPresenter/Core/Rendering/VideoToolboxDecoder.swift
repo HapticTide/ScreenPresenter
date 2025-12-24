@@ -122,16 +122,20 @@ final class VideoToolboxDecoder {
     ///   - sps: SPS 数据
     ///   - pps: PPS 数据
     func initializeH264(sps: Data, pps: Data) throws {
+        print("🔧 [VTDecoder] 使用 H.264 参数集初始化，SPS: \(sps.count)B, PPS: \(pps.count)B")
         AppLogger.capture.info("[VTDecoder] 使用 H.264 参数集初始化，SPS: \(sps.count)B, PPS: \(pps.count)B")
 
         guard let formatDesc = VideoFormatDescriptionFactory.createH264FormatDescription(sps: sps, pps: pps) else {
+            print("❌ [VTDecoder] 格式描述创建失败")
             throw VideoToolboxDecoderError.formatDescriptionCreationFailed(-1)
         }
+        print("✅ [VTDecoder] 格式描述创建成功")
 
         formatDescription = formatDesc
         try createDecompressionSession(formatDescription: formatDesc)
 
         updateState(.ready)
+        print("✅ [VTDecoder] H.264 解码器初始化成功，状态: \(state)")
         AppLogger.capture.info("[VTDecoder] ✅ H.264 解码器初始化成功")
     }
 
@@ -259,9 +263,13 @@ final class VideoToolboxDecoder {
 
                 if status == noErr, let imageBuffer {
                     decoder.decodedFrameCount += 1
+                    if decoder.decodedFrameCount <= 3 {
+                        print("🎬 [VTDecoder] 解码成功 #\(decoder.decodedFrameCount)")
+                    }
                     decoder.onDecodedFrame?(imageBuffer)
                 } else {
                     decoder.failedFrameCount += 1
+                    print("❌ [VTDecoder] 解码失败 #\(decoder.failedFrameCount)，状态: \(status)")
                     if status != noErr {
                         AppLogger.capture.warning("[VTDecoder] 解码回调错误: \(status)")
                     }

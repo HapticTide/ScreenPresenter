@@ -112,23 +112,39 @@ final class ScrcpySocketAcceptor {
     /// 等待视频连接建立
     /// - Parameter timeout: 超时时间（秒）
     func waitForVideoConnection(timeout: TimeInterval = 10) async throws {
-        AppLogger.connection.info("[SocketAcceptor] 等待视频连接...")
+        AppLogger.connection.info("[SocketAcceptor] 等待视频连接，模式: \(connectionMode), 端口: \(port), 超时: \(timeout)秒")
 
         let startTime = CFAbsoluteTimeGetCurrent()
+        var lastLogTime = startTime
 
         while CFAbsoluteTimeGetCurrent() - startTime < timeout {
             if case .connected = state {
-                AppLogger.connection.info("[SocketAcceptor] ✅ 视频连接已建立")
+                let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+                AppLogger.connection.info("[SocketAcceptor] ✅ 视频连接已建立，耗时: \(String(format: "%.1f", elapsed))秒")
                 return
             }
 
             if case let .error(error) = state {
+                AppLogger.connection.error("[SocketAcceptor] ❌ 连接错误: \(error.localizedDescription)")
                 throw error
+            }
+
+            // 每 2 秒输出一次等待日志
+            let now = CFAbsoluteTimeGetCurrent()
+            if now - lastLogTime >= 2 {
+                let elapsed = now - startTime
+                AppLogger.connection
+                    .debug("[SocketAcceptor] 等待中... 已等待 \(String(format: "%.1f", elapsed))秒，当前状态: \(state)")
+                lastLogTime = now
             }
 
             try await Task.sleep(nanoseconds: 100_000_000) // 100ms
         }
 
+        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+        AppLogger.connection.error("[SocketAcceptor] ❌ 连接超时！已等待 \(String(format: "%.1f", elapsed))秒，最终状态: \(state)")
+        AppLogger.connection
+            .error("[SocketAcceptor] 诊断信息 - 模式: \(connectionMode), 端口: \(port), 已接收连接数: \(acceptedConnectionCount)")
         throw ScrcpySocketError.connectionTimeout
     }
 
@@ -189,6 +205,7 @@ final class ScrcpySocketAcceptor {
     /// 处理新连接
     private func handleNewConnection(_ connection: NWConnection) {
         acceptedConnectionCount += 1
+        print("🔗 [SocketAcceptor] 收到新连接 #\(acceptedConnectionCount)")
         AppLogger.connection.info("[SocketAcceptor] 收到新连接 #\(acceptedConnectionCount)")
 
         // 第一个连接是视频流
@@ -296,6 +313,9 @@ final class ScrcpySocketAcceptor {
         receiveData(on: connection)
     }
 
+    /// 接收到的数据包计数（用于调试）
+    private var receivedPacketCount = 0
+
     /// 递归接收数据
     private func receiveData(on connection: NWConnection) {
         connection
@@ -303,16 +323,25 @@ final class ScrcpySocketAcceptor {
                 guard let self else { return }
 
                 if let error {
+                    print("❌ [SocketAcceptor] 接收数据错误: \(error.localizedDescription)")
                     AppLogger.connection.error("[SocketAcceptor] 接收数据错误: \(error.localizedDescription)")
                     updateState(.error(ScrcpySocketError.receiveError(reason: error.localizedDescription)))
                     return
                 }
 
                 if let data = content, !data.isEmpty {
+                    receivedPacketCount += 1
+                    if receivedPacketCount == 1 {
+                        print("📥 [SocketAcceptor] 首次收到数据: \(data.count) 字节")
+                    }
+                    if receivedPacketCount % 500 == 0 {
+                        print("📥 [SocketAcceptor] 已收到 \(receivedPacketCount) 个数据包")
+                    }
                     onDataReceived?(data)
                 }
 
                 if isComplete {
+                    print("📕 [SocketAcceptor] 连接已关闭")
                     AppLogger.connection.info("[SocketAcceptor] 连接已关闭")
                     updateState(.disconnected)
                     return

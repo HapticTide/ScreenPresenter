@@ -73,10 +73,10 @@ struct AndroidDevice: Identifiable, Equatable, Hashable {
     /// 设备状态
     var state: AndroidDeviceState
 
-    /// 设备型号
+    /// 设备型号（ro.product.model，如 M2007J17C）
     var model: String?
 
-    /// 设备名称
+    /// 设备名称（device 字段）
     var device: String?
 
     /// 产品名称
@@ -88,14 +88,49 @@ struct AndroidDevice: Identifiable, Equatable, Hashable {
     /// 连接类型
     var connectionType: ConnectionType = .usb
 
+    // MARK: - 详细信息（通过 getprop 获取）
+
+    /// 品牌（ro.product.brand，如 Xiaomi）
+    var brand: String?
+
+    /// 市场名称（ro.product.marketname，如 Redmi Note 9 Pro）
+    var marketName: String?
+
+    /// Android 版本（ro.build.version.release，如 12）
+    var androidVersion: String?
+
+    /// SDK 版本（ro.build.version.sdk，如 31）
+    var sdkVersion: String?
+
     var id: String { serial }
 
-    /// 显示名称
+    /// 显示名称（优先使用市场名称）
     var displayName: String {
+        // 优先使用市场名称
+        if let marketName, !marketName.isEmpty {
+            return marketName
+        }
+        // 其次使用品牌+型号组合
+        if let brand, let model {
+            let formattedModel = model.replacingOccurrences(of: "_", with: " ")
+            return "\(brand) \(formattedModel)"
+        }
+        // 最后使用型号
         if let model {
             return model.replacingOccurrences(of: "_", with: " ")
         }
         return serial
+    }
+
+    /// 型号显示名称（用于副标题）
+    var displayModelName: String? {
+        model?.replacingOccurrences(of: "_", with: " ")
+    }
+
+    /// 系统版本显示（如 Android 12）
+    var displaySystemVersion: String? {
+        guard let androidVersion else { return nil }
+        return "Android \(androidVersion)"
     }
 
     /// 连接类型

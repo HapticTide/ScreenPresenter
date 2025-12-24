@@ -339,24 +339,39 @@ final class AppState {
         !androidDeviceProvider.devices.isEmpty
     }
 
+    /// 当前 Android 设备
+    var currentAndroidDevice: AndroidDevice? {
+        androidDeviceProvider.devices.first
+    }
+
     /// Android 设备名称
     var androidDeviceName: String? {
-        androidDeviceProvider.devices.first?.displayName
+        currentAndroidDevice?.displayName
+    }
+
+    /// Android 设备型号名称
+    var androidDeviceModelName: String? {
+        currentAndroidDevice?.displayModelName
+    }
+
+    /// Android 系统版本
+    var androidDeviceSystemVersion: String? {
+        currentAndroidDevice?.displaySystemVersion
     }
 
     /// Android 设备状态
     var androidDeviceState: AndroidDeviceState? {
-        androidDeviceProvider.devices.first?.state
+        currentAndroidDevice?.state
     }
 
     /// Android 设备用户提示（授权状态等）
     var androidDeviceUserPrompt: String? {
-        androidDeviceProvider.devices.first?.state.actionHint
+        currentAndroidDevice?.state.actionHint
     }
 
     /// Android 设备是否可捕获（已授权）
     var androidDeviceReady: Bool {
-        androidDeviceProvider.devices.first?.state == .device
+        currentAndroidDevice?.state == .device
     }
 
     /// Android 是否正在捕获

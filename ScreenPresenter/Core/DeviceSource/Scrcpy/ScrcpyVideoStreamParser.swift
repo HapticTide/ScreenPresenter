@@ -45,10 +45,20 @@ struct ScrcpyDeviceMeta {
     }
 }
 
-/// Scrcpy 编解码器元数据（4 字节）
+/// Scrcpy 视频编解码器元数据（12 字节）
+/// 根据 scrcpy 文档：codec id (u32) + width (u32) + height (u32)
 struct ScrcpyCodecMeta {
     /// 编解码器 ID（大端序 32 位整数）
     let codecId: UInt32
+
+    /// 初始视频宽度
+    let width: UInt32
+
+    /// 初始视频高度
+    let height: UInt32
+
+    /// 字节大小
+    static let size = 12
 
     /// 编解码器名称
     var codecName: String {
@@ -69,18 +79,41 @@ struct ScrcpyCodecMeta {
         }
     }
 
-    /// 从数据解析
+    /// 从数据解析（12 字节）
     static func parse(from data: Data) -> ScrcpyCodecMeta? {
-        guard data.count >= 4 else {
-            AppLogger.capture.warning("[ScrcpyMeta] 编解码器元数据长度不足 - 期望: 4, 实际: \(data.count)")
+        guard data.count >= 12 else {
+            AppLogger.capture.warning("[ScrcpyMeta] 编解码器元数据长度不足 - 期望: 12, 实际: \(data.count)")
             return nil
         }
 
-        let codecId = data.withUnsafeBytes { buffer -> UInt32 in
-            buffer.load(as: UInt32.self).bigEndian
+        // scrcpy 协议使用大端序
+        var codecId: UInt32 = 0
+        var width: UInt32 = 0
+        var height: UInt32 = 0
+
+        data.withUnsafeBytes { buffer in
+            let bytes = buffer.bindMemory(to: UInt8.self)
+
+            // codec id (bytes 0-3)
+            codecId = UInt32(bytes[0]) << 24
+            codecId |= UInt32(bytes[1]) << 16
+            codecId |= UInt32(bytes[2]) << 8
+            codecId |= UInt32(bytes[3])
+
+            // width (bytes 4-7)
+            width = UInt32(bytes[4]) << 24
+            width |= UInt32(bytes[5]) << 16
+            width |= UInt32(bytes[6]) << 8
+            width |= UInt32(bytes[7])
+
+            // height (bytes 8-11)
+            height = UInt32(bytes[8]) << 24
+            height |= UInt32(bytes[9]) << 16
+            height |= UInt32(bytes[10]) << 8
+            height |= UInt32(bytes[11])
         }
 
-        return ScrcpyCodecMeta(codecId: codecId)
+        return ScrcpyCodecMeta(codecId: codecId, width: width, height: height)
     }
 }
 
@@ -114,12 +147,29 @@ struct ScrcpyFrameHeader: Equatable {
             return nil
         }
 
-        let pts = data.withUnsafeBytes { buffer -> UInt64 in
-            buffer.load(fromByteOffset: 0, as: UInt64.self).bigEndian
-        }
+        // scrcpy 协议使用大端序
+        // 需要手动从大端序字节构建数值
+        var pts: UInt64 = 0
+        var packetSize: UInt32 = 0
 
-        let packetSize = data.withUnsafeBytes { buffer -> UInt32 in
-            buffer.load(fromByteOffset: 8, as: UInt32.self).bigEndian
+        data.withUnsafeBytes { buffer in
+            let bytes = buffer.bindMemory(to: UInt8.self)
+
+            // 解析 PTS (8 字节大端序)
+            pts = UInt64(bytes[0]) << 56
+            pts |= UInt64(bytes[1]) << 48
+            pts |= UInt64(bytes[2]) << 40
+            pts |= UInt64(bytes[3]) << 32
+            pts |= UInt64(bytes[4]) << 24
+            pts |= UInt64(bytes[5]) << 16
+            pts |= UInt64(bytes[6]) << 8
+            pts |= UInt64(bytes[7])
+
+            // 解析 packetSize (4 字节大端序)
+            packetSize = UInt32(bytes[8]) << 24
+            packetSize |= UInt32(bytes[9]) << 16
+            packetSize |= UInt32(bytes[10]) << 8
+            packetSize |= UInt32(bytes[11])
         }
 
         return ScrcpyFrameHeader(pts: pts, packetSize: packetSize)
@@ -401,6 +451,9 @@ final class ScrcpyVideoStreamParser {
 
     // MARK: - 协议解析
 
+    /// 协议解析帧计数（用于调试）
+    private var frameCount = 0
+
     /// 解析 scrcpy 协议
     private func parseProtocol() -> [ParsedNALUnit] {
         var nalUnits: [ParsedNALUnit] = []
@@ -409,51 +462,107 @@ final class ScrcpyVideoStreamParser {
             switch parserState {
             case .waitingDummyByte:
                 // 等待 1 字节的 dummy byte
-                guard buffer.count >= 1 else { return nalUnits }
-                let dummyByte = buffer[0]
-                buffer.removeFirst(1)
-                AppLogger.capture.info("[StreamParser] 收到 dummy byte: 0x\(String(format: "%02X", dummyByte))")
+                // scrcpy 的 dummy byte 应该是 0x00
+                guard buffer.count >= 1 else {
+                    print("⏳ [StreamParser] 等待 dummy byte，缓冲区: \(buffer.count) 字节")
+                    return nalUnits
+                }
+
+                // 打印前几个字节用于诊断
+                let previewCount = min(10, buffer.count)
+                let preview = buffer.prefix(previewCount).map { String(format: "%02X", $0) }.joined(separator: " ")
+                print("🔍 [StreamParser] 缓冲区前\(previewCount)字节: \(preview)")
+
+                let firstByte = buffer[0]
+                // 检查是否是真正的 dummy byte (0x00)
+                // 如果不是 0x00，可能服务端没有发送 dummy byte
+                if firstByte == 0x00 {
+                    buffer.removeFirst(1)
+                    print("✅ [StreamParser] 收到 dummy byte: 0x00")
+                    AppLogger.capture.info("[StreamParser] 收到 dummy byte: 0x00")
+                } else {
+                    // 不是 0x00，假设没有 dummy byte，直接进入设备元数据阶段
+                    print("⚠️ [StreamParser] 首字节不是 0x00 (是 0x\(String(format: "%02X", firstByte)))，跳过 dummy byte 阶段")
+                }
                 parserState = .waitingDeviceMeta
 
             case .waitingDeviceMeta:
                 // 等待 64 字节的设备元数据
-                guard buffer.count >= 64 else { return nalUnits }
+                guard buffer.count >= 64 else {
+                    print("⏳ [StreamParser] 等待设备元数据，缓冲区: \(buffer.count)/64 字节")
+                    return nalUnits
+                }
                 let metaData = buffer.prefix(64)
                 buffer.removeFirst(64)
 
                 if let meta = ScrcpyDeviceMeta.parse(from: Data(metaData)) {
                     deviceMeta = meta
+                    print("✅ [StreamParser] 设备元数据: \(meta.deviceName)")
                     AppLogger.capture.info("[StreamParser] ✅ 设备元数据: \(meta.deviceName)")
                 } else {
+                    print("❌ [StreamParser] 设备元数据解析失败")
                     AppLogger.capture.warning("[StreamParser] ⚠️ 设备元数据解析失败")
                 }
                 parserState = .waitingCodecMeta
 
             case .waitingCodecMeta:
-                // 等待 4 字节的编解码器元数据
-                guard buffer.count >= 4 else { return nalUnits }
-                let codecData = buffer.prefix(4)
-                buffer.removeFirst(4)
+                // 等待 12 字节的编解码器元数据 (codec id + width + height)
+                guard buffer.count >= ScrcpyCodecMeta.size else {
+                    print("⏳ [StreamParser] 等待编解码器元数据，缓冲区: \(buffer.count)/\(ScrcpyCodecMeta.size) 字节")
+                    return nalUnits
+                }
 
-                if let meta = ScrcpyCodecMeta.parse(from: Data(codecData)) {
+                let codecData = Data(buffer.prefix(ScrcpyCodecMeta.size))
+
+                // 打印原始字节用于诊断
+                let hexStr = codecData.map { String(format: "%02X", $0) }.joined(separator: " ")
+                print("🔍 [StreamParser] 编解码器元数据原始字节: \(hexStr)")
+
+                buffer.removeFirst(ScrcpyCodecMeta.size)
+
+                if let meta = ScrcpyCodecMeta.parse(from: codecData) {
                     codecMeta = meta
                     codecType = meta.cmCodecType
+                    print("✅ [StreamParser] 编解码器: \(meta.codecName), 分辨率: \(meta.width)x\(meta.height)")
                     AppLogger.capture
-                        .info("[StreamParser] ✅ 编解码器元数据: \(meta.codecName) (0x\(String(format: "%08X", meta.codecId)))")
+                        .info(
+                            "[StreamParser] ✅ 编解码器元数据: \(meta.codecName), 分辨率: \(meta.width)x\(meta.height)"
+                        )
                 } else {
+                    print("❌ [StreamParser] 编解码器元数据解析失败")
                     AppLogger.capture.warning("[StreamParser] ⚠️ 编解码器元数据解析失败")
                 }
                 parserState = .waitingFrameHeader
 
             case .waitingFrameHeader:
                 // 等待 12 字节的帧头
-                guard buffer.count >= ScrcpyFrameHeader.size else { return nalUnits }
-                let headerData = buffer.prefix(ScrcpyFrameHeader.size)
+                guard buffer.count >= ScrcpyFrameHeader.size else {
+                    if frameCount == 0 {
+                        print("⏳ [StreamParser] 等待首个帧头，缓冲区: \(buffer.count)/12 字节")
+                    }
+                    return nalUnits
+                }
+                let headerData = Data(buffer.prefix(ScrcpyFrameHeader.size))
+
+                // 打印帧头原始字节用于诊断
+                if frameCount < 3 {
+                    let hexStr = headerData.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    print("🔍 [StreamParser] 帧头#\(frameCount + 1)原始字节: \(hexStr)")
+                }
+
                 buffer.removeFirst(ScrcpyFrameHeader.size)
 
-                guard let header = ScrcpyFrameHeader.parse(from: Data(headerData)) else {
+                guard let header = ScrcpyFrameHeader.parse(from: headerData) else {
+                    print("❌ [StreamParser] 帧头解析失败")
                     AppLogger.capture.warning("[StreamParser] ⚠️ 帧头解析失败")
                     continue
+                }
+
+                frameCount += 1
+                if frameCount <= 3 {
+                    print(
+                        "📦 [StreamParser] 帧头#\(frameCount): PTS=\(header.pts), 大小=\(header.packetSize), 配置包=\(header.isConfigPacket)"
+                    )
                 }
 
                 currentFramePTS = header.cmTime
@@ -461,13 +570,22 @@ final class ScrcpyVideoStreamParser {
 
             case let .waitingFrameData(header):
                 // 等待帧数据
-                guard buffer.count >= Int(header.packetSize) else { return nalUnits }
+                guard buffer.count >= Int(header.packetSize) else {
+                    if frameCount <= 3 {
+                        print("⏳ [StreamParser] 等待帧#\(frameCount)数据，缓冲区: \(buffer.count)/\(header.packetSize) 字节")
+                    }
+                    return nalUnits
+                }
                 let frameData = buffer.prefix(Int(header.packetSize))
                 buffer.removeFirst(Int(header.packetSize))
 
                 // 解析帧数据中的 NAL 单元
                 let parsedUnits = parseNALUnitsFromData(Data(frameData), pts: header.cmTime)
                 nalUnits.append(contentsOf: parsedUnits)
+
+                if frameCount <= 5 {
+                    print("📦 [StreamParser] 帧#\(frameCount): \(header.packetSize)字节 -> \(parsedUnits.count)个NAL")
+                }
 
                 parserState = .waitingFrameHeader
 

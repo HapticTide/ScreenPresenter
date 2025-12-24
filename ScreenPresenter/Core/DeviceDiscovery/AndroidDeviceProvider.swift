@@ -92,14 +92,23 @@ final class AndroidDeviceProvider: ObservableObject {
             )
 
             if result.isSuccess {
-                let newDevices = parseDevices(from: result.stdout)
+                var newDevices = parseDevices(from: result.stdout)
+
+                // 为已授权设备获取详细信息
+                for i in newDevices.indices {
+                    if newDevices[i].state == .device {
+                        newDevices[i] = await enrichDeviceInfo(newDevices[i])
+                    }
+                }
 
                 // 只在设备列表真正变化时更新
                 if newDevices != devices {
                     AppLogger.device.info("Android 设备列表已更新: \(newDevices.count) 个设备")
                     for device in newDevices {
                         AppLogger.device
-                            .info("  - \(device.serial): \(device.state.rawValue), 型号: \(device.model ?? "未知")")
+                            .info(
+                                "  - \(device.serial): \(device.state.rawValue), 名称: \(device.displayName), Android \(device.androidVersion ?? "?")"
+                            )
                     }
                     devices = newDevices
                 }
@@ -115,6 +124,32 @@ final class AndroidDeviceProvider: ObservableObject {
             lastError = error.localizedDescription
             isAdbServerRunning = false
         }
+    }
+
+    /// 获取设备详细信息
+    private func enrichDeviceInfo(_ device: AndroidDevice) async -> AndroidDevice {
+        var enriched = device
+
+        // 并行获取所有属性以提高效率
+        async let brand = getDeviceProperty(device.serial, property: "ro.product.brand")
+        async let marketName = getDeviceProperty(device.serial, property: "ro.product.marketname")
+        async let androidVersion = getDeviceProperty(device.serial, property: "ro.build.version.release")
+        async let sdkVersion = getDeviceProperty(device.serial, property: "ro.build.version.sdk")
+
+        enriched.brand = await brand
+        enriched.marketName = await marketName
+        enriched.androidVersion = await androidVersion
+        enriched.sdkVersion = await sdkVersion
+
+        // 某些设备没有 marketname，尝试其他属性
+        if enriched.marketName == nil || enriched.marketName?.isEmpty == true {
+            enriched.marketName = await getDeviceProperty(device.serial, property: "ro.product.vendor.marketname")
+        }
+        if enriched.marketName == nil || enriched.marketName?.isEmpty == true {
+            enriched.marketName = await getDeviceProperty(device.serial, property: "ro.config.marketing_name")
+        }
+
+        return enriched
     }
 
     /// 启动 adb 服务

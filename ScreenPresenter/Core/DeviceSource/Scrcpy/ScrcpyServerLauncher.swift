@@ -68,17 +68,18 @@ final class ScrcpyServerLauncher {
         adbService: AndroidADBService,
         serverLocalPath: String,
         port: Int,
-        scrcpyVersion: String = "3.0"
+        scrcpyVersion: String = "3.3.4"
     ) {
         self.adbService = adbService
         self.serverLocalPath = serverLocalPath
         self.port = port
         self.scrcpyVersion = scrcpyVersion
 
-        // 生成随机 scid（限制在 Java Integer 安全范围内）
-        scid = UInt32.random(in: 10_000_000..<100_000_000)
+        // 生成随机 scid（31位无符号整数，避免 Java Integer 溢出）
+        // Java int 最大值是 2147483647，使用较小范围确保安全
+        scid = UInt32.random(in: 1..<0x7fff_ffff)
 
-        AppLogger.process.info("[ScrcpyLauncher] 初始化，scid: \(scid), port: \(port)")
+        AppLogger.process.info("[ScrcpyLauncher] 初始化，scid: \(scid) (0x\(String(scid, radix: 16))), port: \(port)")
     }
 
     // MARK: - 公开方法
@@ -86,25 +87,46 @@ final class ScrcpyServerLauncher {
     /// 启动 scrcpy-server
     /// - Parameter configuration: scrcpy 配置
     /// - Returns: 启动的服务器进程
+    /// 准备环境：推送服务端、设置端口转发
+    /// 必须在启动 Socket 监听器之前调用
     @MainActor
-    func launch(configuration: ScrcpyConfiguration) async throws -> Process {
-        AppLogger.process.info("[ScrcpyLauncher] 开始启动流程...")
+    func prepareEnvironment(configuration _: ScrcpyConfiguration) async throws {
+        print("🚀 [ScrcpyLauncher] prepareEnvironment() 开始，版本: \(scrcpyVersion), scid: \(scid)")
+        AppLogger.process.info("[ScrcpyLauncher] 开始准备环境，客户端版本: \(scrcpyVersion)")
 
         // 1. 推送 scrcpy-server 到设备
+        print("📤 [ScrcpyLauncher] 步骤1: 推送 scrcpy-server...")
         try await pushServer()
+        print("✅ [ScrcpyLauncher] 推送完成")
 
         // 2. 检查协议版本兼容性
+        print("🔍 [ScrcpyLauncher] 步骤2: 检查协议版本...")
         await checkProtocolVersion()
 
         // 3. 设置端口转发（优先使用 reverse，失败则 fallback 到 forward）
+        print("🔌 [ScrcpyLauncher] 步骤3: 设置端口转发...")
         try await setupPortForwarding()
+        print("✅ [ScrcpyLauncher] prepareEnvironment() 完成，模式: \(connectionMode)")
+        AppLogger.process.info("[ScrcpyLauncher] ✅ 环境准备完成，模式: \(connectionMode), 端口: \(port)")
+    }
 
-        // 4. 启动 scrcpy-server
-        let process = try await startServer(configuration: configuration)
+    /// 启动 scrcpy-server
+    /// 必须在 prepareEnvironment 之后、且 Socket 监听器已启动后调用
+    @MainActor
+    func startServer(configuration: ScrcpyConfiguration) async throws -> Process {
+        print("🚀 [ScrcpyLauncher] startServer() 开始...")
+        let process = try await launchServer(configuration: configuration)
         serverProcess = process
-
-        AppLogger.process.info("[ScrcpyLauncher] 启动完成，模式: \(connectionMode)")
+        print("✅ [ScrcpyLauncher] startServer() 完成")
+        AppLogger.process.info("[ScrcpyLauncher] ✅ scrcpy-server 已启动，scid: \(scid)")
         return process
+    }
+
+    /// 完整启动流程（旧接口，保留兼容性）
+    @MainActor
+    func launch(configuration: ScrcpyConfiguration) async throws -> Process {
+        try await prepareEnvironment(configuration: configuration)
+        return try await startServer(configuration: configuration)
     }
 
     /// 检查协议版本兼容性
@@ -152,8 +174,10 @@ final class ScrcpyServerLauncher {
     }
 
     /// 获取 Unix 域套接字名称
+    /// scrcpy 使用十六进制格式的 scid 作为 socket 名称
     var socketName: String {
-        "scrcpy_\(scid)"
+        let scidHex = String(format: "%08x", scid)
+        return "scrcpy_\(scidHex)"
     }
 
     // MARK: - 私有方法
@@ -208,10 +232,10 @@ final class ScrcpyServerLauncher {
         }
     }
 
-    /// 启动 scrcpy-server
+    /// 内部方法：实际启动 scrcpy-server
     @MainActor
-    private func startServer(configuration: ScrcpyConfiguration) async throws -> Process {
-        AppLogger.process.info("[ScrcpyLauncher] 启动 scrcpy-server...")
+    private func launchServer(configuration: ScrcpyConfiguration) async throws -> Process {
+        AppLogger.process.info("[ScrcpyLauncher] 启动 scrcpy-server，版本: \(scrcpyVersion), scid: \(scid)")
 
         // 构建服务端参数
         let serverArgs = buildServerArguments(configuration: configuration)
@@ -222,30 +246,36 @@ final class ScrcpyServerLauncher {
                 arguments: serverArgs
             )
 
-            // 等待一小段时间让服务端启动
-            try await Task.sleep(nanoseconds: 800_000_000) // 800ms
+            // 等待服务端启动，scrcpy-server 需要一些时间来初始化
+            AppLogger.process.info("[ScrcpyLauncher] 等待 scrcpy-server 初始化...")
+            try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5秒
 
             // 检查进程是否还在运行
-            guard process.isRunning else {
+            if !process.isRunning {
                 let exitCode = process.terminationStatus
+                AppLogger.process.error("[ScrcpyLauncher] ❌ scrcpy-server 进程已退出，退出码: \(exitCode)")
                 throw ScrcpyLauncherError.serverStartFailedWithExitCode(exitCode)
             }
 
-            AppLogger.process.info("[ScrcpyLauncher] scrcpy-server 已启动")
+            AppLogger.process.info("[ScrcpyLauncher] ✅ scrcpy-server 进程正在运行，等待连接建立...")
             return process
         } catch let error as ScrcpyLauncherError {
             throw error
         } catch {
+            AppLogger.process.error("[ScrcpyLauncher] ❌ 启动失败: \(error.localizedDescription)")
             throw ScrcpyLauncherError.serverStartFailed(reason: error.localizedDescription)
         }
     }
 
     /// 构建服务端参数
     private func buildServerArguments(configuration: ScrcpyConfiguration) -> [String] {
+        // scid 使用十六进制格式，8位，前面补0
+        let scidHex = String(format: "%08x", scid)
+
         var args: [String] = [
             scrcpyVersion,
-            "scid=\(scid)",
-            "log_level=info",
+            "scid=\(scidHex)",
+            "log_level=debug", // 使用 debug 级别以获取更多诊断信息
             "audio=false",
             "control=false",
             // 标准协议：发送 meta 和 frame header

@@ -270,25 +270,46 @@ final class AndroidADBService {
     ///   - arguments: 服务器参数列表
     /// - Returns: 启动的进程
     func startServer(serverPath: String, arguments: [String]) throws -> Process {
-        let shellCommand = "CLASSPATH=\(serverPath) app_process / com.genymobile.scrcpy.Server \(arguments.joined(separator: " "))"
+        let shellCommand =
+            "CLASSPATH=\(serverPath) app_process / com.genymobile.scrcpy.Server \(arguments.joined(separator: " "))"
 
+        print("🚀 [ADB] 启动 scrcpy-server")
+        print("📋 [ADB] Shell命令: \(shellCommand)")
+        print("📋 [ADB] ADB路径: \(adbPath)")
+        print("📋 [ADB] 设备序列号: \(deviceSerial)")
         AppLogger.process.info("[ADB] 启动 scrcpy-server: \(shellCommand)")
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: adbPath)
         process.arguments = ["-s", deviceSerial, "shell", shellCommand]
 
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-        process.standardOutput = Pipe() // 忽略 stdout
+        // 同时捕获 stdout 和 stderr，scrcpy-server 的输出可能在任一流上
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = outputPipe // 合并到同一个 pipe
 
         try process.run()
 
-        // 异步读取错误输出
+        print("✅ [ADB] scrcpy-server 进程已启动，PID: \(process.processIdentifier)")
+        AppLogger.process.info("[ADB] scrcpy-server 进程已启动，PID: \(process.processIdentifier)")
+
+        // 异步读取所有输出
         Task {
-            for try await line in errorPipe.fileHandleForReading.bytes.lines {
-                AppLogger.process.info("[scrcpy-server] \(line)")
+            print("📖 [ADB] 开始读取 scrcpy-server 输出...")
+            for try await line in outputPipe.fileHandleForReading.bytes.lines {
+                // 使用 print 确保输出可见
+                print("📺 [scrcpy-server] \(line)")
+                // 根据内容判断日志级别
+                if line.contains("ERROR") || line.contains("Exception") || line.contains("error") {
+                    AppLogger.process.error("[scrcpy-server] \(line)")
+                } else if line.contains("WARN") || line.contains("warning") {
+                    AppLogger.process.warning("[scrcpy-server] \(line)")
+                } else {
+                    AppLogger.process.info("[scrcpy-server] \(line)")
+                }
             }
+            print("📕 [scrcpy-server] 输出流已关闭")
+            AppLogger.process.info("[scrcpy-server] 输出流已关闭")
         }
 
         return process

@@ -413,9 +413,14 @@ final class MainViewController: NSViewController {
             }
             panel.renderView.clearTexture()
         } else if appState.androidCapturing {
+            // 设置帧回调，每个新帧到来时更新纹理
+            appState.androidDeviceSource?.onFrame = { [weak panel] pixelBuffer in
+                panel?.renderView.updateTexture(from: pixelBuffer)
+            }
+
             panel.showCapturing(
                 deviceName: appState.androidDeviceName ?? "Android",
-                modelName: appState.androidDeviceName,
+                modelName: appState.androidDeviceModelName,
                 platform: .android,
                 fps: panel.renderView.fps,
                 resolution: appState.androidDeviceSource?.captureSize ?? .zero,
@@ -424,6 +429,8 @@ final class MainViewController: NSViewController {
                 }
             )
         } else if appState.androidConnected {
+            // 清除帧回调
+            appState.androidDeviceSource?.onFrame = nil
             // 检查设备是否已授权（state == .device）
             let isDeviceReady = appState.androidDeviceReady
             let userPrompt = appState.androidDeviceUserPrompt
@@ -431,12 +438,17 @@ final class MainViewController: NSViewController {
             panel.showConnected(
                 deviceName: appState.androidDeviceName ?? "Android",
                 platform: .android,
+                modelName: appState.androidDeviceModelName,
+                systemVersion: appState.androidDeviceSystemVersion,
                 userPrompt: userPrompt,
                 onStart: { [weak self] in
                     // 只有设备已授权才允许捕获
                     if isDeviceReady {
                         self?.startAndroidCapture()
                     }
+                },
+                onRefresh: { [weak self] completion in
+                    self?.refreshAndroidDeviceInfo(completion: completion)
                 }
             )
 
@@ -541,6 +553,26 @@ final class MainViewController: NSViewController {
 
                 // 显示刷新成功提示（在 iOS 面板上弹出）
                 ToastView.success(L10n.toolbar.deviceInfoRefreshed, in: iosPanelView)
+
+                // 完成回调
+                completion()
+            }
+        }
+    }
+
+    private func refreshAndroidDeviceInfo(completion: @escaping () -> Void) {
+        // 刷新 Android 设备列表
+        let appState = AppState.shared
+
+        Task {
+            await appState.androidDeviceProvider.refreshDevices()
+
+            await MainActor.run {
+                // 触发 UI 更新
+                updateUI()
+
+                // 显示刷新成功提示
+                ToastView.success(L10n.toolbar.deviceInfoRefreshed, in: androidPanelView)
 
                 // 完成回调
                 completion()
