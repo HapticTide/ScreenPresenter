@@ -17,25 +17,24 @@ import SnapKit
 final class MainViewController: NSViewController {
     // MARK: - UI 组件
 
-    private var previewContainerView: NSView!
+    private var previewContainerView: PreviewContainerView!
 
-    // MARK: - 设备面板
+    // MARK: - 设备面板快捷访问
 
     /// iOS 面板（默认在左侧）
-    private var iosPanelView: DevicePanelView!
+    private var iosPanelView: DevicePanelView { previewContainerView.iosPanelView }
     /// Android 面板（默认在右侧）
-    private var androidPanelView: DevicePanelView!
-    private var swapButton: NSButton!
-    private var swapButtonIconLayer: CALayer!
+    private var androidPanelView: DevicePanelView { previewContainerView.androidPanelView }
+
+    // MARK: - 鼠标追踪
+
     private var swapButtonTrackingArea: NSTrackingArea?
+    private var isMouseInSwapArea: Bool = false
 
     // MARK: - 状态
 
     private var cancellables = Set<AnyCancellable>()
-    private var isSwapped: Bool = false
     private var isFullScreen: Bool = false
-    private var isInitialLayout: Bool = true
-    private var isMouseInSwapArea: Bool = false
 
     // MARK: - 生命周期
 
@@ -48,17 +47,23 @@ final class MainViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 从偏好设置读取默认设备位置
-        isSwapped = !UserPreferences.shared.iosOnLeft
-
         setupUI()
         setupBindings()
         startRendering()
 
+        // 从偏好设置读取默认设备位置
+        if !UserPreferences.shared.iosOnLeft {
+            previewContainerView.swapPanels(animated: false)
+        }
+
         // 应用初始 bezel 可见性设置
-        let showBezel = UserPreferences.shared.showDeviceBezel
-        iosPanelView.setBezelVisible(showBezel)
-        androidPanelView.setBezelVisible(showBezel)
+        previewContainerView.updateBezelVisibility()
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        // 视图已添加到窗口，可以正确获取 titlebar 高度
+        updatePreviewContainerTopConstraint()
     }
 
     override func viewWillDisappear() {
@@ -70,110 +75,38 @@ final class MainViewController: NSViewController {
 
     private func setupUI() {
         setupPreviewContainer()
-        setupDevicePanels()
-        setupSwapButton()
         setupSwapButtonTracking()
         updatePanelLayout()
     }
 
     private func setupPreviewContainer() {
-        previewContainerView = NSView()
-        previewContainerView.wantsLayer = true
+        previewContainerView = PreviewContainerView()
         // 非全屏时使用默认背景色，全屏时使用用户偏好的黑色+透明度
         previewContainerView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         view.addSubview(previewContainerView)
         previewContainerView.snp.makeConstraints { make in
-            // 顶部留出 titlebar 区域（约 28pt）
-            make.top.equalToSuperview().offset(28)
+            // 顶部留出 titlebar 区域
+            // 初始使用 0，在 viewDidAppear 中会更新为正确的 titlebar 高度
+            make.top.equalToSuperview()
             make.leading.trailing.bottom.equalToSuperview()
         }
     }
 
-    private func setupDevicePanels() {
-        androidPanelView = DevicePanelView()
-        previewContainerView.addSubview(androidPanelView)
-
-        iosPanelView = DevicePanelView()
-        previewContainerView.addSubview(iosPanelView)
-    }
-
-    private func setupSwapButton() {
-        swapButton = NSButton(title: "", target: self, action: #selector(swapTapped))
-        swapButton.bezelStyle = .circular
-        swapButton.isBordered = false
-        swapButton.wantsLayer = true
-        swapButton.layer?.cornerRadius = 16
-        swapButton.toolTip = L10n.toolbar.swapTooltip
-        swapButton.focusRingType = .none
-        swapButton.refusesFirstResponder = true
-        swapButton.alphaValue = 1.0
-        previewContainerView.addSubview(swapButton)
-
-        // 使用 CALayer 显示图标，便于精确控制动画锚点
-        let iconSize: CGFloat = 16
-        let buttonSize: CGFloat = 32
-
-        swapButtonIconLayer = CALayer()
-        swapButtonIconLayer.bounds = CGRect(x: 0, y: 0, width: iconSize, height: iconSize)
-        swapButtonIconLayer.position = CGPoint(x: buttonSize / 2, y: buttonSize / 2)
-        swapButtonIconLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-
-        // 使用 SF Symbol 创建图标
-        if let iconImage = NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: nil) {
-            let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
-            let configuredImage = iconImage.withSymbolConfiguration(config)
-            swapButtonIconLayer.contents = configuredImage?.tinted(with: .labelColor)
-            swapButtonIconLayer.contentsGravity = .resizeAspect
+    /// 动态获取 titlebar 高度
+    private var titlebarHeight: CGFloat {
+        guard let window = view.window else {
+            // 默认值：macOS 标准 titlebar 高度
+            return 28
         }
-
-        swapButton.layer?.addSublayer(swapButtonIconLayer)
-
-        // 设置初始样式（非全屏模式）- 必须在 swapButtonIconLayer 初始化之后
-        updateSwapButtonStyle(isFullScreen: false)
+        // contentLayoutRect 是内容区域的矩形，不包含 titlebar
+        // titlebar 高度 = 窗口高度 - 内容区域高度
+        let contentHeight = window.contentLayoutRect.height
+        let windowHeight = window.frame.height
+        return windowHeight - contentHeight
     }
 
-    private func updateSwapButtonStyle(isFullScreen: Bool) {
-        guard let layer = swapButton.layer else { return }
-
-        if isFullScreen {
-            // 全屏时使用暗色样式
-            layer.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
-            layer.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-            layer.borderWidth = 1
-            layer.shadowColor = NSColor.black.cgColor
-            layer.shadowOpacity = 0.5
-            layer.shadowOffset = CGSize(width: 0, height: -2)
-            layer.shadowRadius = 4
-
-            // 更新图标颜色为浅色
-            if let iconImage = NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: nil) {
-                let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-                let configuredImage = iconImage.withSymbolConfiguration(config)
-                swapButtonIconLayer.contents = configuredImage?.tinted(with: .white)
-            }
-        } else {
-            // 非全屏时使用默认样式
-            layer.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.8).cgColor
-            layer.borderColor = NSColor.separatorColor.cgColor
-            layer.borderWidth = 1
-            layer.shadowColor = NSColor.black.cgColor
-            layer.shadowOpacity = 0.15
-            layer.shadowOffset = CGSize(width: 0, height: -1)
-            layer.shadowRadius = 3
-
-            // 更新图标颜色为标签色
-            if let iconImage = NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: nil) {
-                let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-                let configuredImage = iconImage.withSymbolConfiguration(config)
-                swapButtonIconLayer.contents = configuredImage?.tinted(with: .labelColor)
-            }
-        }
-    }
-
-    @objc private func swapTapped() {
-        isSwapped.toggle()
-        updatePanelLayout()
-    }
+    /// 交换按钮（委托给 previewContainerView）
+    private var swapButton: NSButton { previewContainerView.swapButton }
 
     private func setupSwapButtonTracking() {
         // 移除旧的追踪区域
@@ -254,12 +187,19 @@ final class MainViewController: NSViewController {
         updatePreviewContainerTopConstraint()
     }
 
+    /// 确保 toolbar 可见（退出全屏后调用）
+    func ensureToolbarVisible() {
+        guard !isFullScreen, let window = view.window else { return }
+        window.toolbar?.isVisible = true
+    }
+
     private func updatePreviewContainerTopConstraint() {
         // 全屏时内容区域延伸到顶部，非全屏时留出 titlebar 区域
-        let topOffset: CGFloat = isFullScreen ? 0 : 28
+        let topOffset: CGFloat = isFullScreen ? 0 : titlebarHeight
 
-        previewContainerView.snp.updateConstraints { make in
+        previewContainerView.snp.remakeConstraints { make in
             make.top.equalToSuperview().offset(topOffset)
+            make.leading.trailing.bottom.equalToSuperview()
         }
     }
 
@@ -283,74 +223,13 @@ final class MainViewController: NSViewController {
         updateSwapButtonVisibility()
     }
 
-    private func updatePanelLayout() {
+    private func updatePanelLayout(animated: Bool = true) {
         // 更新面板内容
         updateAndroidPanel(androidPanelView)
         updateIOSPanel(iosPanelView)
 
-        // 重置约束
-        androidPanelView.snp.removeConstraints()
-        iosPanelView.snp.removeConstraints()
-        swapButton.snp.removeConstraints()
-
-        // 根据 isSwapped 决定哪个面板在左侧
-        // 默认 (isSwapped=false): iOS 在左侧，Android 在右侧
-        // 交换后 (isSwapped=true): Android 在左侧，iOS 在右侧
-        let leftPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let rightPanel = isSwapped ? iosPanelView! : androidPanelView!
-
-        let panelGap: CGFloat = 8
-        // 非全屏时添加上下缩进以平衡视觉效果，全屏时无缩进
-        let verticalPadding: CGFloat = isFullScreen ? 0 : 24
-
-        let showBezel = UserPreferences.shared.showDeviceBezel
-
-        // 在全屏模式下隐藏 bezel 时，让面板完全填满容器高度
-        let shouldFillHeight = isFullScreen && !showBezel
-
-        // 左右并排布局
-        leftPanel.snp.makeConstraints { make in
-            if shouldFillHeight {
-                // 全屏隐藏 bezel：填满整个高度
-                make.top.bottom.equalToSuperview()
-            } else {
-                make.top.equalToSuperview().offset(verticalPadding)
-                make.bottom.equalToSuperview().offset(-verticalPadding)
-            }
-            make.leading.equalToSuperview()
-            make.width.equalToSuperview().multipliedBy(0.5).offset(-panelGap / 2)
-        }
-
-        rightPanel.snp.makeConstraints { make in
-            if shouldFillHeight {
-                // 全屏隐藏 bezel：填满整个高度
-                make.top.bottom.equalToSuperview()
-            } else {
-                make.top.equalToSuperview().offset(verticalPadding)
-                make.bottom.equalToSuperview().offset(-verticalPadding)
-            }
-            make.leading.equalTo(leftPanel.snp.trailing).offset(panelGap)
-            make.trailing.equalToSuperview()
-        }
-
-        // swap 按钮在两个面板中间
-        swapButton.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.centerY.equalToSuperview()
-            make.width.height.equalTo(32)
-        }
-
-        // 首次布局时不执行动画，避免启动时的视觉跳动
-        if isInitialLayout {
-            isInitialLayout = false
-            previewContainerView.layoutSubtreeIfNeeded()
-        } else {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.3
-                context.allowsImplicitAnimation = true
-                previewContainerView.layoutSubtreeIfNeeded()
-            }
-        }
+        // 委托给 previewContainerView 处理布局
+        previewContainerView.updateLayout(animated: animated)
     }
 
     // MARK: - 绑定
@@ -384,11 +263,7 @@ final class MainViewController: NSViewController {
     }
 
     @objc private func handleBezelVisibilityChange() {
-        let showBezel = UserPreferences.shared.showDeviceBezel
-        iosPanelView.setBezelVisible(showBezel)
-        androidPanelView.setBezelVisible(showBezel)
-        // 更新布局
-        updatePanelLayout()
+        previewContainerView.updateBezelVisibility()
     }
 
     @objc private func handleBackgroundColorChange() {
@@ -669,12 +544,13 @@ final class MainViewController: NSViewController {
     // MARK: - 窗口事件
 
     func handleWindowResize() {
-        iosPanelView.needsLayout = true
-        androidPanelView.needsLayout = true
+        // 窗口大小变化时重新计算面板布局（基于新的容器尺寸和 aspectRatio）
+        updatePanelLayout(animated: false)
     }
 
     func handleFullScreenChange(isFullScreen: Bool) {
         self.isFullScreen = isFullScreen
+        previewContainerView.isFullScreen = isFullScreen
 
         // 更新背景色
         if isFullScreen {
@@ -688,14 +564,11 @@ final class MainViewController: NSViewController {
             previewContainerView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         }
 
-        // 更新 swapButton 样式
-        updateSwapButtonStyle(isFullScreen: isFullScreen)
-
         // 更新 titlebar 显示状态（全屏时隐藏 toolbar）
         updateTitlebarVisibility(animated: false)
 
-        // 更新面板布局（包含上下缩进）
-        updatePanelLayout()
+        // 更新面板布局（禁用动画，让系统全屏动画统一控制）
+        updatePanelLayout(animated: false)
 
         // 根据鼠标实际位置更新状态，然后更新按钮可见性
         updateMouseInSwapAreaState()
@@ -706,12 +579,7 @@ final class MainViewController: NSViewController {
 
     /// 更新本地化文本（语言切换时调用）
     func updateLocalizedTexts() {
-        // 更新交换按钮的 tooltip
-        swapButton.toolTip = L10n.toolbar.swapTooltip
-
-        // 更新设备面板的本地化文本
-        iosPanelView.updateLocalizedTexts()
-        androidPanelView.updateLocalizedTexts()
+        previewContainerView.updateLocalizedTexts()
     }
 }
 

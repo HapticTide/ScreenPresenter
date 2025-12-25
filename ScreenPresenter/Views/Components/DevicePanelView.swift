@@ -50,35 +50,13 @@ final class DevicePanelView: NSView {
     /// Metal 渲染视图（显示设备画面，嵌入到 screenContentView 中）
     private(set) var renderView: SingleDeviceRenderView!
 
-    /// 状态内容容器（显示在边框屏幕区域内）
-    private var statusContainerView: NSView!
+    /// 状态视图（显示在边框屏幕区域内）
+    private var statusView: DeviceStatusView!
 
-    // 状态 UI 组件（不再使用图标）
-    private var loadingIndicator: NSProgressIndicator!
-    private var titleLabel: NSTextField!
-    private var statusStackView: NSStackView!
-    private var statusIndicator: NSView!
-    private var statusLabel: NSTextField!
-    private var actionButton: PaddedButton!
-    private var subtitleLabel: NSTextField!
-    /// 操作按钮加载指示器
-    private var actionLoadingIndicator: NSProgressIndicator!
+    /// 捕获中的信息视图
+    private var captureInfoView: DeviceCaptureInfoView!
 
-    /// 刷新按钮
-    private var refreshButton: PaddedButton!
-    /// 刷新加载指示器
-    private var refreshLoadingIndicator: NSProgressIndicator!
-
-    // 捕获中的悬浮栏
-    private var captureBarView: NSView!
-    private var captureIndicator: NSView!
-    private var captureDeviceNameLabel: NSTextField! // 设备名称
-    private var captureDeviceInfoLabel: NSTextField! // 型号 · 系统版本
-    private var resolutionLabel: NSTextField!
-    private var fpsLabel: NSTextField!
-    private var stopButton: NSButton!
-
-    /// 当前设备系统版本（用于 captureBar 显示）
+    /// 当前设备系统版本（用于 captureInfoView 显示）
     private var currentDeviceSystemVersion: String?
 
     // MARK: - 回调
@@ -90,21 +68,6 @@ final class DevicePanelView: NSView {
 
     /// 当前设备状态提示（用于 Toast 显示）
     private var currentUserPrompt: String?
-
-    // MARK: - 颜色定义（适配黑色背景的屏幕区域）
-
-    private enum Colors {
-        /// 主标题颜色（白色）
-        static let title = NSColor.white
-        /// 次要标题颜色（浅灰色）
-        static let titleSecondary = NSColor(white: 0.6, alpha: 1.0)
-        /// 状态文字颜色（中灰色）
-        static let status = NSColor(white: 0.7, alpha: 1.0)
-        /// 提示文字颜色（深灰色）
-        static let hint = NSColor(white: 0.5, alpha: 1.0)
-        /// 次要按钮文字颜色（中灰色）
-        static let actionSecondary = NSColor(white: 0.7, alpha: 1.0)
-    }
 
     // MARK: - 状态
 
@@ -161,7 +124,7 @@ final class DevicePanelView: NSView {
 
         setupBezelView()
         setupStatusContent()
-        setupCaptureBar()
+        setupCaptureInfoView()
     }
 
     private func setupBezelView() {
@@ -206,7 +169,7 @@ final class DevicePanelView: NSView {
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
         isMouseInside = false
-        updateCaptureBarVisibility()
+        updateCaptureInfoVisibility()
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -214,333 +177,86 @@ final class DevicePanelView: NSView {
         checkMouseInCaptureZone(with: event)
     }
 
-    /// 检查鼠标是否在 captureBar 显示区域内（渲染区域上方 1/3）
+    /// 检查鼠标是否在 captureInfo 显示区域内（屏幕中心区域）
     private func checkMouseInCaptureZone(with event: NSEvent) {
+        // 将鼠标位置转换到 bezelView.screenContentView 的坐标系
         let locationInView = convert(event.locationInWindow, from: nil)
-        // 使用实际渲染区域来判断
-        let renderRect = actualRenderRect
+        let locationInScreen = bezelView.screenContentView.convert(locationInView, from: self)
 
-        guard renderRect.width > 0, renderRect.height > 0 else {
+        let screenBounds = bezelView.screenContentView.bounds
+        guard screenBounds.width > 0, screenBounds.height > 0 else {
             isMouseInside = false
-            updateCaptureBarVisibility()
+            updateCaptureInfoVisibility()
             return
         }
 
-        // 计算上方 1/3 区域
-        let topThirdHeight = renderRect.height / 3
-        let captureZone = CGRect(
-            x: renderRect.minX,
-            y: renderRect.maxY - topThirdHeight,
-            width: renderRect.width,
-            height: topThirdHeight
+        // 计算中心区域（中间 50% 区域）
+        let centerRatio: CGFloat = 0.5
+        let marginX = screenBounds.width * (1 - centerRatio) / 2
+        let marginY = screenBounds.height * (1 - centerRatio) / 2
+        let centerZone = CGRect(
+            x: marginX,
+            y: marginY,
+            width: screenBounds.width * centerRatio,
+            height: screenBounds.height * centerRatio
         )
 
         let wasInside = isMouseInside
-        isMouseInside = captureZone.contains(locationInView)
+        isMouseInside = centerZone.contains(locationInScreen)
 
         // 只在状态改变时更新
         if wasInside != isMouseInside {
-            updateCaptureBarVisibility()
+            updateCaptureInfoVisibility()
         }
     }
 
-    private func updateCaptureBarVisibility() {
+    private func updateCaptureInfoVisibility() {
         guard currentState == .capturing else {
-            captureBarView.isHidden = true
+            captureInfoView.isHidden = true
             return
         }
 
         if isMouseInside {
-            // 显示前先更新位置
-            updateCaptureBarPosition()
-            captureBarView.isHidden = false
-            captureBarView.alphaValue = 0
-
-            // 淡入动画
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                captureBarView.animator().alphaValue = 1.0
-            }
+            captureInfoView.showAnimated(autoHide: false)
         } else {
-            // 淡出动画
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                captureBarView.animator().alphaValue = 0.0
-            } completionHandler: { [weak self] in
-                guard let self, !self.isMouseInside else { return }
-                captureBarView.isHidden = true
-            }
+            captureInfoView.hideAnimated()
         }
     }
 
     private func setupStatusContent() {
-        // 状态内容容器（覆盖整个屏幕区域，带有暗色背景）
-        statusContainerView = NSView()
-        statusContainerView.wantsLayer = true
-        statusContainerView.layer?.backgroundColor = NSColor(white: 0.05, alpha: 1.0).cgColor
-        bezelView.screenContentView.addSubview(statusContainerView)
-        statusContainerView.snp.makeConstraints { make in
+        statusView = DeviceStatusView()
+        bezelView.screenContentView.addSubview(statusView)
+        statusView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
 
-        // 内容居中容器
-        let contentContainer = NSView()
-        statusContainerView.addSubview(contentContainer)
-        contentContainer.snp.makeConstraints { make in
-            // 降低所有约束优先级，避免父视图宽度为 0 时产生冲突
-            make.center.equalToSuperview().priority(.high)
-            make.leading.greaterThanOrEqualToSuperview().offset(16).priority(.high)
-            make.trailing.lessThanOrEqualToSuperview().offset(-16).priority(.high)
+        // 设置回调
+        statusView.onActionTapped = { [weak self] in
+            self?.startActionLoading()
+            self?.onStartAction?()
         }
 
-        // 加载指示器（菊花）
-        loadingIndicator = NSProgressIndicator()
-        loadingIndicator.style = .spinning
-        loadingIndicator.controlSize = .regular
-        loadingIndicator.isIndeterminate = true
-        loadingIndicator.isHidden = true
-        // 强制使用 darkAqua 外观，确保在深色背景下菊花图标可见（白色）
-        loadingIndicator.appearance = NSAppearance(named: .darkAqua)
-        contentContainer.addSubview(loadingIndicator)
-        loadingIndicator.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.centerX.equalToSuperview()
-            make.size.equalTo(32)
+        statusView.onRefreshTapped = { [weak self] completion in
+            self?.onRefreshAction?(completion)
         }
 
-        // 标题（设备名称或提示文案）
-        titleLabel = NSTextField(labelWithString: "")
-        titleLabel.font = NSFont.systemFont(ofSize: 28, weight: .semibold)
-        titleLabel.textColor = Colors.title
-        titleLabel.alignment = .center
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.maximumNumberOfLines = 1
-        contentContainer.addSubview(titleLabel)
-        titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(loadingIndicator.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
+        statusView.onStatusTapped = { [weak self] in
+            guard let self, let prompt = currentUserPrompt, !prompt.isEmpty else { return }
+            ToastView.warning(prompt, in: window)
         }
-
-        // 状态栏
-        statusStackView = NSStackView()
-        statusStackView.orientation = .horizontal
-        statusStackView.spacing = 8
-        statusStackView.alignment = .centerY
-        contentContainer.addSubview(statusStackView)
-        statusStackView.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(12)
-            make.centerX.equalToSuperview()
-        }
-
-        // 状态指示灯
-        statusIndicator = NSView()
-        statusIndicator.wantsLayer = true
-        statusIndicator.layer?.cornerRadius = 5
-        statusIndicator.layer?.backgroundColor = NSColor.systemGray.cgColor
-        statusStackView.addArrangedSubview(statusIndicator)
-        statusIndicator.snp.makeConstraints { make in
-            make.size.equalTo(10)
-        }
-
-        // 状态文本
-        statusLabel = NSTextField(labelWithString: "")
-        statusLabel.font = NSFont.systemFont(ofSize: 16)
-        statusLabel.textColor = Colors.status
-        statusStackView.addArrangedSubview(statusLabel)
-
-        // 操作按钮（使用自定义视图实现内边距）
-        actionButton = PaddedButton(
-            horizontalPadding: 20,
-            verticalPadding: 12
-        )
-        actionButton.target = self
-        actionButton.action = #selector(actionTapped)
-        actionButton.wantsLayer = true
-        actionButton.isBordered = false
-        actionButton.layer?.cornerRadius = 8
-        actionButton.layer?.backgroundColor = NSColor.appAccent.cgColor
-        actionButton.focusRingType = .none
-        actionButton.refusesFirstResponder = true
-        setActionButtonTitle(L10n.overlayUI.startCapture)
-        contentContainer.addSubview(actionButton)
-        actionButton.snp.makeConstraints { make in
-            make.top.equalTo(statusStackView.snp.bottom).offset(24)
-            make.centerX.equalToSuperview()
-        }
-
-        // 操作按钮加载指示器（菊花）
-        actionLoadingIndicator = NSProgressIndicator()
-        actionLoadingIndicator.style = .spinning
-        actionLoadingIndicator.controlSize = .small
-        actionLoadingIndicator.isIndeterminate = true
-        actionLoadingIndicator.isHidden = true
-        actionLoadingIndicator.appearance = NSAppearance(named: .darkAqua)
-        actionButton.addSubview(actionLoadingIndicator)
-        actionLoadingIndicator.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-
-        // 副标题/提示
-        subtitleLabel = NSTextField(labelWithString: "")
-        subtitleLabel.font = NSFont.systemFont(ofSize: 14)
-        subtitleLabel.textColor = Colors.hint
-        subtitleLabel.alignment = .center
-        subtitleLabel.lineBreakMode = .byWordWrapping
-        subtitleLabel.maximumNumberOfLines = 2
-        contentContainer.addSubview(subtitleLabel)
-        subtitleLabel.snp.makeConstraints { make in
-            make.top.equalTo(actionButton.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
-
-        // 刷新按钮
-        refreshButton = PaddedButton(
-            horizontalPadding: 8,
-            verticalPadding: 4
-        )
-        refreshButton.wantsLayer = true
-        refreshButton.isBordered = false
-        refreshButton.layer?.cornerRadius = 6
-        refreshButton.layer?.backgroundColor = Colors.actionSecondary.withAlphaComponent(0.2).cgColor
-        refreshButton.focusRingType = .none
-        refreshButton.refusesFirstResponder = true
-        refreshButton.target = self
-        refreshButton.action = #selector(refreshTapped)
-        let buttonFont = NSFont.systemFont(ofSize: 12, weight: .regular)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: Colors.actionSecondary,
-            .font: buttonFont,
-        ]
-        refreshButton.attributedTitle = NSAttributedString(
-            string: L10n.common.refresh,
-            attributes: attributes
-        )
-        contentContainer.addSubview(refreshButton)
-        refreshButton.snp.makeConstraints { make in
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(12)
-            make.centerX.equalToSuperview()
-            make.bottom.equalToSuperview()
-        }
-
-        // 刷新加载指示器（菊花）
-        refreshLoadingIndicator = NSProgressIndicator()
-        refreshLoadingIndicator.style = .spinning
-        refreshLoadingIndicator.controlSize = .small
-        refreshLoadingIndicator.isIndeterminate = true
-        refreshLoadingIndicator.isHidden = true
-        // 强制使用 darkAqua 外观，确保在深色背景下菊花图标可见（白色）
-        refreshLoadingIndicator.appearance = NSAppearance(named: .darkAqua)
-        refreshButton.addSubview(refreshLoadingIndicator)
-        refreshLoadingIndicator.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-
-        // 状态栏点击手势（用于显示 Toast 提示）
-        let tapGesture = NSClickGestureRecognizer(target: self, action: #selector(statusTapped))
-        statusStackView.addGestureRecognizer(tapGesture)
     }
 
-    private func setupCaptureBar() {
-        // 捕获中的悬浮栏（放在 bezelView 上层，不遮挡 screenContentView）
-        captureBarView = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 44)) // 初始 frame，避免约束冲突
-        captureBarView.wantsLayer = true
-        captureBarView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.75).cgColor
-        captureBarView.layer?.cornerRadius = 8
-        // 添加细边框（在深色背景下可见）
-        captureBarView.layer?.borderWidth = 0.5
-        captureBarView.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        // 添加阴影（在浅色背景下可见）
-        captureBarView.shadow = NSShadow()
-        captureBarView.layer?.shadowColor = NSColor.black.cgColor
-        captureBarView.layer?.shadowOpacity = 0.5
-        captureBarView.layer?.shadowOffset = CGSize(width: 0, height: -2)
-        captureBarView.layer?.shadowRadius = 8
-        captureBarView.isHidden = true
-        addSubview(captureBarView)
-        // frame 会在 layout() 中根据 screenFrame 动态更新
-
-        // 状态指示灯
-        captureIndicator = NSView()
-        captureIndicator.wantsLayer = true
-        captureIndicator.layer?.cornerRadius = 4
-        captureIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
-        captureBarView.addSubview(captureIndicator)
-
-        // ============================================================
-        // 三行垂直布局：
-        // 第一行：[●] 设备名称                              [■]
-        // 第二行：    型号 · 系统版本
-        // 第三行：    1920×1080 · 60 FPS
-        // ============================================================
-
-        // 停止按钮（右上角固定）
-        stopButton = NSButton(title: "", target: self, action: #selector(stopTapped))
-        stopButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.overlayUI.stop)
-        stopButton.bezelStyle = .inline
-        stopButton.isBordered = false
-        stopButton.contentTintColor = .appDanger
-        captureBarView.addSubview(stopButton)
-        stopButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-10)
-            make.top.equalToSuperview().offset(8)
-            make.size.equalTo(16)
+    private func setupCaptureInfoView() {
+        // 捕获状态覆盖视图（覆盖整个 screenContentView 区域）
+        captureInfoView = DeviceCaptureInfoView()
+        captureInfoView.isHidden = true
+        bezelView.screenContentView.addSubview(captureInfoView)
+        captureInfoView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
 
-        // 第一行：录制指示灯 + 设备名称
-        captureDeviceNameLabel = NSTextField(labelWithString: "")
-        captureDeviceNameLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        captureDeviceNameLabel.textColor = .white
-        captureDeviceNameLabel.lineBreakMode = .byTruncatingTail
-        captureDeviceNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        captureBarView.addSubview(captureDeviceNameLabel)
-
-        // 录制指示灯与设备名称在同一行
-        captureIndicator.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(10)
-            make.centerY.equalTo(captureDeviceNameLabel)
-            make.size.equalTo(8)
-        }
-        captureDeviceNameLabel.snp.makeConstraints { make in
-            make.leading.equalTo(captureIndicator.snp.trailing).offset(6)
-            make.top.equalToSuperview().offset(6)
-            make.trailing.lessThanOrEqualTo(stopButton.snp.leading).offset(-10)
-        }
-
-        // 第二行：设备详细信息（型号 · 系统版本）
-        captureDeviceInfoLabel = NSTextField(labelWithString: "")
-        captureDeviceInfoLabel.font = NSFont.systemFont(ofSize: 10)
-        captureDeviceInfoLabel.textColor = NSColor.white.withAlphaComponent(0.7)
-        captureDeviceInfoLabel.lineBreakMode = .byTruncatingTail
-        captureDeviceInfoLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        captureBarView.addSubview(captureDeviceInfoLabel)
-        captureDeviceInfoLabel.snp.makeConstraints { make in
-            make.leading.equalTo(captureDeviceNameLabel)
-            make.top.equalTo(captureDeviceNameLabel.snp.bottom).offset(2)
-            make.trailing.lessThanOrEqualToSuperview().offset(-10)
-        }
-
-        // 第三行：分辨率 + FPS（左对齐，水平排列）
-        resolutionLabel = NSTextField(labelWithString: "")
-        resolutionLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        resolutionLabel.textColor = NSColor.white.withAlphaComponent(0.7)
-        captureBarView.addSubview(resolutionLabel)
-        resolutionLabel.snp.makeConstraints { make in
-            make.leading.equalTo(captureDeviceNameLabel)
-            make.top.equalTo(captureDeviceInfoLabel.snp.bottom).offset(2)
-            make.bottom.equalToSuperview().offset(-6)
-        }
-
-        fpsLabel = NSTextField(labelWithString: "")
-        fpsLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        fpsLabel.textColor = NSColor.white.withAlphaComponent(0.7)
-        captureBarView.addSubview(fpsLabel)
-        fpsLabel.snp.makeConstraints { make in
-            make.leading.equalTo(resolutionLabel.snp.trailing).offset(8)
-            make.centerY.equalTo(resolutionLabel)
+        captureInfoView.onStopTapped = { [weak self] in
+            self?.onStopAction?()
         }
     }
 
@@ -550,37 +266,21 @@ final class DevicePanelView: NSView {
     func showDisconnected(platform: DevicePlatform, connectionGuide: String) {
         currentState = .disconnected
         currentPlatform = platform
+        currentCaptureResolution = .zero
         stopFPSUpdateTimer()
+        currentUserPrompt = nil
 
         // 未连接时使用通用边框
         configureBezel(for: platform, deviceName: nil)
 
         // 隐藏渲染视图，显示状态容器
         renderView.isHidden = true
-        statusContainerView.isHidden = false
-        captureBarView.isHidden = true
+        statusView.isHidden = false
+        captureInfoView.isHidden = true
 
-        // 隐藏加载指示器
-        loadingIndicator.stopAnimation(nil)
-        loadingIndicator.isHidden = true
-
-        // 隐藏刷新按钮
-        refreshButton.isHidden = true
-        currentUserPrompt = nil
-
-        // 通过文案区分设备类型（边框已经展示了设备外观）
-        titleLabel.stringValue = platform == .ios ? L10n.overlayUI.waitingForIPhone : L10n.overlayUI.waitingForAndroid
-        titleLabel.textColor = Colors.titleSecondary
-
-        statusIndicator.isHidden = true
-        statusLabel.stringValue = ""
-        statusStackView.isHidden = true
-
-        actionButton.isHidden = true
-
-        subtitleLabel.stringValue = connectionGuide
-        subtitleLabel.textColor = Colors.hint
-        subtitleLabel.isHidden = false
+        // 更新状态视图
+        let title = platform == .ios ? L10n.overlayUI.waitingForIPhone : L10n.overlayUI.waitingForAndroid
+        statusView.showDisconnected(title: title, subtitle: connectionGuide)
     }
 
     /// 显示已连接状态
@@ -643,6 +343,7 @@ final class DevicePanelView: NSView {
     ) {
         currentState = .connected
         currentPlatform = platform
+        currentCaptureResolution = .zero
         onStartAction = onStart
         onRefreshAction = onRefresh
         currentUserPrompt = userPrompt
@@ -659,45 +360,23 @@ final class DevicePanelView: NSView {
 
         // 隐藏渲染视图，显示状态容器
         renderView.isHidden = true
-        statusContainerView.isHidden = false
-        captureBarView.isHidden = true
+        statusView.isHidden = false
+        captureInfoView.isHidden = true
 
-        // 隐藏加载指示器
-        loadingIndicator.stopAnimation(nil)
-        loadingIndicator.isHidden = true
-
-        // 显示设备名称
-        titleLabel.stringValue = deviceName
-        titleLabel.textColor = Colors.title
-
-        statusStackView.isHidden = false
-        statusIndicator.isHidden = false
-
-        if let prompt = userPrompt {
-            // 根据设备状态选择颜色
-            let statusColor: NSColor = if let state = deviceState {
+        // 计算状态颜色和是否有警告
+        let statusColor: NSColor
+        let hasWarning: Bool
+        if userPrompt != nil {
+            statusColor = if let state = deviceState {
                 IOSDeviceStateMapper.statusColor(for: state)
             } else {
                 .systemOrange
             }
-
-            statusIndicator.layer?.backgroundColor = statusColor.cgColor
-            statusLabel.stringValue = "⚠️ \(prompt)"
-            statusLabel.textColor = statusColor
+            hasWarning = true
         } else {
-            statusIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
-            statusLabel.stringValue = L10n.overlayUI.deviceDetected
-            statusLabel.textColor = Colors.status
+            statusColor = .systemGreen
+            hasWarning = false
         }
-
-        setActionButtonTitle(L10n.overlayUI.startCapture)
-        actionButton.isEnabled = true
-        actionButton.isHidden = false
-
-        // 显示刷新按钮（仅当提供了 onRefresh 回调时）
-        refreshButton.isHidden = onRefresh == nil
-        // 确保加载状态重置
-        stopRefreshLoading()
 
         // 构建设备详细信息文本
         let detailInfo = buildDeviceDetailInfo(
@@ -707,9 +386,16 @@ final class DevicePanelView: NSView {
             buildVersion: buildVersion,
             sdkVersion: sdkVersion
         )
-        subtitleLabel.stringValue = detailInfo
-        subtitleLabel.textColor = Colors.hint
-        subtitleLabel.isHidden = false
+
+        // 更新状态视图
+        statusView.showConnected(
+            deviceName: deviceName,
+            statusText: userPrompt ?? L10n.overlayUI.deviceDetected,
+            statusColor: statusColor,
+            hasWarning: hasWarning,
+            subtitle: detailInfo,
+            showRefresh: onRefresh != nil
+        )
     }
 
     /// 构建设备详细信息文本
@@ -769,6 +455,8 @@ final class DevicePanelView: NSView {
         resolution: CGSize,
         onStop: @escaping () -> Void
     ) {
+        let wasCapturing = currentState == .capturing && currentPlatform == .ios
+
         // 停止加载状态
         stopActionLoading()
 
@@ -781,41 +469,55 @@ final class DevicePanelView: NSView {
         currentDeviceModelName = device.displayModelName
         // iOS 系统版本格式：iOS 17.0
         if let version = device.productVersion {
-            currentDeviceSystemVersion = "iOS \(version)"
+            if let build = device.buildVersion, !build.isEmpty {
+                currentDeviceSystemVersion = "iOS \(version) (\(build))"
+            } else {
+                currentDeviceSystemVersion = "iOS \(version)"
+            }
         } else {
             currentDeviceSystemVersion = nil
         }
 
-        // 使用 IOSDevice 的 productType 精确配置边框
-        configureBezel(for: device, aspectRatio: resolution)
+        // 更新 bezel：
+        // - resolution 有效时（收到第一帧后）：使用实际分辨率的 aspectRatio
+        // - resolution 无效时（未收到帧）：使用设备默认的 aspectRatio
+        let resolutionValid = resolution.width > 0 && resolution.height > 0
+        let resolutionChanged = abs(resolution.width - currentCaptureResolution.width) > 1 ||
+            abs(resolution.height - currentCaptureResolution.height) > 1
+
+        // 只有在分辨率变化时才更新 bezel（避免重复配置）
+        if !wasCapturing || resolutionChanged {
+            if resolutionValid {
+                // 收到第一帧后，使用实际视频分辨率更新 bezel
+                bezelView.updateAspectRatio(resolution.width / resolution.height)
+            } else if !wasCapturing {
+                // 首次进入捕获状态但还没收到帧，使用设备默认值配置 bezel
+                configureBezel(for: device, aspectRatio: nil)
+            }
+            currentCaptureResolution = resolution
+        }
+
+        // 如果已经在捕获状态，只更新分辨率相关的 UI，跳过其他配置
+        if wasCapturing {
+            if resolutionValid {
+                captureInfoView.updateResolution(resolution)
+            }
+            return
+        }
 
         // 显示渲染视图，隐藏状态容器
         renderView.isHidden = false
-        statusContainerView.isHidden = true
-
-        // 停止加载指示器（虽然 statusContainerView 已隐藏）
-        loadingIndicator.stopAnimation(nil)
-
-        // 初始隐藏 captureBarView，只有鼠标悬停时才显示
-        captureBarView.isHidden = !isMouseInside
-        captureBarView.alphaValue = isMouseInside ? 1.0 : 0.0
-
-        // 更新捕获栏位置
-        needsLayout = true
-        layoutSubtreeIfNeeded()
-        updateCaptureBarPosition()
+        statusView.isHidden = true
 
         // 更新捕获状态文本：显示设备型号和名称
         updateCaptureStatusText()
 
-        if resolution.width > 0, resolution.height > 0 {
-            resolutionLabel.stringValue = "\(Int(resolution.width))×\(Int(resolution.height))"
-        } else {
-            resolutionLabel.stringValue = ""
-        }
-
+        // 更新分辨率和 FPS
+        captureInfoView.updateResolution(resolutionValid ? resolution : .zero)
         updateFPS(fps)
-        addPulseAnimation(to: captureIndicator)
+
+        // 开始投屏后显示一次，然后延时自动隐藏
+        captureInfoView.showAnimated(autoHide: true)
 
         // 启动 FPS 更新定时器
         startFPSUpdateTimer()
@@ -843,6 +545,8 @@ final class DevicePanelView: NSView {
         androidDevice: AndroidDevice? = nil,
         onStop: @escaping () -> Void
     ) {
+        let wasCapturing = currentState == .capturing && currentPlatform == platform
+
         // 停止加载状态
         stopActionLoading()
 
@@ -854,46 +558,60 @@ final class DevicePanelView: NSView {
         currentDeviceDisplayName = deviceName
         currentDeviceModelName = modelName
         // 格式化系统版本：Android 版本附加 SDK 版本
-        if platform == .android, let version = systemVersion, let sdk = sdkVersion, !sdk.isEmpty {
-            currentDeviceSystemVersion = "\(version) (SDK \(sdk))"
+        if platform == .android, let version = systemVersion {
+            if let sdk = sdkVersion, !sdk.isEmpty {
+                currentDeviceSystemVersion = "\(version) (SDK \(sdk))"
+            } else {
+                currentDeviceSystemVersion = version
+            }
         } else {
             currentDeviceSystemVersion = systemVersion
         }
 
-        // 配置边框：优先使用 Android 设备实例精确识别
-        if let device = androidDevice {
-            configureBezel(for: device, aspectRatio: resolution)
-        } else {
-            configureBezel(for: platform, deviceName: deviceName, aspectRatio: resolution)
+        // 更新 bezel：
+        // - resolution 有效时（收到第一帧后）：使用实际分辨率的 aspectRatio
+        // - resolution 无效时（未收到帧）：使用设备默认的 aspectRatio
+        let resolutionValid = resolution.width > 0 && resolution.height > 0
+        let resolutionChanged = abs(resolution.width - currentCaptureResolution.width) > 1 ||
+            abs(resolution.height - currentCaptureResolution.height) > 1
+
+        // 只有在分辨率变化时才更新 bezel（避免重复配置）
+        if !wasCapturing || resolutionChanged {
+            if resolutionValid {
+                // 收到第一帧后，使用实际视频分辨率更新 bezel
+                bezelView.updateAspectRatio(resolution.width / resolution.height)
+            } else if !wasCapturing {
+                // 首次进入捕获状态但还没收到帧，使用设备默认值配置 bezel
+                if let device = androidDevice {
+                    configureBezel(for: device, aspectRatio: nil)
+                } else {
+                    configureBezel(for: platform, deviceName: deviceName, aspectRatio: nil)
+                }
+            }
+            currentCaptureResolution = resolution
+        }
+
+        // 如果已经在捕获状态，只更新分辨率相关的 UI，跳过其他配置
+        if wasCapturing {
+            if resolutionValid {
+                captureInfoView.updateResolution(resolution)
+            }
+            return
         }
 
         // 显示渲染视图，隐藏状态容器
         renderView.isHidden = false
-        statusContainerView.isHidden = true
-
-        // 停止加载指示器（虽然 statusContainerView 已隐藏）
-        loadingIndicator.stopAnimation(nil)
-
-        // 初始隐藏 captureBarView，只有鼠标悬停时才显示
-        captureBarView.isHidden = !isMouseInside
-        captureBarView.alphaValue = isMouseInside ? 1.0 : 0.0
-
-        // 更新捕获栏位置
-        needsLayout = true
-        layoutSubtreeIfNeeded()
-        updateCaptureBarPosition()
+        statusView.isHidden = true
 
         // 更新捕获状态文本：显示设备型号和名称
         updateCaptureStatusText()
 
-        if resolution.width > 0, resolution.height > 0 {
-            resolutionLabel.stringValue = "\(Int(resolution.width))×\(Int(resolution.height))"
-        } else {
-            resolutionLabel.stringValue = ""
-        }
-
+        // 更新分辨率和 FPS
+        captureInfoView.updateResolution(resolutionValid ? resolution : .zero)
         updateFPS(fps)
-        addPulseAnimation(to: captureIndicator)
+
+        // 开始投屏后显示一次，然后延时自动隐藏
+        captureInfoView.showAnimated(autoHide: true)
 
         // 启动 FPS 更新定时器
         startFPSUpdateTimer()
@@ -903,95 +621,79 @@ final class DevicePanelView: NSView {
     func showLoading(platform: DevicePlatform) {
         currentState = .loading
         currentPlatform = platform
+        currentCaptureResolution = .zero
         stopFPSUpdateTimer()
+        currentUserPrompt = nil
 
         // 配置边框外观
         configureBezel(for: platform, deviceName: nil)
 
         // 隐藏渲染视图，显示状态容器
         renderView.isHidden = true
-        statusContainerView.isHidden = false
-        captureBarView.isHidden = true
+        statusView.isHidden = false
+        captureInfoView.isHidden = true
 
-        // 显示加载指示器
-        loadingIndicator.isHidden = false
-        loadingIndicator.startAnimation(nil)
-
-        // 显示加载提示
-        titleLabel.stringValue = L10n.common.loading
-        titleLabel.textColor = Colors.titleSecondary
-
-        // 隐藏状态栏和按钮
-        statusStackView.isHidden = true
-        actionButton.isHidden = true
-        subtitleLabel.isHidden = true
-        refreshButton.isHidden = true
-        currentUserPrompt = nil
+        // 更新状态视图
+        statusView.showLoading(title: L10n.common.loading)
     }
 
     /// 显示工具链缺失状态
     func showToolchainMissing(toolName: String, onInstall: @escaping () -> Void) {
         currentState = .toolchainMissing
+        currentCaptureResolution = .zero
         onInstallAction = onInstall
         onStartAction = onInstall
         stopFPSUpdateTimer()
+        currentUserPrompt = nil
 
         // 工具链缺失时使用通用 Android 边框
         configureBezel(for: .android, deviceName: nil)
 
         // 隐藏渲染视图，显示状态容器
         renderView.isHidden = true
-        statusContainerView.isHidden = false
-        captureBarView.isHidden = true
+        statusView.isHidden = false
+        captureInfoView.isHidden = true
 
-        // 隐藏加载指示器
-        loadingIndicator.stopAnimation(nil)
-        loadingIndicator.isHidden = true
-
-        // 通过文案说明工具链缺失（不使用图标）
-        titleLabel.stringValue = L10n.overlayUI.toolNotInstalled(toolName)
-        titleLabel.textColor = .systemOrange
-
-        statusStackView.isHidden = false
-        statusIndicator.isHidden = false
-        statusIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
-        statusLabel.stringValue = L10n.overlayUI.needInstall(toolName)
-        statusLabel.textColor = .systemOrange
-
-        setActionButtonTitle(L10n.overlayUI.installTool(toolName))
-        actionButton.isEnabled = true
-        actionButton.isHidden = false
-
-        subtitleLabel.stringValue = L10n.toolchain.installScrcpyHint
-        subtitleLabel.textColor = Colors.hint
-        subtitleLabel.isHidden = false
-
-        // 隐藏刷新按钮
-        refreshButton.isHidden = true
-        currentUserPrompt = nil
+        // 更新状态视图
+        statusView.showToolchainMissing(
+            toolName: toolName,
+            hint: L10n.toolchain.installScrcpyHint
+        )
     }
 
     // MARK: - 按钮控制
 
     /// 设置操作按钮的启用状态
     func setActionButtonEnabled(_ enabled: Bool) {
-        actionButton.isEnabled = enabled
-        actionButton.alphaValue = enabled ? 1.0 : 0.7
+        statusView.setActionButtonEnabled(enabled)
     }
 
     /// 更新帧率
     func updateFPS(_ fps: Double) {
         guard currentState == .capturing else { return }
+        captureInfoView.updateFPS(fps)
+    }
 
-        fpsLabel.stringValue = L10n.overlay.fps(Int(fps))
+    /// 更新捕获分辨率（在捕获过程中分辨率变化时调用）
+    /// 只更新 bezel 的 aspectRatio 和分辨率标签，避免重新配置整个 UI
+    func updateCaptureResolution(_ resolution: CGSize) {
+        guard currentState == .capturing else { return }
 
-        if fps >= 30 {
-            fpsLabel.textColor = NSColor.systemGreen.withAlphaComponent(0.9)
-        } else if fps >= 15 {
-            fpsLabel.textColor = NSColor.systemOrange.withAlphaComponent(0.9)
-        } else {
-            fpsLabel.textColor = NSColor.systemRed.withAlphaComponent(0.9)
+        // 检查分辨率是否真的变化了
+        let resolutionChanged = abs(resolution.width - currentCaptureResolution.width) > 1 ||
+            abs(resolution.height - currentCaptureResolution.height) > 1
+        guard resolutionChanged else { return }
+
+        currentCaptureResolution = resolution
+
+        // 更新 bezel 的 aspectRatio
+        if resolution.width > 0, resolution.height > 0 {
+            bezelView.updateAspectRatio(resolution.width / resolution.height)
+            captureInfoView.updateResolution(resolution)
         }
+
+        // 重新布局以更新 captureInfoView 位置
+        needsLayout = true
     }
 
     /// 获取边框屏幕区域的位置（用于 Metal 渲染）
@@ -1040,7 +742,7 @@ final class DevicePanelView: NSView {
     /// 更新 bezel 可见性（重新布局视图）
     private func updateBezelVisibility() {
         if showBezel {
-            // 显示 bezel：将 renderView 和 statusContainerView 移回 bezelView.screenContentView
+            // 显示 bezel：将 renderView、statusView、captureInfoView 移回 bezelView.screenContentView
             bezelView.isHidden = false
 
             renderView.removeFromSuperview()
@@ -1049,13 +751,19 @@ final class DevicePanelView: NSView {
                 make.edges.equalToSuperview()
             }
 
-            statusContainerView.removeFromSuperview()
-            bezelView.screenContentView.addSubview(statusContainerView)
-            statusContainerView.snp.remakeConstraints { make in
+            statusView.removeFromSuperview()
+            bezelView.screenContentView.addSubview(statusView)
+            statusView.snp.remakeConstraints { make in
+                make.edges.equalToSuperview()
+            }
+
+            captureInfoView.removeFromSuperview()
+            bezelView.screenContentView.addSubview(captureInfoView)
+            captureInfoView.snp.remakeConstraints { make in
                 make.edges.equalToSuperview()
             }
         } else {
-            // 隐藏 bezel：将 renderView 和 statusContainerView 移到 self 中
+            // 隐藏 bezel：将 renderView、statusView、captureInfoView 移到 self 中
             bezelView.isHidden = true
 
             renderView.removeFromSuperview()
@@ -1064,16 +772,18 @@ final class DevicePanelView: NSView {
                 make.edges.equalToSuperview()
             }
 
-            statusContainerView.removeFromSuperview()
-            addSubview(statusContainerView)
-            statusContainerView.snp.remakeConstraints { make in
+            statusView.removeFromSuperview()
+            addSubview(statusView)
+            statusView.snp.remakeConstraints { make in
+                make.edges.equalToSuperview()
+            }
+
+            captureInfoView.removeFromSuperview()
+            addSubview(captureInfoView)
+            captureInfoView.snp.remakeConstraints { make in
                 make.edges.equalToSuperview()
             }
         }
-
-        // 确保 captureBarView 在最上层
-        captureBarView.removeFromSuperview()
-        addSubview(captureBarView)
 
         // 强制重新布局
         needsLayout = true
@@ -1085,15 +795,13 @@ final class DevicePanelView: NSView {
     private var currentDeviceName: String?
     private var currentDeviceDisplayName: String?
     private var currentDeviceModelName: String?
+    /// 当前捕获分辨率（用于检测变化，避免重复配置）
+    private var currentCaptureResolution: CGSize = .zero
 
     /// 更新捕获状态文本（显示设备名称、型号、系统版本）
     private func updateCaptureStatusText() {
         // 第一行：设备名称
-        if let displayName = currentDeviceDisplayName, !displayName.isEmpty {
-            captureDeviceNameLabel.stringValue = displayName
-        } else {
-            captureDeviceNameLabel.stringValue = L10n.device.capturing
-        }
+        let deviceName = currentDeviceDisplayName ?? L10n.device.capturing
 
         // 第二行：型号 · 系统版本
         var infoParts: [String] = []
@@ -1103,8 +811,9 @@ final class DevicePanelView: NSView {
         if let systemVersion = currentDeviceSystemVersion, !systemVersion.isEmpty {
             infoParts.append(systemVersion)
         }
-        captureDeviceInfoLabel.stringValue = infoParts.joined(separator: " · ")
-        captureDeviceInfoLabel.isHidden = infoParts.isEmpty
+        let deviceInfo = infoParts.joined(separator: " · ")
+
+        captureInfoView.updateDeviceInfo(deviceName: deviceName, deviceInfo: deviceInfo)
     }
 
     private func configureBezel(for platform: DevicePlatform, deviceName: String? = nil, aspectRatio: CGSize? = nil) {
@@ -1136,92 +845,16 @@ final class DevicePanelView: NSView {
         }
     }
 
-    /// 设置按钮白色文本标题
-    private func setActionButtonTitle(_ title: String) {
-        let buttonFont = NSFont.systemFont(ofSize: 16, weight: .medium)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.white,
-            .font: buttonFont,
-        ]
-        actionButton.attributedTitle = NSAttributedString(string: title, attributes: attributes)
-    }
-
-    // MARK: - 操作
-
-    @objc private func actionTapped() {
-        // 显示加载状态
-        startActionLoading()
-        onStartAction?()
-    }
-
-    @objc private func stopTapped() {
-        onStopAction?()
-    }
-
-    @objc private func refreshTapped() {
-        // 显示加载状态
-        startRefreshLoading()
-
-        // 调用刷新回调，传入完成回调
-        onRefreshAction? { [weak self] in
-            DispatchQueue.main.async {
-                self?.stopRefreshLoading()
-            }
-        }
-    }
-
-    /// 开始刷新加载状态
-    private func startRefreshLoading() {
-        refreshButton.isEnabled = false
-        refreshLoadingIndicator.isHidden = false
-        refreshLoadingIndicator.startAnimation(nil)
-    }
-
-    /// 停止刷新加载状态
-    private func stopRefreshLoading() {
-        refreshButton.isEnabled = true
-        refreshLoadingIndicator.stopAnimation(nil)
-        refreshLoadingIndicator.isHidden = true
-    }
+    // MARK: - 操作按钮状态控制
 
     /// 开始操作按钮加载状态
     func startActionLoading() {
-        actionButton.isEnabled = false
-        actionButton.alphaValue = 0.7
-        // 隐藏按钮文字，显示菊花
-        actionButton.attributedTitle = NSAttributedString(string: "")
-        actionLoadingIndicator.isHidden = false
-        actionLoadingIndicator.startAnimation(nil)
+        statusView.startActionLoading()
     }
 
     /// 停止操作按钮加载状态
     func stopActionLoading() {
-        actionButton.isEnabled = true
-        actionButton.alphaValue = 1.0
-        actionLoadingIndicator.stopAnimation(nil)
-        actionLoadingIndicator.isHidden = true
-        // 恢复按钮文字
-        setActionButtonTitle(L10n.overlayUI.startCapture)
-    }
-
-    @objc private func statusTapped() {
-        // 如果有提示信息，显示 Toast
-        guard let prompt = currentUserPrompt, !prompt.isEmpty else { return }
-        ToastView.warning(prompt, in: window)
-    }
-
-    // MARK: - 动画
-
-    private func addPulseAnimation(to view: NSView) {
-        view.layer?.removeAnimation(forKey: "pulse")
-
-        let animation = CABasicAnimation(keyPath: "opacity")
-        animation.fromValue = 1.0
-        animation.toValue = 0.4
-        animation.duration = 0.8
-        animation.autoreverses = true
-        animation.repeatCount = .infinity
-        view.layer?.add(animation, forKey: "pulse")
+        statusView.stopActionLoading()
     }
 
     // MARK: - FPS 更新定时器
@@ -1237,35 +870,6 @@ final class DevicePanelView: NSView {
     private func stopFPSUpdateTimer() {
         fpsUpdateTimer?.invalidate()
         fpsUpdateTimer = nil
-    }
-
-    // MARK: - 布局
-
-    override func layout() {
-        super.layout()
-        updateCaptureBarPosition()
-    }
-
-    /// 更新捕获栏位置（跟随渲染区域，考虑刘海/灵动岛/摄像头开孔）
-    private func updateCaptureBarPosition() {
-        // 获取实际渲染区域（保持视频宽高比）
-        let renderRect = actualRenderRect
-        guard renderRect.width > 0, renderRect.height > 0 else { return }
-
-        // 高度：三行布局固定高度
-        let barHeight: CGFloat = 58
-        let horizontalInset: CGFloat = 20
-
-        // 计算顶部偏移：存在顶部特征，y 从特征底部 + 12 开始
-        // 如果没有顶部特征（topFeatureBottomInset == 0），则从屏幕顶部下移 12pt
-        let topOffset: CGFloat = max(topFeatureBottomInset, 0) + 12
-
-        captureBarView.frame = CGRect(
-            x: renderRect.minX + horizontalInset,
-            y: renderRect.maxY - barHeight - topOffset,
-            width: renderRect.width - horizontalInset * 2,
-            height: barHeight
-        )
     }
 
     /// 获取实际渲染区域（保持视频宽高比居中显示）
@@ -1309,42 +913,38 @@ final class DevicePanelView: NSView {
 
     /// 更新本地化文本（语言切换时调用）
     func updateLocalizedTexts() {
-        // 更新停止按钮的 accessibilityDescription
-        stopButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.overlayUI.stop)
+        // 更新状态视图的本地化文本
+        statusView.updateLocalizedTexts()
 
-        // 根据当前状态更新文本
+        // 根据当前状态重新显示对应的界面
+        // 这样可以确保所有本地化文本都被更新
         switch currentState {
         case .loading:
-            titleLabel.stringValue = L10n.common.loading
+            statusView.showLoading(title: L10n.common.loading)
 
         case .disconnected:
-            titleLabel.stringValue = currentPlatform == .ios
+            let title = currentPlatform == .ios
                 ? L10n.overlayUI.waitingForIPhone
                 : L10n.overlayUI.waitingForAndroid
-            subtitleLabel.stringValue = currentPlatform == .ios
+            let subtitle = currentPlatform == .ios
                 ? L10n.overlayUI.connectIOS
                 : L10n.overlayUI.connectAndroid
+            statusView.showDisconnected(title: title, subtitle: subtitle)
 
         case .connected:
-            // 设备名称不需要本地化，只更新状态和按钮文本
-            if statusLabel.stringValue.hasPrefix("⚠️") == false {
-                statusLabel.stringValue = L10n.overlayUI.deviceDetected
-            }
-            setActionButtonTitle(L10n.overlayUI.startCapture)
-            subtitleLabel.stringValue = currentPlatform == .ios
-                ? L10n.overlayUI.captureIOSHint
-                : L10n.overlayUI.captureAndroidHint
+            // 设备已连接状态需要保持当前的设备信息，只更新可本地化的文本
+            // 这里不做完整的重新显示，因为设备信息是动态的
+            break
 
         case .capturing:
             // 捕获中显示设备信息，不需要本地化更新
             break
 
         case .toolchainMissing:
-            let toolName = "scrcpy"
-            titleLabel.stringValue = L10n.overlayUI.toolNotInstalled(toolName)
-            statusLabel.stringValue = L10n.overlayUI.needInstall(toolName)
-            setActionButtonTitle(L10n.overlayUI.installTool(toolName))
-            subtitleLabel.stringValue = L10n.toolchain.installScrcpyHint
+            statusView.showToolchainMissing(
+                toolName: "scrcpy",
+                hint: L10n.toolchain.installScrcpyHint
+            )
         }
     }
 }

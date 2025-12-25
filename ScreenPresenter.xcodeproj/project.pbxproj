@@ -22,6 +22,7 @@
 		A441335D2EF93201003DCDD3 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441331F2EF93201003DCDD3 /* Logger.swift */; };
 		A44133622EF93201003DCDD3 /* Tools in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* Tools */; };
 		A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A44133242EF93201003DCDD3 /* Assets.xcassets */; };
+		A4BF9B8B2EFCF160003DD09D /* PreviewContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */; };
 		B1000001000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000001 /* AppState.swift */; };
 		B1000001000000000002 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000002 /* MetalRenderer.swift */; };
 		B1000001000000000003 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000003 /* MetalRenderView.swift */; };
@@ -36,6 +37,8 @@
 		D1000001000000000002 /* DeviceBezelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000002 /* DeviceBezelView.swift */; };
 		D1000001000000000003 /* DeviceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000003 /* DeviceModel.swift */; };
 		D1000001000000000004 /* ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000004 /* ToastView.swift */; };
+		D1000001000000000005 /* DeviceStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000005 /* DeviceStatusView.swift */; };
+		D1000001000000000006 /* DeviceCaptureInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000006 /* DeviceCaptureInfoView.swift */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		E1000001000000000001 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000001 /* SnapKit */; };
 		E1000001000000000002 /* FBDeviceControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000002 /* FBDeviceControlKit */; };
@@ -67,6 +70,7 @@
 		A441331F2EF93201003DCDD3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		A44133222EF93201003DCDD3 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = "<group>"; };
 		A44133242EF93201003DCDD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewContainerView.swift; sourceTree = "<group>"; };
 		B1000002000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		B1000002000000000002 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
 		B1000002000000000003 /* MetalRenderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderView.swift; sourceTree = "<group>"; };
@@ -83,6 +87,8 @@
 		D1000002000000000002 /* DeviceBezelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceBezelView.swift; sourceTree = "<group>"; };
 		D1000002000000000003 /* DeviceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceModel.swift; sourceTree = "<group>"; };
 		D1000002000000000004 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
+		D1000002000000000005 /* DeviceStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusView.swift; sourceTree = "<group>"; };
+		D1000002000000000006 /* DeviceCaptureInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureInfoView.swift; sourceTree = "<group>"; };
 		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
 		F1000002000000000001 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		FB000002000000000001 /* IOSDeviceStateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDeviceStateMapper.swift; sourceTree = "<group>"; };
@@ -247,9 +253,12 @@
 		B1000003000000000011 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */,
+				D1000002000000000006 /* DeviceCaptureInfoView.swift */,
 				D1000002000000000002 /* DeviceBezelView.swift */,
 				D1000002000000000003 /* DeviceModel.swift */,
 				D1000002000000000001 /* DevicePanelView.swift */,
+				D1000002000000000005 /* DeviceStatusView.swift */,
 				D1000002000000000004 /* ToastView.swift */,
 			);
 			path = Components;
@@ -384,9 +393,12 @@
 				D1000001000000000002 /* DeviceBezelView.swift in Sources */,
 				D1000001000000000003 /* DeviceModel.swift in Sources */,
 				D1000001000000000004 /* ToastView.swift in Sources */,
+				D1000001000000000005 /* DeviceStatusView.swift in Sources */,
+				D1000001000000000006 /* DeviceCaptureInfoView.swift in Sources */,
 				B1000001000000000009 /* DeviceInsightService.swift in Sources */,
 				B1000001000000000010 /* Localization.swift in Sources */,
 				F1000001000000000001 /* Colors.swift in Sources */,
+				A4BF9B8B2EFCF160003DD09D /* PreviewContainerView.swift in Sources */,
 				FB000001000000000001 /* IOSDeviceStateMapper.swift in Sources */,
 				FB000001000000000005 /* FBDeviceControlService.swift in Sources */,
 			);

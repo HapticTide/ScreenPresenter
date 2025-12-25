@@ -160,6 +160,11 @@ final class DeviceBezelView: NSView {
     private func updateLayers() {
         guard bounds.width > 0, bounds.height > 0 else { return }
 
+        // 禁用 CALayer 隐式动画，避免窗口 resize 时 layer 动画与 NSView 动画不同步导致错位
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
         // 核心思路：以屏幕内容区域的宽高比 (screenAspectRatio) 为基准，反推设备整体尺寸
         // 这样确保 screenRect 的宽高比与视频一致，避免渲染时产生黑边
         //

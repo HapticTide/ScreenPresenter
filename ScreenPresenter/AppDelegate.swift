@@ -4,7 +4,7 @@
 //
 //  Created by Sun on 2025/12/22.
 //
-//  应用程序入口（纯 AppKit）
+//  应用程序入口
 //  配置主窗口和应用状态
 //
 
@@ -314,12 +314,19 @@ extension AppDelegate: NSWindowDelegate {
         mainViewController?.handleWindowResize()
     }
 
-    func windowDidEnterFullScreen(_ notification: Notification) {
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        // 在全屏动画开始前更新状态，避免动画过程中布局跳动
         mainViewController?.handleFullScreenChange(isFullScreen: true)
     }
 
-    func windowDidExitFullScreen(_ notification: Notification) {
+    func windowWillExitFullScreen(_ notification: Notification) {
+        // 在退出全屏动画开始前更新状态，避免动画过程中布局跳动
         mainViewController?.handleFullScreenChange(isFullScreen: false)
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        // 退出全屏动画完成后，确保 toolbar 正确恢复显示
+        mainViewController?.ensureToolbarVisible()
     }
 }
 
