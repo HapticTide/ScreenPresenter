@@ -78,6 +78,11 @@ private final class ColorCompensationViewController: NSViewController {
     private var stackView: CCStackContainerView?
     private let valueLabelFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
 
+    // MARK: - 设备选择器
+
+    private var deviceSegmentedControl: NSSegmentedControl?
+    private var modePopUp: NSPopUpButton?
+
     // MARK: - 滑块引用
 
     private var sliders: [String: NSSlider] = [:]
@@ -85,6 +90,16 @@ private final class ColorCompensationViewController: NSViewController {
     private var presetPopUp: NSPopUpButton?
     private var deletePresetButton: NSButton?
     private var enableSwitch: NSSwitch?
+
+    // MARK: - A/B 对比控件
+
+    private var compareSegmentedControl: NSSegmentedControl?
+    private var isShowingOriginal: Bool = false
+
+    // MARK: - 当前编辑目标
+
+    /// 当前选中的设备（nil 表示全局设置）
+    private var selectedDevice: DevicePlatform? = nil
 
     // MARK: - 属性
 
@@ -158,6 +173,12 @@ private final class ColorCompensationViewController: NSViewController {
         stackView.fillsCrossAxis = true
         documentView.addSubview(stackView)
 
+        // 设备选择组
+        let deviceGroup = createSettingsGroup(title: L10n.colorCompensation.deviceSelector, icon: "rectangle.on.rectangle")
+        addGroupRow(deviceGroup, createDeviceSelectorRow())
+        addGroupRow(deviceGroup, createDeviceModeRow())
+        addSettingsGroup(deviceGroup, to: stackView)
+
         // 启用设置组
         let enableGroup = createSettingsGroup(title: L10n.colorCompensation.section.enable, icon: "power")
         addGroupRow(enableGroup, createSwitchRow(
@@ -195,6 +216,61 @@ private final class ColorCompensationViewController: NSViewController {
         scrollView.autoresizingMask = [.width, .height]
     }
 
+    // MARK: - 当前配置访问器
+
+    /// 获取当前编辑的配置
+    private var currentProfile: ColorProfile {
+        get {
+            if let device = selectedDevice {
+                return manager.deviceSettings[device].profile
+            }
+            return manager.currentProfile
+        }
+        set {
+            if let device = selectedDevice {
+                manager.setProfile(newValue, for: device)
+            } else {
+                manager.currentProfile = newValue
+            }
+        }
+    }
+
+    /// 获取当前编辑的启用状态
+    private var currentIsEnabled: Bool {
+        get {
+            if let device = selectedDevice {
+                let settings = manager.deviceSettings[device]
+                if settings.mode == .useGlobal {
+                    return manager.isEnabled
+                }
+                return settings.isEnabled
+            }
+            return manager.isEnabled
+        }
+        set {
+            if let device = selectedDevice {
+                manager.setEnabled(newValue, for: device)
+            } else {
+                manager.isEnabled = newValue
+            }
+        }
+    }
+
+    /// 获取当前设备的模式
+    private var currentDeviceMode: DeviceColorMode {
+        get {
+            if let device = selectedDevice {
+                return manager.deviceSettings[device].mode
+            }
+            return .useGlobal
+        }
+        set {
+            if let device = selectedDevice {
+                manager.setMode(newValue, for: device)
+            }
+        }
+    }
+
     // MARK: - 绑定
 
     private func setupBindings() {
@@ -207,9 +283,8 @@ private final class ColorCompensationViewController: NSViewController {
 
         manager.$isEnabled
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] enabled in
-                self?.enableSwitch?.state = enabled ? .on : .off
-                self?.updateSlidersEnabled(enabled)
+            .sink { [weak self] _ in
+                self?.updateUI()
             }
             .store(in: &cancellables)
 
@@ -220,14 +295,36 @@ private final class ColorCompensationViewController: NSViewController {
                 self?.populatePresetMenu(popup)
             }
             .store(in: &cancellables)
+
+        manager.$deviceSettings
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateUI()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - UI 更新
 
     private func updateUI() {
-        let profile = manager.currentProfile
+        let profile = currentProfile
 
-        enableSwitch?.state = manager.isEnabled ? .on : .off
+        enableSwitch?.state = currentIsEnabled ? .on : .off
+
+        // 更新模式选择器
+        if selectedDevice != nil {
+            modePopUp?.isEnabled = true
+            modePopUp?.selectItem(at: currentDeviceMode == .useGlobal ? 0 : 1)
+        } else {
+            modePopUp?.isEnabled = false
+            modePopUp?.selectItem(at: 0)
+        }
+
+        // 判断控件是否可编辑
+        let canEdit = selectedDevice == nil || currentDeviceMode == .independent
+        updateSlidersEnabled(canEdit)
+        enableSwitch?.isEnabled = canEdit
+        presetPopUp?.isEnabled = canEdit
 
         // 刷新预设菜单并选择当前项
         if let popup = presetPopUp {
@@ -253,8 +350,6 @@ private final class ColorCompensationViewController: NSViewController {
             slider.doubleValue = value
             valueLabel.stringValue = String(format: config.format, value)
         }
-
-        updateSlidersEnabled(manager.isEnabled)
     }
 
     private func updateSlidersEnabled(_ enabled: Bool) {
@@ -347,12 +442,42 @@ private final class ColorCompensationViewController: NSViewController {
         group.addArrangedSubview(row)
     }
 
+    private func createDeviceSelectorRow() -> NSView {
+        let row = CCLabeledRowView(label: L10n.colorCompensation.deviceSelector, alignment: .trailing) {
+            let segmented = NSSegmentedControl(labels: [
+                L10n.colorCompensation.globalSettings,
+                "iOS",
+                "Android",
+            ], trackingMode: .selectOne, target: self, action: #selector(self.deviceSegmentChanged(_:)))
+            segmented.selectedSegment = 0 // 默认选择全局
+            self.deviceSegmentedControl = segmented
+            return segmented
+        }
+        return row
+    }
+
+    private func createDeviceModeRow() -> NSView {
+        let row = CCLabeledRowView(label: L10n.colorCompensation.section.deviceMode, alignment: .trailing) {
+            let popup = NSPopUpButton()
+            popup.removeAllItems()
+            for mode in DeviceColorMode.allCases {
+                popup.addItem(withTitle: mode.displayName)
+            }
+            popup.target = self
+            popup.action = #selector(self.deviceModeChanged(_:))
+            popup.isEnabled = false // 初始禁用（全局模式下不可编辑）
+            self.modePopUp = popup
+            return popup
+        }
+        return row
+    }
+
     private func createSwitchRow(label: String, action: Selector) -> NSView {
         let row = CCLabeledRowView(label: label, alignment: .trailing) {
             let switchControl = NSSwitch()
             switchControl.target = self
             switchControl.action = action
-            switchControl.state = self.manager.isEnabled ? .on : .off
+            switchControl.state = self.currentIsEnabled ? .on : .off
             self.enableSwitch = switchControl
             return switchControl
         }
@@ -416,7 +541,7 @@ private final class ColorCompensationViewController: NSViewController {
 
     /// 选择当前预设
     private func selectCurrentPresetInPopup(_ popup: NSPopUpButton) {
-        let currentName = manager.currentProfile.name
+        let currentName = currentProfile.name
 
         // 先检查内置预设
         if let index = manager.presetProfiles.firstIndex(where: { $0.name == currentName }) {
@@ -482,14 +607,15 @@ private final class ColorCompensationViewController: NSViewController {
         savePresetButton.bezelStyle = .rounded
         stack.addArrangedSubview(savePresetButton)
 
-        let compareButton = CCCompareButton(title: L10n.colorCompensation.compare)
-        compareButton.onPress = { [weak self] in
-            self?.compareButtonPressed()
-        }
-        compareButton.onRelease = { [weak self] in
-            self?.compareButtonReleased()
-        }
-        stack.addArrangedSubview(compareButton)
+        // A/B 对比分段控件
+        let compareSegment = NSSegmentedControl(labels: [
+            L10n.colorCompensation.compareCompensated,
+            L10n.colorCompensation.compareOriginal
+        ], trackingMode: .selectOne, target: self, action: #selector(compareSegmentChanged(_:)))
+        compareSegment.selectedSegment = 0
+        compareSegment.segmentStyle = .rounded
+        compareSegmentedControl = compareSegment
+        stack.addArrangedSubview(compareSegment)
 
         let resetButton = NSButton(title: L10n.colorCompensation.reset, target: self, action: #selector(resetPressed))
         resetButton.bezelStyle = .rounded
@@ -500,8 +626,24 @@ private final class ColorCompensationViewController: NSViewController {
 
     // MARK: - Actions
 
+    @objc private func deviceSegmentChanged(_ sender: NSSegmentedControl) {
+        switch sender.selectedSegment {
+        case 0: selectedDevice = nil // 全局设置
+        case 1: selectedDevice = .ios
+        case 2: selectedDevice = .android
+        default: selectedDevice = nil
+        }
+        updateUI()
+    }
+
+    @objc private func deviceModeChanged(_ sender: NSPopUpButton) {
+        let mode: DeviceColorMode = sender.indexOfSelectedItem == 0 ? .useGlobal : .independent
+        currentDeviceMode = mode
+        updateUI()
+    }
+
     @objc private func enableSwitchChanged(_ sender: NSSwitch) {
-        manager.isEnabled = sender.state == .on
+        currentIsEnabled = sender.state == .on
     }
 
     @objc private func presetChanged(_ sender: NSPopUpButton) {
@@ -512,7 +654,12 @@ private final class ColorCompensationViewController: NSViewController {
 
         // 内置预设
         if index < presetCount {
-            manager.selectPreset(manager.presetProfiles[index])
+            let preset = manager.presetProfiles[index]
+            if let device = selectedDevice {
+                manager.setProfile(preset, for: device)
+            } else {
+                manager.selectPreset(preset)
+            }
             deletePresetButton?.isHidden = true
             return
         }
@@ -522,7 +669,12 @@ private final class ColorCompensationViewController: NSViewController {
 
         // 自定义预设
         if customIndex >= 0, customIndex < manager.customProfiles.count {
-            manager.currentProfile = manager.customProfiles[customIndex]
+            let profile = manager.customProfiles[customIndex]
+            if let device = selectedDevice {
+                manager.setProfile(profile, for: device)
+            } else {
+                manager.currentProfile = profile
+            }
             deletePresetButton?.isHidden = false
         }
     }
@@ -584,7 +736,7 @@ private final class ColorCompensationViewController: NSViewController {
     }
 
     @objc private func deletePresetPressed() {
-        let currentName = manager.currentProfile.name
+        let currentName = currentProfile.name
         guard let index = manager.customProfiles.firstIndex(where: { $0.name == currentName }) else { return }
 
         // 删除预设
@@ -606,28 +758,69 @@ private final class ColorCompensationViewController: NSViewController {
             valueLabel.stringValue = String(format: config.format, value)
         }
 
-        switch key {
-        case "gamma": manager.adjustGamma(value)
-        case "blackLift": manager.adjustBlackLift(value)
-        case "whiteClip": manager.adjustWhiteClip(value)
-        case "highlightRollOff": manager.adjustHighlightRollOff(value)
-        case "temperature": manager.adjustTemperature(value)
-        case "tint": manager.adjustTint(value)
-        case "saturation": manager.adjustSaturation(value)
-        default: break
+        // 根据当前选中的设备更新对应的配置
+        if let device = selectedDevice {
+            let keyPath: WritableKeyPath<ColorProfile, Float>
+            switch key {
+            case "gamma": keyPath = \.gamma
+            case "blackLift": keyPath = \.blackLift
+            case "whiteClip": keyPath = \.whiteClip
+            case "highlightRollOff": keyPath = \.highlightRollOff
+            case "temperature": keyPath = \.temperature
+            case "tint": keyPath = \.tint
+            case "saturation": keyPath = \.saturation
+            default: return
+            }
+            manager.adjustParameter(for: device, keyPath: keyPath, value: value)
+        } else {
+            // 全局设置
+            switch key {
+            case "gamma": manager.adjustGamma(value)
+            case "blackLift": manager.adjustBlackLift(value)
+            case "whiteClip": manager.adjustWhiteClip(value)
+            case "highlightRollOff": manager.adjustHighlightRollOff(value)
+            case "temperature": manager.adjustTemperature(value)
+            case "tint": manager.adjustTint(value)
+            case "saturation": manager.adjustSaturation(value)
+            default: break
+            }
         }
     }
 
-    @objc private func compareButtonPressed() {
-        ColorCompensationFilter.shared.setTemporaryBypass(true)
-    }
+    @objc private func compareSegmentChanged(_ sender: NSSegmentedControl) {
+        isShowingOriginal = sender.selectedSegment == 1
+        let bypass = isShowingOriginal
 
-    @objc private func compareButtonReleased() {
-        ColorCompensationFilter.shared.setTemporaryBypass(false)
+        if let device = selectedDevice {
+            // 仅切换当前选中设备的滤镜
+            manager.filter(for: device).setTemporaryBypass(bypass)
+        } else {
+            // 全局模式下切换所有滤镜
+            manager.iosFilter.setTemporaryBypass(bypass)
+            manager.androidFilter.setTemporaryBypass(bypass)
+        }
     }
 
     @objc private func resetPressed() {
-        manager.resetToNeutral()
+        // 重置 A/B 对比状态
+        compareSegmentedControl?.selectedSegment = 0
+        if isShowingOriginal {
+            isShowingOriginal = false
+            if let device = selectedDevice {
+                manager.filter(for: device).setTemporaryBypass(false)
+            } else {
+                manager.iosFilter.setTemporaryBypass(false)
+                manager.androidFilter.setTemporaryBypass(false)
+            }
+        }
+
+        if let device = selectedDevice {
+            // 重置设备独立设置为中性
+            manager.setProfile(.neutral, for: device)
+        } else {
+            // 重置全局设置
+            manager.resetToNeutral()
+        }
     }
 }
 
@@ -930,50 +1123,6 @@ private final class CCStackContainerView: NSView {
         }
         let fitting = view.fittingSize
         return CGSize(width: min(maxWidth, fitting.width), height: fitting.height)
-    }
-}
-
-// MARK: - CC Compare Button
-
-/// A/B 对比按钮
-/// 按住时触发 onPress，松开时触发 onRelease
-private final class CCCompareButton: NSButton {
-    var onPress: (() -> Void)?
-    var onRelease: (() -> Void)?
-    private var isPressed = false
-
-    init(title: String) {
-        super.init(frame: .zero)
-        self.title = title
-        self.bezelStyle = .rounded
-        self.setButtonType(.momentaryPushIn)
-
-        // 使用本地事件监控来捕获鼠标松开
-        NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
-            if self?.isPressed == true {
-                self?.handleMouseUp()
-            }
-            return event
-        }
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        isPressed = true
-        onPress?()
-        super.mouseDown(with: event)
-        // mouseDown 返回后，按钮已经松开
-        handleMouseUp()
-    }
-
-    private func handleMouseUp() {
-        guard isPressed else { return }
-        isPressed = false
-        onRelease?()
     }
 }
 

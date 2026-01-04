@@ -919,57 +919,6 @@ final class PreferencesViewController: NSViewController {
         })
         addSettingsGroup(layoutGroup, to: stackView)
 
-        // 连接设置组
-        let connectionGroup = createSettingsGroup(title: L10n.prefs.section.connection, icon: "cable.connector")
-        addGroupRow(connectionGroup, createCheckboxRow(
-            label: L10n.prefs.connectionPref.autoReconnect,
-            isOn: UserPreferences.shared.autoReconnect,
-            action: #selector(autoReconnectChanged(_:))
-        ))
-        addGroupRow(connectionGroup, createLabeledRow(label: L10n.prefs.connectionPref.reconnectDelay) {
-            let stack = StackContainerView()
-            stack.axis = .horizontal
-            stack.alignment = .centerY
-            stack.spacing = 8
-            let stepper = NSStepper()
-            stepper.minValue = 1
-            stepper.maxValue = 30
-            stepper.intValue = Int32(UserPreferences.shared.reconnectDelay)
-            stepper.target = self
-            stepper.action = #selector(reconnectDelayChanged(_:))
-            stepper.tag = 2001 // 用于查找关联的 label
-            stack.addArrangedSubview(stepper)
-            let label = FixedSizeTextField(labelWithString: L10n.prefs.connectionPref
-                .seconds(Int(UserPreferences.shared.reconnectDelay)))
-            label.font = valueLabelFont
-            label.tag = 2001
-            label.preferredWidth = preferredValueWidth(label.stringValue, font: valueLabelFont)
-            stack.addArrangedSubview(label)
-            return stack
-        })
-        addGroupRow(connectionGroup, createLabeledRow(label: L10n.prefs.connectionPref.maxAttempts) {
-            let stack = StackContainerView()
-            stack.axis = .horizontal
-            stack.alignment = .centerY
-            stack.spacing = 8
-            let stepper = NSStepper()
-            stepper.minValue = 1
-            stepper.maxValue = 20
-            stepper.intValue = Int32(UserPreferences.shared.maxReconnectAttempts)
-            stepper.target = self
-            stepper.action = #selector(maxAttemptsChanged(_:))
-            stepper.tag = 2002 // 用于查找关联的 label
-            stack.addArrangedSubview(stepper)
-            let label = FixedSizeTextField(labelWithString: L10n.prefs.connectionPref
-                .times(UserPreferences.shared.maxReconnectAttempts))
-            label.font = valueLabelFont
-            label.tag = 2002
-            label.preferredWidth = preferredValueWidth(label.stringValue, font: valueLabelFont)
-            stack.addArrangedSubview(label)
-            return stack
-        })
-        addSettingsGroup(connectionGroup, to: stackView)
-
         setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
     }
@@ -1963,44 +1912,6 @@ final class PreferencesViewController: NSViewController {
 
     @objc private func devicePositionChanged(_ sender: NSSegmentedControl) {
         UserPreferences.shared.iosOnLeft = sender.selectedSegment == 0
-    }
-
-    @objc private func autoReconnectChanged(_ sender: NSButton) {
-        UserPreferences.shared.autoReconnect = sender.state == .on
-    }
-
-    @objc private func reconnectDelayChanged(_ sender: NSStepper) {
-        UserPreferences.shared.reconnectDelay = sender.doubleValue
-        // 更新关联的标签
-        if
-            let label = sender.superview?.subviews
-                .first(where: { $0.tag == 2001 && $0 is NSTextField }) as? NSTextField {
-            label.stringValue = L10n.prefs.connectionPref.seconds(Int(sender.intValue))
-            if let fixedLabel = label as? FixedSizeTextField {
-                fixedLabel.preferredWidth = preferredValueWidth(
-                    label.stringValue,
-                    font: fixedLabel.font ?? valueLabelFont
-                )
-            }
-        }
-        view.needsLayout = true
-    }
-
-    @objc private func maxAttemptsChanged(_ sender: NSStepper) {
-        UserPreferences.shared.maxReconnectAttempts = Int(sender.intValue)
-        // 更新关联的标签
-        if
-            let label = sender.superview?.subviews
-                .first(where: { $0.tag == 2002 && $0 is NSTextField }) as? NSTextField {
-            label.stringValue = L10n.prefs.connectionPref.times(Int(sender.intValue))
-            if let fixedLabel = label as? FixedSizeTextField {
-                fixedLabel.preferredWidth = preferredValueWidth(
-                    label.stringValue,
-                    font: fixedLabel.font ?? valueLabelFont
-                )
-            }
-        }
-        view.needsLayout = true
     }
 
     @objc private func frameRateChanged(_ sender: NSSegmentedControl) {

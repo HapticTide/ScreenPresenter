@@ -79,7 +79,14 @@ final class DevicePanelView: NSView {
     }
 
     private var currentState: PanelState = .loading
-    private var currentPlatform: DevicePlatform = .ios
+    private var currentPlatform: DevicePlatform = .ios {
+        didSet {
+            if oldValue != currentPlatform {
+                // 平台变化时更新渲染视图的色彩滤镜
+                renderView.colorFilter = ColorProfileManager.shared.filter(for: currentPlatform)
+            }
+        }
+    }
 
     // MARK: - 鼠标追踪
 
@@ -131,6 +138,9 @@ final class DevicePanelView: NSView {
 
         // 添加 Metal 渲染视图到 screenContentView（画面会跟随 bezel 动画）
         bezelView.screenContentView.addSubview(renderView)
+
+        // 设置默认的色彩滤镜
+        renderView.colorFilter = ColorProfileManager.shared.filter(for: currentPlatform)
     }
 
     private func setupTrackingArea() {

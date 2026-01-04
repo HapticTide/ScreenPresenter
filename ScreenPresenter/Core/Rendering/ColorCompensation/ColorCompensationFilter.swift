@@ -6,6 +6,7 @@
 //
 //  颜色补偿滤镜
 //  管理 1D LUT 纹理和补偿参数，供渲染管线使用
+//  支持多实例，每个设备面板可以使用独立的滤镜实例
 //
 
 import Foundation
@@ -70,10 +71,11 @@ protocol ColorCompensationFilterProtocol: AnyObject {
 
 /// 1D LUT 颜色补偿滤镜
 /// 使用 256 级 1D LUT 进行颜色预补偿
+/// 支持多实例，每个设备面板可以使用独立的滤镜
 final class ColorCompensationFilter: ColorCompensationFilterProtocol {
-    // MARK: - 单例
+    // MARK: - 共享 Metal 设备
 
-    static let shared = ColorCompensationFilter()
+    private static var sharedDevice: MTLDevice? = MTLCreateSystemDefaultDevice()
 
     // MARK: - 属性
 
@@ -111,13 +113,13 @@ final class ColorCompensationFilter: ColorCompensationFilterProtocol {
 
     // MARK: - 初始化
 
-    private init() {
+    init() {
         setupMetal()
     }
 
     private func setupMetal() {
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            AppLogger.rendering.error("ColorCompensationFilter: 无法创建 Metal 设备")
+        guard let device = Self.sharedDevice else {
+            AppLogger.rendering.error("ColorCompensationFilter: 无法获取 Metal 设备")
             return
         }
         self.device = device
@@ -134,7 +136,7 @@ final class ColorCompensationFilter: ColorCompensationFilterProtocol {
         updateLUT()
         updateUniformBuffer()
 
-        AppLogger.rendering.info("ColorCompensationFilter: 初始化成功")
+        AppLogger.rendering.debug("ColorCompensationFilter: 实例初始化成功")
     }
 
     // MARK: - LUT 管理

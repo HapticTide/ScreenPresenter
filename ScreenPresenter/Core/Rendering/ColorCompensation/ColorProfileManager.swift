@@ -6,10 +6,11 @@
 //
 //  颜色配置管理器
 //  负责 Profile 的 CRUD 操作和持久化存储
+//  支持全局设置和按设备类型（iOS/Android）独立设置
 //
 
-import Foundation
 import Combine
+import Foundation
 
 // MARK: - 通知名称
 
@@ -19,12 +20,16 @@ extension Notification.Name {
 
     /// 颜色补偿启用状态变更通知
     static let colorCompensationEnabledDidChange = Notification.Name("colorCompensationEnabledDidChange")
+
+    /// 设备色彩设置变更通知
+    static let deviceColorSettingsDidChange = Notification.Name("deviceColorSettingsDidChange")
 }
 
 // MARK: - 颜色配置管理器
 
 /// 颜色配置管理器
 /// 单例模式，管理颜色补偿配置的 CRUD 和持久化
+/// 支持全局设置和按设备类型独立设置
 final class ColorProfileManager: ObservableObject {
     // MARK: - 单例
 
@@ -36,27 +41,28 @@ final class ColorProfileManager: ObservableObject {
         static let enabled = "colorCompensation.enabled"
         static let currentProfile = "colorCompensation.currentProfile"
         static let customProfiles = "colorCompensation.customProfiles"
+        static let deviceSettings = "colorCompensation.deviceSettings"
     }
 
-    // MARK: - Published 属性
+    // MARK: - Published 属性（全局设置）
 
-    /// 是否启用颜色补偿
+    /// 是否启用颜色补偿（全局）
     @Published var isEnabled: Bool {
         didSet {
             if oldValue != isEnabled {
                 UserDefaults.standard.set(isEnabled, forKey: Keys.enabled)
-                ColorCompensationFilter.shared.isEnabled = isEnabled
+                syncFiltersForAllDevices()
                 NotificationCenter.default.post(name: .colorCompensationEnabledDidChange, object: isEnabled)
             }
         }
     }
 
-    /// 当前配置
+    /// 当前配置（全局）
     @Published var currentProfile: ColorProfile {
         didSet {
             if oldValue != currentProfile {
                 saveCurrentProfile()
-                ColorCompensationFilter.shared.profile = currentProfile
+                syncFiltersForAllDevices()
                 NotificationCenter.default.post(name: .colorProfileDidChange, object: currentProfile)
             }
         }
@@ -65,6 +71,25 @@ final class ColorProfileManager: ObservableObject {
     /// 自定义配置列表
     @Published var customProfiles: [ColorProfile] = []
 
+    /// 设备独立设置
+    @Published var deviceSettings: AllDeviceColorSettings {
+        didSet {
+            if oldValue != deviceSettings {
+                saveDeviceSettings()
+                syncFiltersForAllDevices()
+                NotificationCenter.default.post(name: .deviceColorSettingsDidChange, object: deviceSettings)
+            }
+        }
+    }
+
+    // MARK: - 设备滤镜实例
+
+    /// iOS 设备的滤镜
+    let iosFilter = ColorCompensationFilter()
+
+    /// Android 设备的滤镜
+    let androidFilter = ColorCompensationFilter()
+
     // MARK: - 预设配置
 
     /// 预设配置列表（只读）
@@ -72,32 +97,105 @@ final class ColorProfileManager: ObservableObject {
         .neutral,
         .coldTV,
         .grayishTV,
-        .oversaturatedTV
+        .oversaturatedTV,
     ]
 
     // MARK: - 初始化
 
     private init() {
+        // 先初始化所有存储属性的默认值
         // 加载启用状态
         isEnabled = UserDefaults.standard.bool(forKey: Keys.enabled)
 
         // 加载当前配置
         if let data = UserDefaults.standard.data(forKey: Keys.currentProfile),
-           let profile = try? JSONDecoder().decode(ColorProfile.self, from: data) {
+           let profile = try? JSONDecoder().decode(ColorProfile.self, from: data)
+        {
             currentProfile = profile
         } else {
             currentProfile = .neutral
         }
 
+        // 加载设备独立设置（在调用任何方法之前）
+        if let data = UserDefaults.standard.data(forKey: Keys.deviceSettings),
+           let settings = try? JSONDecoder().decode(AllDeviceColorSettings.self, from: data)
+        {
+            deviceSettings = settings
+        } else {
+            deviceSettings = AllDeviceColorSettings()
+        }
+
+        // 现在所有存储属性已初始化，可以安全调用方法
         // 加载自定义配置
         loadCustomProfiles()
 
-        // 同步到滤镜
-        ColorCompensationFilter.shared.isEnabled = isEnabled
-        ColorCompensationFilter.shared.profile = currentProfile
+        // 同步滤镜状态
+        syncFiltersForAllDevices()
     }
 
-    // MARK: - Profile CRUD
+    // MARK: - 设备滤镜访问
+
+    /// 获取指定平台的滤镜
+    func filter(for platform: DevicePlatform) -> ColorCompensationFilter {
+        switch platform {
+        case .ios: return iosFilter
+        case .android: return androidFilter
+        }
+    }
+
+    /// 同步所有设备滤镜的状态
+    private func syncFiltersForAllDevices() {
+        syncFilter(for: .ios)
+        syncFilter(for: .android)
+    }
+
+    /// 同步指定设备的滤镜状态
+    private func syncFilter(for platform: DevicePlatform) {
+        let settings = deviceSettings[platform]
+        let filter = filter(for: platform)
+        let (enabled, profile) = settings.effectiveSettings(globalEnabled: isEnabled, globalProfile: currentProfile)
+
+        filter.isEnabled = enabled
+        filter.profile = profile
+    }
+
+    // MARK: - 设备独立设置
+
+    /// 获取指定平台的设置
+    func settings(for platform: DevicePlatform) -> DeviceColorSettings {
+        deviceSettings[platform]
+    }
+
+    /// 更新指定平台的设置模式
+    func setMode(_ mode: DeviceColorMode, for platform: DevicePlatform) {
+        var settings = deviceSettings
+        settings[platform].mode = mode
+        deviceSettings = settings
+    }
+
+    /// 更新指定平台的启用状态（独立模式）
+    func setEnabled(_ enabled: Bool, for platform: DevicePlatform) {
+        var settings = deviceSettings
+        settings[platform].isEnabled = enabled
+        deviceSettings = settings
+    }
+
+    /// 更新指定平台的配置（独立模式）
+    func setProfile(_ profile: ColorProfile, for platform: DevicePlatform) {
+        var settings = deviceSettings
+        settings[platform].profile = profile
+        settings[platform].profileId = profile.id
+        deviceSettings = settings
+    }
+
+    /// 调整指定平台的参数
+    func adjustParameter(for platform: DevicePlatform, keyPath: WritableKeyPath<ColorProfile, Float>, value: Float) {
+        var settings = deviceSettings
+        settings[platform].profile[keyPath: keyPath] = value
+        deviceSettings = settings
+    }
+
+    // MARK: - Profile CRUD（全局）
 
     /// 添加自定义配置
     /// - Parameter profile: 配置
@@ -136,7 +234,7 @@ final class ColorProfileManager: ObservableObject {
         }
     }
 
-    /// 选择预设配置
+    /// 选择预设配置（全局）
     /// - Parameter preset: 预设配置
     func selectPreset(_ preset: ColorProfile) {
         currentProfile = preset
@@ -155,7 +253,7 @@ final class ColorProfileManager: ObservableObject {
         return profile
     }
 
-    /// 重置为中性配置
+    /// 重置为中性配置（全局）
     func resetToNeutral() {
         currentProfile = .neutral
     }
@@ -172,7 +270,8 @@ final class ColorProfileManager: ObservableObject {
     /// 加载自定义配置
     private func loadCustomProfiles() {
         if let data = UserDefaults.standard.data(forKey: Keys.customProfiles),
-           let profiles = try? JSONDecoder().decode([ColorProfile].self, from: data) {
+           let profiles = try? JSONDecoder().decode([ColorProfile].self, from: data)
+        {
             customProfiles = profiles
         }
     }
@@ -181,6 +280,13 @@ final class ColorProfileManager: ObservableObject {
     private func saveCustomProfiles() {
         if let data = try? JSONEncoder().encode(customProfiles) {
             UserDefaults.standard.set(data, forKey: Keys.customProfiles)
+        }
+    }
+
+    /// 保存设备独立设置
+    private func saveDeviceSettings() {
+        if let data = try? JSONEncoder().encode(deviceSettings) {
+            UserDefaults.standard.set(data, forKey: Keys.deviceSettings)
         }
     }
 
@@ -197,7 +303,14 @@ final class ColorProfileManager: ObservableObject {
     func findProfile(byName name: String) -> ColorProfile? {
         allProfiles.first { $0.name == name }
     }
+
+    /// 获取指定平台的实际生效设置
+    func effectiveSettings(for platform: DevicePlatform) -> (enabled: Bool, profile: ColorProfile) {
+        let settings = deviceSettings[platform]
+        return settings.effectiveSettings(globalEnabled: isEnabled, globalProfile: currentProfile)
+    }
 }
+
 
 // MARK: - 扩展：参数调整
 

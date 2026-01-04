@@ -276,7 +276,6 @@ enum L10n {
             static var language: String { "prefs.section.language".localized }
             static var appearance: String { "prefs.section.appearance".localized }
             static var layout: String { "prefs.section.layout".localized }
-            static var connection: String { "prefs.section.connection".localized }
             static var frameRate: String { "prefs.section.frameRate".localized }
             static var android: String { "prefs.section.android".localized }
             static var video: String { "prefs.section.video".localized }
@@ -318,14 +317,6 @@ enum L10n {
             static var devicePosition: String { "prefs.layout.devicePosition".localized }
             static var iosOnLeft: String { "prefs.layout.iosOnLeft".localized }
             static var androidOnLeft: String { "prefs.layout.androidOnLeft".localized }
-        }
-
-        enum connectionPref {
-            static var autoReconnect: String { "prefs.connection.autoReconnect".localized }
-            static var reconnectDelay: String { "prefs.connection.reconnectDelay".localized }
-            static var maxAttempts: String { "prefs.connection.maxAttempts".localized }
-            static func seconds(_ n: Int) -> String { "prefs.connection.seconds".localized(n) }
-            static func times(_ n: Int) -> String { "prefs.connection.times".localized(n) }
         }
 
         enum capturePref {
@@ -594,6 +585,8 @@ enum L10n {
         static var enabled: String { "color.compensation.enabled".localized }
         static var presetLabel: String { "color.compensation.preset".localized }
         static var compare: String { "color.compensation.compare".localized }
+        static var compareCompensated: String { "color.compensation.compare.compensated".localized }
+        static var compareOriginal: String { "color.compensation.compare.original".localized }
         static var reset: String { "color.compensation.reset".localized }
         static var savePreset: String { "color.compensation.savePreset".localized }
         static var deletePreset: String { "color.compensation.deletePreset".localized }
@@ -603,12 +596,24 @@ enum L10n {
         static var savePresetPlaceholder: String { "color.compensation.savePresetPlaceholder".localized }
         static var presetNameExists: String { "color.compensation.presetNameExists".localized }
 
+        // 设备选择相关
+        static var deviceSelector: String { "color.compensation.deviceSelector".localized }
+        static var globalSettings: String { "color.compensation.globalSettings".localized }
+        static var iosSettings: String { "color.compensation.iosSettings".localized }
+        static var androidSettings: String { "color.compensation.androidSettings".localized }
+
+        enum mode {
+            static var useGlobal: String { "color.mode.useGlobal".localized }
+            static var independent: String { "color.mode.independent".localized }
+        }
+
         enum section {
             static var enable: String { "color.section.enable".localized }
             static var preset: String { "color.section.preset".localized }
             static var brightness: String { "color.section.brightness".localized }
             static var color: String { "color.section.color".localized }
             static var actions: String { "color.section.actions".localized }
+            static var deviceMode: String { "color.section.deviceMode".localized }
         }
 
         enum params {

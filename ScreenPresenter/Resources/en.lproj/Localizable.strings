@@ -96,7 +96,6 @@
 "prefs.section.language" = "Language";
 "prefs.section.appearance" = "Appearance";
 "prefs.section.layout" = "Layout";
-"prefs.section.connection" = "Connection";
 "prefs.section.frameRate" = "Frame Rate";
 "prefs.section.android" = "Android (Scrcpy)";
 "prefs.section.video" = "Video";
@@ -133,13 +132,6 @@
 "prefs.layout.devicePosition" = "Default Device Layout";
 "prefs.layout.iosOnLeft" = "iOS | Android";
 "prefs.layout.androidOnLeft" = "Android | iOS";
-
-// MARK: - Preferences - Connection
-"prefs.connection.autoReconnect" = "Auto Reconnect";
-"prefs.connection.reconnectDelay" = "Reconnect Delay";
-"prefs.connection.maxAttempts" = "Max Reconnect Attempts";
-"prefs.connection.seconds" = "%d sec";
-"prefs.connection.times" = "%d times";
 
 // MARK: - Preferences - Capture
 "prefs.capture.frameRate" = "Capture Frame Rate";
@@ -347,6 +339,8 @@
 "color.compensation.enabled" = "Enable Color Compensation";
 "color.compensation.preset" = "Preset";
 "color.compensation.compare" = "A/B Compare";
+"color.compensation.compare.compensated" = "Compensated";
+"color.compensation.compare.original" = "Original";
 "color.compensation.reset" = "Reset";
 "color.compensation.savePreset" = "Save Preset...";
 "color.compensation.deletePreset" = "Delete";
@@ -355,11 +349,18 @@
 "color.compensation.savePresetMessage" = "Enter a name for the new preset:";
 "color.compensation.savePresetPlaceholder" = "Preset Name";
 "color.compensation.presetNameExists" = "A preset with this name already exists. Please choose a different name.";
+"color.compensation.deviceSelector" = "Device Selection";
+"color.compensation.globalSettings" = "Global Settings";
+"color.compensation.iosSettings" = "iOS Settings";
+"color.compensation.androidSettings" = "Android Settings";
+"color.mode.useGlobal" = "Use Global Settings";
+"color.mode.independent" = "Independent Settings";
 "color.section.enable" = "Switch";
 "color.section.preset" = "Presets";
 "color.section.brightness" = "Brightness Curve";
 "color.section.color" = "Color";
 "color.section.actions" = "Actions";
+"color.section.deviceMode" = "Device Mode";
 "color.params.blackLift" = "Black Lift";
 "color.params.whiteClip" = "White Clip";
 "color.params.highlightRollOff" = "Highlight Roll-Off";

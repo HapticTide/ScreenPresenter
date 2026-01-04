@@ -39,9 +39,6 @@ final class UserPreferences {
     private enum Keys {
         static let iosOnLeft = "iosOnLeft"
         static let layoutMode = "layoutMode"
-        static let autoReconnect = "autoReconnect"
-        static let reconnectDelay = "reconnectDelay"
-        static let maxReconnectAttempts = "maxReconnectAttempts"
         static let appLanguage = "appLanguage"
         static let backgroundOpacity = "backgroundOpacity"
         static let showDeviceBezel = "showDeviceBezel"
@@ -98,32 +95,6 @@ final class UserPreferences {
             // 发送通知更新 UI
             NotificationCenter.default.post(name: .layoutModeDidChange, object: nil)
         }
-    }
-
-    // MARK: - Connection Settings
-
-    /// 是否自动重连
-    var autoReconnect: Bool {
-        get { defaults.bool(forKey: Keys.autoReconnect) }
-        set { defaults.set(newValue, forKey: Keys.autoReconnect) }
-    }
-
-    /// 重连延迟（秒）
-    var reconnectDelay: Double {
-        get {
-            let value = defaults.double(forKey: Keys.reconnectDelay)
-            return value > 0 ? value : 3.0
-        }
-        set { defaults.set(newValue, forKey: Keys.reconnectDelay) }
-    }
-
-    /// 最大重连次数
-    var maxReconnectAttempts: Int {
-        get {
-            let value = defaults.integer(forKey: Keys.maxReconnectAttempts)
-            return value > 0 ? value : 5
-        }
-        set { defaults.set(newValue, forKey: Keys.maxReconnectAttempts) }
     }
 
     // MARK: - Display Settings
@@ -309,9 +280,6 @@ final class UserPreferences {
 
     private func registerDefaults() {
         defaults.register(defaults: [
-            Keys.autoReconnect: true,
-            Keys.reconnectDelay: 3.0,
-            Keys.maxReconnectAttempts: 5,
             Keys.backgroundOpacity: 1.0,
             Keys.showDeviceBezel: true,
             Keys.captureFrameRate: 60,

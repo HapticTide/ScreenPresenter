@@ -96,7 +96,6 @@
 "prefs.section.language" = "语言";
 "prefs.section.appearance" = "外观";
 "prefs.section.layout" = "布局";
-"prefs.section.connection" = "连接";
 "prefs.section.frameRate" = "帧率";
 "prefs.section.android" = "Android (Scrcpy)";
 "prefs.section.video" = "视频";
@@ -133,13 +132,6 @@
 "prefs.layout.devicePosition" = "默认设备布局";
 "prefs.layout.iosOnLeft" = "iOS | Android";
 "prefs.layout.androidOnLeft" = "Android | iOS";
-
-// MARK: - Preferences - Connection
-"prefs.connection.autoReconnect" = "自动重连";
-"prefs.connection.reconnectDelay" = "重连延迟";
-"prefs.connection.maxAttempts" = "最大重连次数";
-"prefs.connection.seconds" = "%d 秒";
-"prefs.connection.times" = "%d 次";
 
 // MARK: - Preferences - Capture
 "prefs.capture.frameRate" = "捕获帧率";
@@ -347,6 +339,8 @@
 "color.compensation.enabled" = "启用颜色补偿";
 "color.compensation.preset" = "预设";
 "color.compensation.compare" = "A/B 对比";
+"color.compensation.compare.compensated" = "补偿后";
+"color.compensation.compare.original" = "原始";
 "color.compensation.reset" = "重置";
 "color.compensation.savePreset" = "保存预设...";
 "color.compensation.deletePreset" = "删除";
@@ -355,11 +349,18 @@
 "color.compensation.savePresetMessage" = "请输入新预设的名称：";
 "color.compensation.savePresetPlaceholder" = "预设名称";
 "color.compensation.presetNameExists" = "已存在同名预设，请选择其他名称。";
+"color.compensation.deviceSelector" = "设备选择";
+"color.compensation.globalSettings" = "全局设置";
+"color.compensation.iosSettings" = "iOS 设置";
+"color.compensation.androidSettings" = "Android 设置";
+"color.mode.useGlobal" = "使用全局设置";
+"color.mode.independent" = "独立设置";
 "color.section.enable" = "开关";
 "color.section.preset" = "预设";
 "color.section.brightness" = "亮度曲线";
 "color.section.color" = "色彩";
 "color.section.actions" = "操作";
+"color.section.deviceMode" = "设备模式";
 "color.params.blackLift" = "黑电平";
 "color.params.whiteClip" = "白削峰";
 "color.params.highlightRollOff" = "高光滚落";
@@ -372,3 +373,4 @@
 "menu.colorCompensation" = "颜色补偿...";
 "menu.toggleDeviceBezel" = "显示设备边框";
 "menu.togglePreventSleep" = "禁止息屏";
+

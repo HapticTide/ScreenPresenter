@@ -29,6 +29,9 @@ final class SingleDeviceRenderView: NSView {
 
     private var lutSamplerState: MTLSamplerState?
 
+    /// 颜色补偿滤镜（可外部注入，支持按设备独立设置）
+    var colorFilter: ColorCompensationFilter?
+
     // MARK: - 纹理（保持对 CVMetalTexture 的强引用，防止 MTLTexture 失效）
 
     private var currentCVTexture: CVMetalTexture?
@@ -345,16 +348,17 @@ final class SingleDeviceRenderView: NSView {
             encoder.setVertexBytes(vertices, length: vertices.count * MemoryLayout<Float>.size, index: 0)
             encoder.setFragmentTexture(texture, index: 0)
 
-            // 设置颜色补偿资源
-            let colorFilter = ColorCompensationFilter.shared
-            if let lutTexture = colorFilter.getLUTTexture() {
-                encoder.setFragmentTexture(lutTexture, index: 1)
-            }
-            if let lutSampler = lutSamplerState {
-                encoder.setFragmentSamplerState(lutSampler, index: 1)
-            }
-            if let uniformBuffer = colorFilter.getUniformBuffer() {
-                encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 0)
+            // 设置颜色补偿资源（使用注入的滤镜实例）
+            if let colorFilter {
+                if let lutTexture = colorFilter.getLUTTexture() {
+                    encoder.setFragmentTexture(lutTexture, index: 1)
+                }
+                if let lutSampler = lutSamplerState {
+                    encoder.setFragmentSamplerState(lutSampler, index: 1)
+                }
+                if let uniformBuffer = colorFilter.getUniformBuffer() {
+                    encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 0)
+                }
             }
 
             encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
