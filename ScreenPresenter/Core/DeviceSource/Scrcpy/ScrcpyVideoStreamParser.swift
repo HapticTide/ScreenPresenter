@@ -45,6 +45,14 @@ struct ScrcpyDeviceMeta {
     }
 }
 
+/// Scrcpy Codec ID 特殊值
+enum ScrcpyCodecStatus: UInt32 {
+    /// 流被设备明确禁用
+    case disabled = 0
+    /// 设备上的流配置错误
+    case configError = 1
+}
+
 /// Scrcpy 视频编解码器元数据（12 字节）
 /// 根据 scrcpy 文档：codec id (u32) + width (u32) + height (u32)
 struct ScrcpyCodecMeta {
@@ -60,8 +68,27 @@ struct ScrcpyCodecMeta {
     /// 字节大小
     static let size = 12
 
+    /// 检查 codec ID 是否为特殊状态值
+    var status: ScrcpyCodecStatus? {
+        ScrcpyCodecStatus(rawValue: codecId)
+    }
+
+    /// 是否为有效的编解码器（非特殊状态）
+    var isValid: Bool {
+        status == nil
+    }
+
     /// 编解码器名称
     var codecName: String {
+        // 检查特殊状态
+        if let status {
+            switch status {
+            case .disabled:
+                return "DISABLED"
+            case .configError:
+                return "CONFIG_ERROR"
+            }
+        }
         // scrcpy 使用 FourCC 编码
         let bytes = withUnsafeBytes(of: codecId.bigEndian) { Array($0) }
         return String(bytes: bytes, encoding: .ascii) ?? "Unknown"
@@ -118,6 +145,12 @@ struct ScrcpyCodecMeta {
 }
 
 /// Scrcpy 帧头（12 字节）
+/// 协议格式:
+/// - PTS (8 bytes): 大端序 64 位整数
+///   - bit 63: config packet 标志
+///   - bit 62: key frame 标志
+///   - bit 0-61: 实际 PTS（微秒）
+/// - packet size (4 bytes): 大端序 32 位整数
 struct ScrcpyFrameHeader: Equatable {
     /// 显示时间戳（微秒，大端序 64 位整数）
     let pts: UInt64
@@ -125,14 +158,24 @@ struct ScrcpyFrameHeader: Equatable {
     /// 数据包大小（大端序 32 位整数）
     let packetSize: UInt32
 
-    /// 是否为配置包（PTS 的最高位为 1 表示配置包）
+    /// PTS 标志位常量（与 scrcpy demuxer.c 一致）
+    private static let configFlag: UInt64 = 1 << 63
+    private static let keyFrameFlag: UInt64 = 1 << 62
+    private static let ptsMask: UInt64 = keyFrameFlag - 1
+
+    /// 是否为配置包（PTS 的 bit63 为 1 表示配置包）
     var isConfigPacket: Bool {
-        pts & (1 << 63) != 0
+        pts & Self.configFlag != 0
     }
 
-    /// 实际 PTS（去掉配置位）
+    /// 是否为关键帧（PTS 的 bit62 为 1 表示关键帧）
+    var isKeyFrame: Bool {
+        pts & Self.keyFrameFlag != 0
+    }
+
+    /// 实际 PTS（去掉标志位，只保留低 62 位）
     var actualPTS: UInt64 {
-        pts & ~(1 << 63)
+        pts & Self.ptsMask
     }
 
     /// CMTime 表示的 PTS
@@ -204,6 +247,13 @@ enum H264NALUnitType: UInt8 {
     var isKeyFrame: Bool {
         self == .sliceIDR
     }
+
+    /// 是否为 VCL（Video Coding Layer）NAL 单元
+    /// 只有 VCL 单元包含实际视频数据，需要送入解码器
+    var isVCL: Bool {
+        // H.264 VCL NAL 类型: 1-5 (slice 数据)
+        (1...5).contains(rawValue)
+    }
 }
 
 /// H.265 NAL 单元类型
@@ -232,6 +282,14 @@ enum H265NALUnitType: UInt8 {
     var isKeyFrame: Bool {
         (19...21).contains(rawValue) || (16...18).contains(rawValue)
     }
+
+    /// 是否为 VCL（Video Coding Layer）NAL 单元
+    /// 只有 VCL 单元包含实际视频数据，需要送入解码器
+    var isVCL: Bool {
+        // H.265 VCL NAL 类型: 0-31 (slice 数据)
+        // 非 VCL: 32+ (VPS/SPS/PPS/AUD/SEI 等)
+        rawValue <= 31
+    }
 }
 
 // MARK: - 解析后的 NAL 单元
@@ -247,11 +305,87 @@ struct ParsedNALUnit {
     /// 是否为参数集（SPS/PPS/VPS）
     let isParameterSet: Bool
 
-    /// 是否为关键帧
+    /// 是否为关键帧（从 NAL 类型判断）
     let isKeyFrame: Bool
+
+    /// 协议层关键帧标志（从 scrcpy 帧头 bit62 获取）
+    /// 注意：这个标志比 isKeyFrame 更权威，因为它是由服务端设置的
+    let protocolKeyFrame: Bool
+
+    /// 是否为 VCL（Video Coding Layer）NAL 单元
+    /// 只有 VCL 单元包含实际视频数据，需要送入解码器
+    /// 非 VCL 单元（SEI/AUD/filler 等）不应送入解码器
+    let isVCL: Bool
 
     /// 编解码类型
     let codecType: CMVideoCodecType
+
+    /// 综合判断是否为关键帧（协议标志或 NAL 类型判断）
+    var isEffectiveKeyFrame: Bool {
+        protocolKeyFrame || isKeyFrame
+    }
+}
+
+// MARK: - Scrcpy Packet Merger
+
+/// Scrcpy Packet Merger
+/// 模仿 scrcpy packet_merger.c 的实现
+/// 将 config packet（SPS/PPS）与下一个 media packet 合并
+///
+/// 工作原理：
+/// 1. Config packet (PTS bit63=1) 包含 SPS/PPS 参数集
+/// 2. 当收到 config packet 时，暂存其数据
+/// 3. 当收到下一个 media packet 时，将 config 数据 prepend 到 media packet 前面
+/// 4. 合并后的格式：[SPS/PPS NAL 单元][IDR 帧 NAL 单元]
+final class ScrcpyPacketMerger {
+    /// 待合并的 config packet 数据
+    private var pendingConfig: Data?
+
+    /// 统计：合并次数
+    private(set) var mergeCount = 0
+
+    /// 初始化
+    init() {}
+
+    /// 处理数据包
+    /// - Parameters:
+    ///   - packetData: 数据包数据
+    ///   - isConfig: 是否为 config packet
+    /// - Returns: 处理后的数据（可能已合并 config）
+    func process(packetData: Data, isConfig: Bool) -> Data {
+        if isConfig {
+            // 保存 config packet，等待下一个 media packet
+            pendingConfig = packetData
+            AppLogger.capture.debug("[PacketMerger] 暂存 config packet: \(packetData.count) 字节")
+            // Config packet 本身也需要返回（用于提取参数集）
+            return packetData
+        } else if let config = pendingConfig {
+            // 有待合并的 config，prepend 到 media packet
+            var merged = Data(capacity: config.count + packetData.count)
+            merged.append(config)
+            merged.append(packetData)
+            pendingConfig = nil
+            mergeCount += 1
+            AppLogger.capture
+                .info("[PacketMerger] 合并 config (\(config.count)B) + media (\(packetData.count)B) = \(merged.count)B，累计合并: \(mergeCount)")
+            return merged
+        } else {
+            // 普通 media packet，直接返回
+            return packetData
+        }
+    }
+
+    /// 重置状态
+    func reset() {
+        pendingConfig = nil
+        mergeCount = 0
+        AppLogger.capture.debug("[PacketMerger] 已重置")
+    }
+
+    /// 是否有待合并的 config
+    var hasPendingConfig: Bool {
+        pendingConfig != nil
+    }
 }
 
 // MARK: - 解析器状态
@@ -540,8 +674,13 @@ final class ScrcpyVideoStreamParser {
                 let frameData = buffer.prefix(Int(header.packetSize))
                 buffer.removeFirst(Int(header.packetSize))
 
-                // 解析帧数据中的 NAL 单元
-                let parsedUnits = parseNALUnitsFromData(Data(frameData), pts: header.cmTime)
+                // 解析帧数据中的 NAL 单元，传递帧头信息
+                let parsedUnits = parseNALUnitsFromData(
+                    Data(frameData),
+                    pts: header.cmTime,
+                    protocolKeyFrame: header.isKeyFrame,
+                    isConfigPacket: header.isConfigPacket
+                )
                 nalUnits.append(contentsOf: parsedUnits)
 
                 parserState = .waitingFrameHeader
@@ -556,7 +695,17 @@ final class ScrcpyVideoStreamParser {
     }
 
     /// 从帧数据中解析 NAL 单元
-    private func parseNALUnitsFromData(_ data: Data, pts: CMTime) -> [ParsedNALUnit] {
+    /// - Parameters:
+    ///   - data: 帧数据
+    ///   - pts: 显示时间戳
+    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit62 获取）
+    ///   - isConfigPacket: 是否为配置包
+    private func parseNALUnitsFromData(
+        _ data: Data,
+        pts: CMTime,
+        protocolKeyFrame: Bool = false,
+        isConfigPacket: Bool = false
+    ) -> [ParsedNALUnit] {
         var nalUnits: [ParsedNALUnit] = []
         let tempBuffer = data
         var searchStart = 0
@@ -579,7 +728,7 @@ final class ScrcpyVideoStreamParser {
 
             // 提取 NAL 单元数据
             let nalData = tempBuffer.subdata(in: nalStart..<nalEnd)
-            if let nalUnit = parseNALUnit(data: nalData, pts: pts) {
+            if let nalUnit = parseNALUnit(data: nalData, pts: pts, protocolKeyFrame: protocolKeyFrame) {
                 nalUnits.append(nalUnit)
                 parsedNALCount += 1
             }
@@ -679,7 +828,11 @@ final class ScrcpyVideoStreamParser {
     }
 
     /// 解析单个 NAL 单元
-    private func parseNALUnit(data: Data, pts: CMTime = .invalid) -> ParsedNALUnit? {
+    /// - Parameters:
+    ///   - data: NAL 单元数据（不含起始码）
+    ///   - pts: 显示时间戳
+    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit62 获取）
+    private func parseNALUnit(data: Data, pts: CMTime = .invalid, protocolKeyFrame: Bool = false) -> ParsedNALUnit? {
         guard !data.isEmpty else {
             AppLogger.capture.warning("[StreamParser] 解析失败: NAL 数据为空")
             return nil
@@ -688,6 +841,7 @@ final class ScrcpyVideoStreamParser {
         let nalType: UInt8
         let isParameterSet: Bool
         let isKeyFrame: Bool
+        let isVCL: Bool
 
         if codecType == kCMVideoCodecType_H264 {
             // H.264: NAL type 在第一个字节的低 5 位
@@ -695,6 +849,7 @@ final class ScrcpyVideoStreamParser {
             let type = H264NALUnitType(rawValue: nalType)
             isParameterSet = type?.isParameterSet ?? false
             isKeyFrame = type?.isKeyFrame ?? false
+            isVCL = type?.isVCL ?? false
 
             // 诊断日志：检查 NAL 类型有效性
             if nalType == 0 || nalType > 31 {
@@ -707,7 +862,10 @@ final class ScrcpyVideoStreamParser {
             // 存储参数集并检测变化
             if nalType == H264NALUnitType.sps.rawValue {
                 if let lastSPS, lastSPS != data {
-                    AppLogger.capture.info("[StreamParser] ⚠️ H.264 SPS 变化，可能分辨率改变")
+                    AppLogger.capture.info("[StreamParser] ⚠️ H.264 SPS 变化（设备旋转），等待新 PPS 后重建解码器")
+                    // 先清空 PPS，确保不会用新 SPS + 旧 PPS 初始化
+                    pps = nil
+                    // 延迟触发回调，等待 PPS 到达后由调用方处理
                     onSPSChanged?(data)
                 }
                 lastSPS = data
@@ -723,6 +881,7 @@ final class ScrcpyVideoStreamParser {
             let type = H265NALUnitType(rawValue: nalType)
             isParameterSet = type?.isParameterSet ?? false
             isKeyFrame = type?.isKeyFrame ?? false
+            isVCL = type?.isVCL ?? false
 
             // 诊断日志：检查 NAL 类型有效性
             if nalType > 63 {
@@ -738,7 +897,10 @@ final class ScrcpyVideoStreamParser {
                 AppLogger.capture.info("[StreamParser] 收到 H.265 VPS: \(data.count) 字节")
             } else if nalType == H265NALUnitType.sps.rawValue {
                 if let lastSPS, lastSPS != data {
-                    AppLogger.capture.info("[StreamParser] ⚠️ H.265 SPS 变化，可能分辨率改变")
+                    AppLogger.capture.info("[StreamParser] ⚠️ H.265 SPS 变化（设备旋转），等待新 PPS 后重建解码器")
+                    // 先清空 PPS，确保不会用新 SPS + 旧 PPS 初始化
+                    pps = nil
+                    // 延迟触发回调，等待 PPS 到达后由调用方处理
                     onSPSChanged?(data)
                 }
                 lastSPS = data
@@ -755,6 +917,8 @@ final class ScrcpyVideoStreamParser {
             data: data,
             isParameterSet: isParameterSet,
             isKeyFrame: isKeyFrame,
+            protocolKeyFrame: protocolKeyFrame,
+            isVCL: isVCL,
             codecType: codecType
         )
     }

@@ -190,7 +190,10 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     /// 监控任务
     private var monitorTask: Task<Void, Never>?
 
-    /// 最新的 CVPixelBuffer 存储
+    /// 帧缓冲器（双帧缓冲设计，与 scrcpy frame_buffer.c 一致）
+    private let frameBuffer = FrameBuffer()
+
+    /// 最新的 CVPixelBuffer 存储（兼容旧接口）
     private var _latestPixelBuffer: CVPixelBuffer?
 
     /// 最新的 CVPixelBuffer（供渲染使用）
@@ -201,6 +204,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
     /// 当前端口
     private var currentPort: Int
+
+    /// 帧缓冲统计任务
+    private var frameBufferStatsTask: Task<Void, Never>?
 
     // MARK: - 初始化
 
@@ -382,6 +388,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             // 启动进程监控
             startProcessMonitoring()
 
+            // 启动帧缓冲统计任务（每 5 秒输出一次）
+            startFrameBufferStats()
+
         } catch {
             let captureError = DeviceSourceError.captureStartFailed(error.localizedDescription)
             updateState(.error(captureError))
@@ -391,6 +400,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
     override func stopCapture() async {
         AppLogger.capture.info("停止捕获: \(displayName)")
+
+        // 0. 停止帧缓冲统计任务
+        stopFrameBufferStats()
 
         // 1. 停止 Socket 接收器
         socketAcceptor?.stop()
@@ -412,6 +424,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         // 5. 重置解码器
         decoder?.reset()
 
+        // 6. 重置帧缓冲器
+        frameBuffer.reset()
+
         if state == .capturing {
             updateState(.connected)
         }
@@ -420,6 +435,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     }
 
     // MARK: - 数据处理
+
+    /// 过滤掉的非 VCL NAL 计数（用于诊断）
+    private var filteredNonVCLCount = 0
 
     /// 处理接收到的数据
     private func handleReceivedData(_ data: Data) {
@@ -437,8 +455,19 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
                 continue
             }
 
-            // 解码非参数集 NAL 单元
-            if decoder.isReady, !nalUnit.isParameterSet {
+            // 过滤非 VCL NAL 单元（SEI/AUD/filler 等）
+            // 这些单元不包含实际视频数据，不应送入解码器
+            guard nalUnit.isVCL else {
+                filteredNonVCLCount += 1
+                // 每 100 个非 VCL NAL 记录一次日志（避免日志过多）
+                if filteredNonVCLCount % 100 == 1 {
+                    AppLogger.capture.debug("[Scrcpy] 过滤非 VCL NAL (type=\(nalUnit.type))，累计过滤: \(filteredNonVCLCount)")
+                }
+                continue
+            }
+
+            // 解码 VCL NAL 单元（实际视频帧数据）
+            if decoder.isReady {
                 decoder.decode(nalUnit: nalUnit)
             }
         }
@@ -476,21 +505,35 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     }
 
     /// 处理 SPS 变化（分辨率变化）
+    /// 注意：只标记需要重建解码器，不立即重建
+    /// 因为新的 PPS 可能还没到达，需要等待完整参数集
     private func handleSPSChanged() {
-        AppLogger.capture.info("⚠️ 检测到 SPS 变化，重建解码器...")
+        AppLogger.capture.info("⚠️ 检测到 SPS 变化（设备旋转），标记解码器需要重建...")
 
-        // 重置解码器
+        // 重置解码器（这会导致 isReady = false）
         decoder?.reset()
 
-        // 重新初始化解码器
-        initializeDecoder()
+        // 不在这里调用 initializeDecoder()
+        // 等待 handleReceivedData 中收到新的参数集后自动重新初始化
+        // 因为设备旋转时，scrcpy 会重新发送完整的 config packet (SPS + PPS)
     }
 
     /// 处理解码后的帧
+    /// 使用双帧缓冲设计（与 scrcpy frame_buffer.c 一致）
     private func handleDecodedFrame(_ pixelBuffer: CVPixelBuffer) {
         guard state == .capturing else { return }
 
-        // 更新最新帧
+        // 推送到帧缓冲器（双帧缓冲，最新帧优先）
+        // 返回值表示上一帧是否被跳过（未被消费就被新帧覆盖）
+        let previousSkipped = frameBuffer.push(pixelBuffer)
+
+        // 如果有帧被跳过，这在实时投屏中是正常现象
+        // 只在调试模式下记录详细日志
+        if previousSkipped {
+            AppLogger.capture.debug("[FrameBuffer] 帧被跳过（新帧覆盖未消费的旧帧）")
+        }
+
+        // 更新最新帧（兼容旧接口）
         _latestPixelBuffer = pixelBuffer
 
         // 更新捕获尺寸
@@ -506,7 +549,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         )
         emitFrame(frame)
 
-        // 回调通知
+        // 回调通知（渲染线程会从帧缓冲器消费）
         DispatchQueue.main.async { [weak self] in
             self?.onFrame?(pixelBuffer)
         }
@@ -585,5 +628,27 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
                 }
             }
         }
+    }
+
+    // MARK: - 帧缓冲统计
+
+    /// 启动帧缓冲统计任务
+    private func startFrameBufferStats() {
+        frameBufferStatsTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 秒
+
+                guard !Task.isCancelled, let self else { break }
+
+                // 输出帧缓冲统计
+                frameBuffer.logDiagnostics(prefix: "[Android FrameBuffer]")
+            }
+        }
+    }
+
+    /// 停止帧缓冲统计任务
+    private func stopFrameBufferStats() {
+        frameBufferStatsTask?.cancel()
+        frameBufferStatsTask = nil
     }
 }

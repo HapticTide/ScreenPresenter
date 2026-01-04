@@ -40,6 +40,7 @@
 		B1000001000000000014 /* SingleDeviceRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000014 /* SingleDeviceRenderView.swift */; };
 		B68F74DD04702214DE85159B /* ColorCompensationFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7A9976317BC37F1A5CA0E6 /* ColorCompensationFilter.swift */; };
 		BF5F50599B66119BEC006AEA /* ColorProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F62E54A16E9E965B7DA1F66 /* ColorProfileManager.swift */; };
+		C0025E2AB0327BD165380C0C /* FrameBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B30ECACCA0D38AE0236B0B8 /* FrameBuffer.swift */; };
 		C1000001000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000002000000000001 /* main.swift */; };
 		D1000001000000000001 /* DevicePanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000001 /* DevicePanelView.swift */; };
 		D1000001000000000002 /* DeviceBezelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000002 /* DeviceBezelView.swift */; };
@@ -63,6 +64,7 @@
 		0A7A9976317BC37F1A5CA0E6 /* ColorCompensationFilter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorCompensationFilter.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7890ABCDEF02 /* DeviceColorSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceColorSettings.swift; sourceTree = "<group>"; };
 		20A91CABDC26BD9136D12E86 /* LUTGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LUTGenerator.swift; sourceTree = "<group>"; };
+		2B30ECACCA0D38AE0236B0B8 /* FrameBuffer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FrameBuffer.swift; sourceTree = "<group>"; };
 		2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDeviceSource.swift; sourceTree = "<group>"; };
 		3E7E9FE2FF970D867ABAC3C4 /* ColorCompensationPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorCompensationPanel.swift; sourceTree = "<group>"; };
 		4F62E54A16E9E965B7DA1F66 /* ColorProfileManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorProfileManager.swift; sourceTree = "<group>"; };
@@ -220,6 +222,7 @@
 				B1000002000000000014 /* SingleDeviceRenderView.swift */,
 				G1000002000000000005 /* VideoToolboxDecoder.swift */,
 				7F9AAE23521E022B60B3B88B /* ColorCompensation */,
+				2B30ECACCA0D38AE0236B0B8 /* FrameBuffer.swift */,
 			);
 			path = Rendering;
 			sourceTree = "<group>";
@@ -437,6 +440,7 @@
 				BF5F50599B66119BEC006AEA /* ColorProfileManager.swift in Sources */,
 				1A2B3C4D5E6F7890ABCDEF01 /* DeviceColorSettings.swift in Sources */,
 				5843D265B1DC87EEFE94E906 /* ColorCompensationPanel.swift in Sources */,
+				C0025E2AB0327BD165380C0C /* FrameBuffer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

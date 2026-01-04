@@ -92,13 +92,23 @@ final class VideoToolboxDecoder {
     // MARK: - 丢帧策略
 
     /// 最大待解码帧数（超过此值将丢弃非关键帧）
-    private let maxPendingFrames = 3
+    /// 提升阈值以避免过度丢帧，同时配合 VCL 过滤使用
+    private let maxPendingFrames = 8
 
     /// 当前待解码帧计数
     private var pendingFrameCount = 0
 
     /// 待解码帧计数锁
     private let pendingLock = NSLock()
+
+    /// 上次统计日志时间
+    private var lastStatsLogTime = CFAbsoluteTimeGetCurrent()
+
+    /// 统计周期内的解码帧数
+    private var decodedInPeriod = 0
+
+    /// 统计周期内的丢弃帧数
+    private var droppedInPeriod = 0
 
     // MARK: - 初始化
 
@@ -171,8 +181,10 @@ final class VideoToolboxDecoder {
 
         if currentPending > maxPendingFrames, !nalUnit.isKeyFrame {
             droppedFrameCount += 1
-            if droppedFrameCount % 30 == 1 {
-                AppLogger.capture.warning("[VTDecoder] 丢弃非关键帧，待解码: \(currentPending), 已丢弃: \(droppedFrameCount)")
+            droppedInPeriod += 1
+            // 每 60 个丢帧记录一次日志（约 1 秒 @ 60fps）
+            if droppedFrameCount % 60 == 1 {
+                AppLogger.capture.warning("[VTDecoder] 丢弃非关键帧，待解码: \(currentPending)/\(maxPendingFrames), 累计丢弃: \(droppedFrameCount)")
             }
             return
         }
@@ -180,6 +192,19 @@ final class VideoToolboxDecoder {
         pendingLock.lock()
         pendingFrameCount += 1
         pendingLock.unlock()
+
+        decodedInPeriod += 1
+
+        // 定期输出诊断统计（每 5 秒）
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastStatsLogTime >= 5.0 {
+            let decodeFPS = Double(decodedInPeriod) / (now - lastStatsLogTime)
+            let dropFPS = Double(droppedInPeriod) / (now - lastStatsLogTime)
+            AppLogger.capture.info("[VTDecoder] 诊断: 解码 \(String(format: "%.1f", decodeFPS)) fps, 丢弃 \(String(format: "%.1f", dropFPS)) fps, 待解码: \(currentPending)")
+            lastStatsLogTime = now
+            decodedInPeriod = 0
+            droppedInPeriod = 0
+        }
 
         decodeQueue.async { [weak self] in
             defer {
@@ -217,6 +242,9 @@ final class VideoToolboxDecoder {
         decodedFrameCount = 0
         failedFrameCount = 0
         droppedFrameCount = 0
+        decodedInPeriod = 0
+        droppedInPeriod = 0
+        lastStatsLogTime = CFAbsoluteTimeGetCurrent()
         pendingLock.lock()
         pendingFrameCount = 0
         pendingLock.unlock()
