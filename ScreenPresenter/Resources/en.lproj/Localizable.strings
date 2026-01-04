@@ -123,6 +123,12 @@
 "prefs.power.preventAutoLock" = "Prevent Auto Lock During Capture";
 "prefs.power.preventAutoLockHelp" = "Prevents system auto sleep/lock only. Manual lock is not affected.";
 
+// MARK: - Preferences - Color Compensation
+"prefs.colorCompensation.sectionTitle" = "Color Compensation";
+"prefs.colorCompensation.enable" = "Enable Color Compensation";
+"prefs.colorCompensation.openPanel" = "Open Compensation Panel...";
+"prefs.colorCompensation.description" = "Enable this feature and adjust related parameters to achieve relatively accurate screen color reproduction on displays with non-standard color performance.";
+
 // MARK: - Preferences - Layout
 "prefs.layout.devicePosition" = "Default Device Layout";
 "prefs.layout.iosOnLeft" = "iOS | Android";
@@ -331,3 +337,38 @@
 "install.installSuccess" = "✅ scrcpy installed successfully\n";
 "install.installFailed" = "❌ Installation failed: %@\n";
 "install.verifyingInstall" = "🔍 Verifying installation...\n";
+
+// MARK: - Color Compensation
+"color.preset.neutral" = "Neutral";
+"color.preset.coldTV" = "Cold TV";
+"color.preset.grayishTV" = "Grayish TV";
+"color.preset.oversaturatedTV" = "Oversaturated TV";
+"color.compensation.title" = "Color Compensation";
+"color.compensation.enabled" = "Enable Color Compensation";
+"color.compensation.preset" = "Preset";
+"color.compensation.compare" = "A/B Compare";
+"color.compensation.reset" = "Reset";
+"color.compensation.savePreset" = "Save Preset...";
+"color.compensation.deletePreset" = "Delete";
+"color.compensation.customPresets" = "Custom";
+"color.compensation.savePresetTitle" = "Save Preset";
+"color.compensation.savePresetMessage" = "Enter a name for the new preset:";
+"color.compensation.savePresetPlaceholder" = "Preset Name";
+"color.compensation.presetNameExists" = "A preset with this name already exists. Please choose a different name.";
+"color.section.enable" = "Switch";
+"color.section.preset" = "Presets";
+"color.section.brightness" = "Brightness Curve";
+"color.section.color" = "Color";
+"color.section.actions" = "Actions";
+"color.params.blackLift" = "Black Lift";
+"color.params.whiteClip" = "White Clip";
+"color.params.highlightRollOff" = "Highlight Roll-Off";
+"color.params.temperature" = "Temperature";
+"color.params.tint" = "Tint";
+"color.params.saturation" = "Saturation";
+
+// MARK: - Menu (Color)
+"menu.view" = "View";
+"menu.colorCompensation" = "Color Compensation...";
+"menu.toggleDeviceBezel" = "Show Device Bezel";
+"menu.togglePreventSleep" = "Prevent Sleep";

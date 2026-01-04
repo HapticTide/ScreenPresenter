@@ -25,6 +25,10 @@ final class SingleDeviceRenderView: NSView {
     private var textureCache: CVMetalTextureCache?
     private var samplerState: MTLSamplerState?
 
+    // MARK: - 颜色补偿
+
+    private var lutSamplerState: MTLSamplerState?
+
     // MARK: - 纹理（保持对 CVMetalTexture 的强引用，防止 MTLTexture 失效）
 
     private var currentCVTexture: CVMetalTexture?
@@ -178,6 +182,11 @@ final class SingleDeviceRenderView: NSView {
             AppLogger.rendering.error("无法创建采样器")
             return
         }
+        samplerState = sampler
+
+        // 创建 LUT 采样器
+        let lutSamplerDescriptor = ColorCompensationFilter.createLUTSamplerDescriptor()
+        lutSamplerState = device.makeSamplerState(descriptor: lutSamplerDescriptor)
         samplerState = sampler
 
         AppLogger.rendering.info("SingleDeviceRenderView Metal 初始化成功")
@@ -335,6 +344,19 @@ final class SingleDeviceRenderView: NSView {
 
             encoder.setVertexBytes(vertices, length: vertices.count * MemoryLayout<Float>.size, index: 0)
             encoder.setFragmentTexture(texture, index: 0)
+
+            // 设置颜色补偿资源
+            let colorFilter = ColorCompensationFilter.shared
+            if let lutTexture = colorFilter.getLUTTexture() {
+                encoder.setFragmentTexture(lutTexture, index: 1)
+            }
+            if let lutSampler = lutSamplerState {
+                encoder.setFragmentSamplerState(lutSampler, index: 1)
+            }
+            if let uniformBuffer = colorFilter.getUniformBuffer() {
+                encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 0)
+            }
+
             encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
 
@@ -355,6 +377,92 @@ final class SingleDeviceRenderView: NSView {
             float2 texCoord;
         };
 
+        // 颜色补偿参数
+        struct ColorCompensationParams {
+            float temperature;
+            float tint;
+            float saturation;
+            int enabled;
+        };
+
+        // sRGB -> Linear 转换
+        float srgbToLinear(float c) {
+            return (c <= 0.04045) ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        // Linear -> sRGB 转换
+        float linearToSrgb(float c) {
+            return (c <= 0.0031308) ? c * 12.92 : 1.055 * pow(c, 1.0/2.4) - 0.055;
+        }
+
+        float3 srgbToLinear3(float3 c) {
+            return float3(srgbToLinear(c.r), srgbToLinear(c.g), srgbToLinear(c.b));
+        }
+
+        float3 linearToSrgb3(float3 c) {
+            return float3(linearToSrgb(c.r), linearToSrgb(c.g), linearToSrgb(c.b));
+        }
+
+        // 应用 1D LUT（RGBA16Float 格式，R/G/B 通道分别存储三条曲线）
+        float3 applyLUT(float3 color, texture1d<float> lut, sampler s) {
+            // LUT 纹理中：R 通道存 R 曲线，G 通道存 G 曲线，B 通道存 B 曲线
+            float4 lutSample = lut.sample(s, color.r);
+            float r = lutSample.r;
+            
+            lutSample = lut.sample(s, color.g);
+            float g = lutSample.g;
+            
+            lutSample = lut.sample(s, color.b);
+            float b = lutSample.b;
+            
+            return float3(r, g, b);
+        }
+
+        // 应用色温
+        float3 applyTemperature(float3 color, float temp, float tint) {
+            // 色温：暖 = +R -B，冷 = -R +B
+            color.r += temp * 0.1;
+            color.b -= temp * 0.1;
+            // 色调：绿 = +G，品红 = -G
+            color.g += tint * 0.05;
+            return clamp(color, 0.0, 1.0);
+        }
+
+        // 应用饱和度
+        float3 applySaturation(float3 color, float sat) {
+            float luma = dot(color, float3(0.2126, 0.7152, 0.0722));
+            return mix(float3(luma), color, sat);
+        }
+
+        // 颜色补偿主函数
+        float4 applyColorCompensation(float4 inputColor,
+                                       constant ColorCompensationParams &params,
+                                       texture1d<float> lut,
+                                       sampler lutSampler) {
+            if (params.enabled == 0) {
+                return inputColor;
+            }
+
+            float3 color = inputColor.rgb;
+
+            // 1. sRGB -> Linear
+            color = srgbToLinear3(color);
+
+            // 2. 应用 1D LUT
+            color = applyLUT(color, lut, lutSampler);
+
+            // 3. 应用色温/色调
+            color = applyTemperature(color, params.temperature, params.tint);
+
+            // 4. 应用饱和度
+            color = applySaturation(color, params.saturation);
+
+            // 5. Linear -> sRGB
+            color = linearToSrgb3(color);
+
+            return float4(color, inputColor.a);
+        }
+
         vertex VertexOut vertexShader(uint vertexID [[vertex_id]],
                                        constant float4 *vertices [[buffer(0)]]) {
             VertexOut out;
@@ -366,8 +474,13 @@ final class SingleDeviceRenderView: NSView {
 
         fragment float4 fragmentShader(VertexOut in [[stage_in]],
                                         texture2d<float> texture [[texture(0)]],
-                                        sampler textureSampler [[sampler(0)]]) {
-            return texture.sample(textureSampler, in.texCoord);
+                                        texture1d<float> lut [[texture(1)]],
+                                        sampler textureSampler [[sampler(0)]],
+                                        sampler lutSampler [[sampler(1)]],
+                                        constant ColorCompensationParams &colorParams [[buffer(0)]]) {
+            float4 color = texture.sample(textureSampler, in.texCoord);
+            color = applyColorCompensation(color, colorParams, lut, lutSampler);
+            return color;
         }
         """
 

@@ -181,6 +181,10 @@ enum L10n {
         static var file: String { "menu.file".localized }
         static var refreshDevices: String { "menu.refreshDevices".localized }
         static var close: String { "menu.close".localized }
+        static var view: String { "menu.view".localized }
+        static var colorCompensation: String { "menu.colorCompensation".localized }
+        static var toggleDeviceBezel: String { "menu.toggleDeviceBezel".localized }
+        static var togglePreventSleep: String { "menu.togglePreventSleep".localized }
         static var window: String { "menu.window".localized }
         static var minimize: String { "menu.minimize".localized }
         static var zoom: String { "menu.zoom".localized }
@@ -301,6 +305,13 @@ enum L10n {
             static var sectionTitle: String { "prefs.power.sectionTitle".localized }
             static var preventAutoLock: String { "prefs.power.preventAutoLock".localized }
             static var preventAutoLockHelp: String { "prefs.power.preventAutoLockHelp".localized }
+        }
+
+        enum colorCompensationPref {
+            static var sectionTitle: String { "prefs.colorCompensation.sectionTitle".localized }
+            static var enableSwitch: String { "prefs.colorCompensation.enable".localized }
+            static var openPanel: String { "prefs.colorCompensation.openPanel".localized }
+            static var description: String { "prefs.colorCompensation.description".localized }
         }
 
         enum layoutPref {
@@ -574,5 +585,46 @@ enum L10n {
         static var installSuccess: String { "install.installSuccess".localized }
         static func installFailed(_ error: String) -> String { "install.installFailed".localized(error) }
         static var verifyingInstall: String { "install.verifyingInstall".localized }
+    }
+
+    // MARK: - Color Compensation
+
+    enum colorCompensation {
+        static var title: String { "color.compensation.title".localized }
+        static var enabled: String { "color.compensation.enabled".localized }
+        static var presetLabel: String { "color.compensation.preset".localized }
+        static var compare: String { "color.compensation.compare".localized }
+        static var reset: String { "color.compensation.reset".localized }
+        static var savePreset: String { "color.compensation.savePreset".localized }
+        static var deletePreset: String { "color.compensation.deletePreset".localized }
+        static var customPresets: String { "color.compensation.customPresets".localized }
+        static var savePresetTitle: String { "color.compensation.savePresetTitle".localized }
+        static var savePresetMessage: String { "color.compensation.savePresetMessage".localized }
+        static var savePresetPlaceholder: String { "color.compensation.savePresetPlaceholder".localized }
+        static var presetNameExists: String { "color.compensation.presetNameExists".localized }
+
+        enum section {
+            static var enable: String { "color.section.enable".localized }
+            static var preset: String { "color.section.preset".localized }
+            static var brightness: String { "color.section.brightness".localized }
+            static var color: String { "color.section.color".localized }
+            static var actions: String { "color.section.actions".localized }
+        }
+
+        enum params {
+            static var blackLift: String { "color.params.blackLift".localized }
+            static var whiteClip: String { "color.params.whiteClip".localized }
+            static var highlightRollOff: String { "color.params.highlightRollOff".localized }
+            static var temperature: String { "color.params.temperature".localized }
+            static var tint: String { "color.params.tint".localized }
+            static var saturation: String { "color.params.saturation".localized }
+        }
+
+        enum preset {
+            static var neutral: String { "color.preset.neutral".localized }
+            static var coldTV: String { "color.preset.coldTV".localized }
+            static var grayishTV: String { "color.preset.grayishTV".localized }
+            static var oversaturatedTV: String { "color.preset.oversaturatedTV".localized }
+        }
     }
 }

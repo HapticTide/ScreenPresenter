@@ -29,6 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var layoutModeSegmentedControl: NSSegmentedControl?
     private var isRefreshing: Bool = false
 
+    // MARK: - 菜单项
+
+    private var bezelMenuItem: NSMenuItem?
+    private var preventSleepMenuItem: NSMenuItem?
+
     // MARK: - 应用生命周期
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -91,6 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let item = toggleBezelToolbarItem {
             updateBezelToolbarItemImage(item)
         }
+        // 更新菜单项状态
+        bezelMenuItem?.state = UserPreferences.shared.showDeviceBezel ? .on : .off
     }
 
     @objc private func handlePreventSleepSettingChange() {
@@ -98,6 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let item = preventSleepToolbarItem {
             updatePreventSleepToolbarItemImage(item)
         }
+        // 更新菜单项状态
+        preventSleepMenuItem?.state = UserPreferences.shared.preventAutoLockDuringCapture ? .on : .off
     }
 
     @objc private func handleLanguageChange() {
@@ -244,6 +253,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         mainMenu.addItem(fileMenuItem)
 
+        // 显示菜单
+        let viewMenu = NSMenu(title: L10n.menu.view)
+        let viewMenuItem = NSMenuItem()
+        viewMenuItem.submenu = viewMenu
+
+        // 显示/隐藏设备边框
+        let bezelItem = viewMenu.addItem(
+            withTitle: L10n.menu.toggleDeviceBezel,
+            action: #selector(toggleDeviceBezel(_:)),
+            keyEquivalent: "B"
+        )
+        bezelItem.keyEquivalentModifierMask = [.command, .shift]
+        bezelItem.image = NSImage(systemSymbolName: "iphone", accessibilityDescription: nil)
+        bezelItem.state = UserPreferences.shared.showDeviceBezel ? .on : .off
+        bezelMenuItem = bezelItem
+
+        // 禁止息屏
+        let sleepItem = viewMenu.addItem(
+            withTitle: L10n.menu.togglePreventSleep,
+            action: #selector(togglePreventSleep(_:)),
+            keyEquivalent: "S"
+        )
+        sleepItem.keyEquivalentModifierMask = [.command, .shift]
+        sleepItem.image = NSImage(systemSymbolName: "lock.display", accessibilityDescription: nil)
+        sleepItem.state = UserPreferences.shared.preventAutoLockDuringCapture ? .on : .off
+        preventSleepMenuItem = sleepItem
+
+        viewMenu.addItem(NSMenuItem.separator())
+
+        // 颜色补偿
+        let colorCompItem = viewMenu.addItem(
+            withTitle: L10n.menu.colorCompensation,
+            action: #selector(toggleColorCompensationPanel(_:)),
+            keyEquivalent: "C"
+        )
+        colorCompItem.keyEquivalentModifierMask = [.command, .shift]
+        colorCompItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
+
+        mainMenu.addItem(viewMenuItem)
+
         // 窗口菜单
         let windowMenu = NSMenu(title: L10n.menu.window)
         let windowMenuItem = NSMenuItem()
@@ -364,6 +413,10 @@ extension AppDelegate {
         PreferencesWindowController.shared.showWindow(nil)
     }
 
+    @IBAction func toggleColorCompensationPanel(_ sender: Any?) {
+        ColorCompensationPanel.shared.togglePanel()
+    }
+
     @IBAction func refreshDevices(_ sender: Any?) {
         guard !isRefreshing else { return }
 
@@ -437,8 +490,6 @@ extension AppDelegate: NSToolbarDelegate {
             .flexibleSpace,
             ToolbarItemIdentifier.refresh,
             .flexibleSpace,
-            ToolbarItemIdentifier.preventSleep,
-            ToolbarItemIdentifier.toggleBezel,
             ToolbarItemIdentifier.preferences,
         ]
     }
@@ -449,8 +500,6 @@ extension AppDelegate: NSToolbarDelegate {
             ToolbarItemIdentifier.layoutMode,
             .flexibleSpace,
             .space,
-            ToolbarItemIdentifier.preventSleep,
-            ToolbarItemIdentifier.toggleBezel,
             ToolbarItemIdentifier.preferences,
         ]
     }

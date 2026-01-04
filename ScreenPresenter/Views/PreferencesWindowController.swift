@@ -258,8 +258,8 @@ private final class StackContainerView: NSView {
                     width: size.width,
                     height: size.height
                 )
+                // 只标记需要布局，由系统统一处理
                 view.needsLayout = true
-                view.layoutSubtreeIfNeeded()
                 y += size.height
                 if index < visible.count - 1 {
                     y += spacing
@@ -330,8 +330,8 @@ private final class StackContainerView: NSView {
                     width: size.width,
                     height: size.height
                 )
+                // 只标记需要布局，由系统统一处理
                 view.needsLayout = true
-                view.layoutSubtreeIfNeeded()
                 x += size.width
                 if index < visible.count - 1 {
                     x += spacing
@@ -629,7 +629,8 @@ final class PreferencesViewController: NSViewController {
         super.viewDidLayout()
         layoutRootViews()
         layoutCurrentTab()
-        updateScrollViewLayouts()
+        // 只更新当前显示的 Tab 的 ScrollView 布局
+        updateCurrentTabScrollViewLayout()
     }
 
     deinit {
@@ -717,7 +718,9 @@ final class PreferencesViewController: NSViewController {
         newView.autoresizingMask = [.width, .height]
 
         currentTabIndex = index
-        updateScrollViewLayouts()
+
+        // 只更新当前显示的 Tab 的 ScrollView 布局
+        updateCurrentTabScrollViewLayout()
     }
 
     private func layoutRootViews() {
@@ -833,6 +836,45 @@ final class PreferencesViewController: NSViewController {
         addGroupRow(powerGroup, powerNoteContainer, addDivider: false)
 
         addSettingsGroup(powerGroup, to: stackView)
+
+        // 颜色补偿设置组
+        let colorCompGroup = createSettingsGroup(title: L10n.prefs.colorCompensationPref.sectionTitle, icon: "paintpalette")
+
+        // 单行：标签 + 按钮 + 开关
+        addGroupRow(colorCompGroup, createLabeledRow(label: L10n.prefs.colorCompensationPref.enableSwitch) {
+            let container = StackContainerView()
+            container.axis = .horizontal
+            container.alignment = .centerY
+            container.spacing = 8
+
+            let button = NSButton(title: L10n.prefs.colorCompensationPref.openPanel, target: self, action: #selector(self.openColorCompensationPanel(_:)))
+            button.bezelStyle = .rounded
+            container.addArrangedSubview(button)
+
+            let checkbox = NSButton(checkboxWithTitle: "", target: self, action: #selector(self.colorCompensationEnabledChanged(_:)))
+            checkbox.state = ColorProfileManager.shared.isEnabled ? .on : .off
+            checkbox.setContentHuggingPriority(.required, for: .horizontal)
+            checkbox.setContentCompressionResistancePriority(.required, for: .horizontal)
+            container.addArrangedSubview(checkbox)
+
+            return container
+        })
+
+        // 说明文字
+        let colorCompDescContainer = StackContainerView()
+        colorCompDescContainer.axis = .vertical
+        colorCompDescContainer.alignment = .leading
+        colorCompDescContainer.edgeInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+        colorCompDescContainer.fillsCrossAxis = true
+
+        let colorCompDescLabel = NSTextField(wrappingLabelWithString: L10n.prefs.colorCompensationPref.description)
+        colorCompDescLabel.font = NSFont.systemFont(ofSize: 11)
+        colorCompDescLabel.textColor = .secondaryLabelColor
+        colorCompDescLabel.isSelectable = false
+        colorCompDescContainer.addArrangedSubview(colorCompDescLabel)
+        addGroupRow(colorCompGroup, colorCompDescContainer, addDivider: false)
+
+        addSettingsGroup(colorCompGroup, to: stackView)
 
         // 布局设置组
         let layoutGroup = createSettingsGroup(title: L10n.prefs.section.layout, icon: "rectangle.split.2x1")
@@ -1211,6 +1253,31 @@ final class PreferencesViewController: NSViewController {
         }
     }
 
+    /// 只更新当前显示的 Tab 的 ScrollView 布局
+    private func updateCurrentTabScrollViewLayout() {
+        guard currentTabIndex >= 0, currentTabIndex < tabViews.count else { return }
+        let currentView = tabViews[currentTabIndex]
+
+        // 查找当前 Tab 内的 ScrollView
+        for (scrollView, contentView) in scrollViewLayouts {
+            if isDescendant(scrollView, of: currentView) {
+                updateScrollViewLayout(scrollView: scrollView, contentView: contentView)
+            }
+        }
+    }
+
+    /// 检查视图是否是另一个视图的子视图
+    private func isDescendant(_ view: NSView, of ancestor: NSView) -> Bool {
+        var current: NSView? = view
+        while let parent = current {
+            if parent === ancestor {
+                return true
+            }
+            current = parent.superview
+        }
+        return false
+    }
+
     private func updateScrollViewLayout(scrollView: NSScrollView, contentView: StackContainerView) {
         guard let documentView = scrollView.documentView else { return }
         let contentWidth = scrollView.contentView.bounds.width
@@ -1347,6 +1414,20 @@ final class PreferencesViewController: NSViewController {
                 return checkbox
             }
         }
+    }
+
+    private func createButtonRow(label: String, action: Selector) -> NSView {
+        let container = StackContainerView()
+        container.axis = .horizontal
+        container.alignment = .centerY
+        container.spacing = 8
+        container.edgeInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+
+        let button = NSButton(title: label, target: self, action: action)
+        button.bezelStyle = .rounded
+        container.addArrangedSubview(button)
+
+        return container
     }
 
     private func createToolchainRow(name: String, description: String) -> NSView {
@@ -1890,6 +1971,14 @@ final class PreferencesViewController: NSViewController {
 
     @objc private func preventAutoLockChanged(_ sender: NSButton) {
         UserPreferences.shared.preventAutoLockDuringCapture = sender.state == .on
+    }
+
+    @objc private func colorCompensationEnabledChanged(_ sender: NSButton) {
+        ColorProfileManager.shared.isEnabled = sender.state == .on
+    }
+
+    @objc private func openColorCompensationPanel(_ sender: NSButton) {
+        ColorCompensationPanel.shared.showWindow(nil)
     }
 
     @objc private func layoutModeChanged(_ sender: NSSegmentedControl) {

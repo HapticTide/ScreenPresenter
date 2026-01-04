@@ -123,6 +123,12 @@
 "prefs.power.preventAutoLock" = "捕获期间禁止自动锁屏";
 "prefs.power.preventAutoLockHelp" = "仅阻止系统自动休眠/锁屏，不影响手动锁屏";
 
+// MARK: - Preferences - Color Compensation
+"prefs.colorCompensation.sectionTitle" = "颜色补偿";
+"prefs.colorCompensation.enable" = "启用颜色补偿";
+"prefs.colorCompensation.openPanel" = "打开补偿面板...";
+"prefs.colorCompensation.description" = "在显示色彩不标准的屏幕上打开此功能并调节相关参数，以获取相对准确的投屏色彩表现。";
+
 // MARK: - Preferences - Layout
 "prefs.layout.devicePosition" = "默认设备布局";
 "prefs.layout.iosOnLeft" = "iOS | Android";
@@ -331,3 +337,38 @@
 "install.installSuccess" = "✅ scrcpy 安装成功\n";
 "install.installFailed" = "❌ 安装失败: %@\n";
 "install.verifyingInstall" = "🔍 正在验证安装...\n";
+
+// MARK: - Color Compensation
+"color.preset.neutral" = "中性";
+"color.preset.coldTV" = "偏冷电视";
+"color.preset.grayishTV" = "发灰电视";
+"color.preset.oversaturatedTV" = "过饱和电视";
+"color.compensation.title" = "颜色补偿";
+"color.compensation.enabled" = "启用颜色补偿";
+"color.compensation.preset" = "预设";
+"color.compensation.compare" = "A/B 对比";
+"color.compensation.reset" = "重置";
+"color.compensation.savePreset" = "保存预设...";
+"color.compensation.deletePreset" = "删除";
+"color.compensation.customPresets" = "自定义";
+"color.compensation.savePresetTitle" = "保存预设";
+"color.compensation.savePresetMessage" = "请输入新预设的名称：";
+"color.compensation.savePresetPlaceholder" = "预设名称";
+"color.compensation.presetNameExists" = "已存在同名预设，请选择其他名称。";
+"color.section.enable" = "开关";
+"color.section.preset" = "预设";
+"color.section.brightness" = "亮度曲线";
+"color.section.color" = "色彩";
+"color.section.actions" = "操作";
+"color.params.blackLift" = "黑电平";
+"color.params.whiteClip" = "白削峰";
+"color.params.highlightRollOff" = "高光滚落";
+"color.params.temperature" = "色温";
+"color.params.tint" = "色调";
+"color.params.saturation" = "饱和度";
+
+// MARK: - Menu (Color)
+"menu.view" = "显示";
+"menu.colorCompensation" = "颜色补偿...";
+"menu.toggleDeviceBezel" = "显示设备边框";
+"menu.togglePreventSleep" = "禁止息屏";
