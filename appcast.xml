@@ -7,10 +7,10 @@
         <link>https://github.com/AIAugmentLab/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.0.5</title>
+            <title>1.0.0</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.0.5</h2>
+                <h2>🚀 ScreenPresenter 1.0.0</h2>
                 <p>macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕。</p>
                 
                 <h3>📱 iOS 投屏</h3>
@@ -49,17 +49,17 @@
                 </ul>
                 ]]>
             </description>
-            <pubDate>Tue, 06 Jan 2026 14:02:53 +0800</pubDate>
+            <pubDate>Tue, 06 Jan 2026 14:42:06 +0800</pubDate>
             
-            <sparkle:version>202601061402</sparkle:version>
-            <sparkle:shortVersionString>1.0.5</sparkle:shortVersionString>
+            <sparkle:version>202601061441</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/336869262"
-                length="9781038"
+                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/336877878"
+                length="10382637"
                 type="application/octet-stream"
-                sparkle:edSignature="X7S9YFL6SyZ8hRk08vNJoHlwkhR2DX57qcMnH5zAohSiOZE/9psYb2D7mnLrgYyYvrGkx1p9oXxnBI4cJmDFBA=="
+                sparkle:edSignature="RTIH6cb6v4hns3rgs72yFkcZbsYLwSqT/TT8cP4U+3E6hO3y+jnTTgsEPKuqWJngC+u3ebblfl0bzsas2sq4Dg=="
             />
         </item>
     </channel>

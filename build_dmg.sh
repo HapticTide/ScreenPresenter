@@ -506,14 +506,13 @@ build_app() {
     ENTITLEMENTS_PATH="$PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME.entitlements"
     
     # 构建命令
-    # 注意：保持项目的签名设置，让 Xcode 处理签名
+    # 使用 Xcode 项目配置的自动签名（Apple Development 证书）
+    # 不再覆盖 CODE_SIGN_IDENTITY，让 Xcode 自己处理
     BUILD_CMD="xcodebuild clean build \
         -project \"$PROJECT_DIR/$PROJECT_NAME.xcodeproj\" \
         -scheme \"$SCHEME_NAME\" \
         -configuration Release \
         -derivedDataPath \"$BUILD_DIR/DerivedData\" \
-        CODE_SIGN_IDENTITY=\"-\" \
-        CODE_SIGN_ENTITLEMENTS=\"$ENTITLEMENTS_PATH\" \
         ENABLE_HARDENED_RUNTIME=YES \
         ONLY_ACTIVE_ARCH=NO"
     
@@ -538,18 +537,18 @@ build_app() {
     rm -rf "$EXPORT_PATH/$APP_NAME"
     cp -R "$APP_PATH" "$EXPORT_PATH/"
     
-    # 重新签名应用（使用 ad-hoc 签名 + Hardened Runtime + Entitlements）
-    # --options runtime: 启用 Hardened Runtime（macOS 10.14+ 摄像头等权限必需）
-    # --entitlements: 注入权限声明
-    log_info "对应用进行 ad-hoc 签名（含 Hardened Runtime）..."
-    codesign --force --deep --sign - \
-        --options runtime \
-        --entitlements "$ENTITLEMENTS_PATH" \
-        "$EXPORT_PATH/$APP_NAME"
-    
-    # 验证签名
+    # 验证签名（Xcode 应该已经正确签名了）
     log_info "验证签名..."
-    codesign --verify --verbose "$EXPORT_PATH/$APP_NAME"
+    codesign --verify --verbose=2 "$EXPORT_PATH/$APP_NAME"
+    
+    # 验证 Sparkle framework 签名
+    SPARKLE_FRAMEWORK="$EXPORT_PATH/$APP_NAME/Contents/Frameworks/Sparkle.framework"
+    if [ -d "$SPARKLE_FRAMEWORK" ]; then
+        codesign --verify --verbose=2 "$SPARKLE_FRAMEWORK" || {
+            log_error "Sparkle.framework 签名验证失败"
+            exit 1
+        }
+    fi
     
     log_success "构建完成: $EXPORT_PATH/$APP_NAME"
 }

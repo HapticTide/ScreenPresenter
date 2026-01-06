@@ -6,7 +6,7 @@
 #
 # 用法:
 #   ./release.sh <version>
-#   例如: ./release.sh 1.0.5
+#   例如: ./release.sh 1.0.0
 #
 # 功能:
 #   1. 构建 Release 版本
@@ -45,7 +45,7 @@ if [ -z "$1" ]; then
     log_error "请提供版本号"
     echo ""
     echo "用法: $0 <version>"
-    echo "例如: $0 1.0.5"
+    echo "例如: $0 1.0.0"
     echo ""
     exit 1
 fi
@@ -128,14 +128,15 @@ sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_N
 
 log_info "版本号: $VERSION, Build: $BUILD_NUMBER"
 
-xcodebuild archive \
+# 使用 xcodebuild build 而不是 archive，让 Xcode 自动签名
+# 不再使用 CODE_SIGN_IDENTITY="-" 强制 ad-hoc 签名
+xcodebuild clean build \
     -project "$PROJECT_DIR/$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
     -configuration Release \
-    -archivePath "$ARCHIVE_PATH" \
-    CODE_SIGN_IDENTITY="-" \
-    CODE_SIGNING_REQUIRED=NO \
-    CODE_SIGNING_ALLOWED=NO \
+    -derivedDataPath "$BUILD_DIR/DerivedData" \
+    ENABLE_HARDENED_RUNTIME=YES \
+    ONLY_ACTIVE_ARCH=NO \
     2>&1 | xcpretty || {
         log_error "构建失败"
         exit 1
@@ -148,7 +149,29 @@ log_success "构建完成"
 # ============================================
 log_step "导出应用..."
 
-cp -R "$ARCHIVE_PATH/Products/Applications/$APP_NAME.app" "$BUILD_DIR/"
+# 查找构建产物
+APP_BUILD_PATH=$(find "$BUILD_DIR/DerivedData" -name "$APP_NAME.app" -type d | head -1)
+
+if [ -z "$APP_BUILD_PATH" ] || [ ! -d "$APP_BUILD_PATH" ]; then
+    log_error "构建失败：找不到 $APP_NAME.app"
+    exit 1
+fi
+
+# 复制到 build 目录
+cp -R "$APP_BUILD_PATH" "$BUILD_DIR/"
+
+# 验证签名（Xcode 应该已经正确签名了）
+log_info "验证签名..."
+codesign --verify --verbose=2 "$BUILD_DIR/$APP_NAME.app"
+
+# 验证 Sparkle framework 签名
+SPARKLE_FRAMEWORK="$BUILD_DIR/$APP_NAME.app/Contents/Frameworks/Sparkle.framework"
+if [ -d "$SPARKLE_FRAMEWORK" ]; then
+    codesign --verify --verbose=2 "$SPARKLE_FRAMEWORK" || {
+        log_error "Sparkle.framework 签名验证失败"
+        exit 1
+    }
+fi
 
 log_success "应用导出完成"
 
@@ -226,12 +249,33 @@ if gh release view "$VERSION" --repo "$GITHUB_REPO" &> /dev/null; then
     git push origin ":refs/tags/$VERSION" 2>/dev/null || true
 fi
 
-# 创建 Release 并上传（使用 --generate-notes 自动生成更新说明）
+# 从 appcast.xml 提取 description 作为 Release Notes
+# 先更新 appcast.xml 中描述里的版本号
+sed -i '' "s/ScreenPresenter [0-9.]*</ScreenPresenter $VERSION</g" "$APPCAST_PATH"
+
+# 提取 CDATA 内容并转换为 Markdown
+RELEASE_NOTES=$(awk '/<!\[CDATA\[/,/\]\]>/' "$APPCAST_PATH" | \
+    sed '1d' | \
+    grep -v '\]\]>' | \
+    sed 's/<h2>/## /g' | \
+    sed 's/<\/h2>//g' | \
+    sed 's/<h3>/### /g' | \
+    sed 's/<\/h3>//g' | \
+    sed 's/<p>//g' | \
+    sed 's/<\/p>//g' | \
+    sed 's/<ul>//g' | \
+    sed 's/<\/ul>//g' | \
+    sed 's/<li>/- /g' | \
+    sed 's/<\/li>//g' | \
+    sed 's/^[[:space:]]*//' | \
+    grep -v '^$')
+
+# 创建 Release 并上传
 gh release create "$VERSION" \
     "$ZIP_PATH" \
     --repo "$GITHUB_REPO" \
     --title "ScreenPresenter $VERSION" \
-    --generate-notes
+    --notes "$RELEASE_NOTES"
 
 log_success "GitHub Release 创建完成"
 
