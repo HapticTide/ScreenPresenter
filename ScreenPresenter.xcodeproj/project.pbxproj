@@ -38,6 +38,10 @@
 		A481F7B32F0BB61C00D9DAB0 /* RingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A481F7B12F0BB61C00D9DAB0 /* RingBuffer.swift */; };
 		A481F7B42F0BB61C00D9DAB0 /* AudioSynchronizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A481F7B02F0BB61C00D9DAB0 /* AudioSynchronizer.swift */; };
 		A4BF9B8B2EFCF160003DD09D /* PreviewContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */; };
+		A4EE1B532F0CACFE009F7BC5 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A4EE1B522F0CACFE009F7BC5 /* Sparkle */; };
+		A4EE1B572F0CC35E009F7BC5 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EE1B562F0CC35E009F7BC5 /* UpdateManager.swift */; };
+		A4EE1B582F0CC35E009F7BC5 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EE1B542F0CC35E009F7BC5 /* Secrets.swift */; };
+		A4EE1B592F0CC35E009F7BC5 /* Secrets.swift.template in Resources */ = {isa = PBXBuildFile; fileRef = A4EE1B552F0CC35E009F7BC5 /* Secrets.swift.template */; };
 		B1000001000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000001 /* AppState.swift */; };
 		B1000001000000000002 /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000002 /* MetalRenderer.swift */; };
 		B1000001000000000003 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000003 /* MetalRenderView.swift */; };
@@ -107,6 +111,9 @@
 		A481F7B02F0BB61C00D9DAB0 /* AudioSynchronizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSynchronizer.swift; sourceTree = "<group>"; };
 		A481F7B12F0BB61C00D9DAB0 /* RingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingBuffer.swift; sourceTree = "<group>"; };
 		A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewContainerView.swift; sourceTree = "<group>"; };
+		A4EE1B542F0CC35E009F7BC5 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
+		A4EE1B552F0CC35E009F7BC5 /* Secrets.swift.template */ = {isa = PBXFileReference; lastKnownFileType = text; path = Secrets.swift.template; sourceTree = "<group>"; };
+		A4EE1B562F0CC35E009F7BC5 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		A6E8B56161A4793149B39A9D /* SystemSleepBlocker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SystemSleepBlocker.swift; sourceTree = "<group>"; };
 		B1000002000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		B1000002000000000002 /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
@@ -143,6 +150,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4EE1B532F0CACFE009F7BC5 /* Sparkle in Frameworks */,
 				E1000001000000000002 /* FBDeviceControlKit in Frameworks */,
 				E1000001000000000003 /* Opus in Frameworks */,
 			);
@@ -264,6 +272,9 @@
 		A44133202EF93201003DCDD3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				A4EE1B542F0CC35E009F7BC5 /* Secrets.swift */,
+				A4EE1B552F0CC35E009F7BC5 /* Secrets.swift.template */,
+				A4EE1B562F0CC35E009F7BC5 /* UpdateManager.swift */,
 				F1000002000000000001 /* Colors.swift */,
 				A441331F2EF93201003DCDD3 /* Logger.swift */,
 				B1000002000000000010 /* Localization.swift */,
@@ -375,6 +386,7 @@
 			packageProductDependencies = (
 				E1000002000000000002 /* FBDeviceControlKit */,
 				E1000002000000000003 /* Opus */,
+				A4EE1B522F0CACFE009F7BC5 /* Sparkle */,
 			);
 			productName = ScreenPresenter;
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
@@ -408,6 +420,7 @@
 			packageReferences = (
 				E1000003000000000002 /* XCLocalSwiftPackageReference "FBDeviceControlKit" */,
 				E1000003000000000003 /* XCRemoteSwiftPackageReference "swift-opus" */,
+				A4EE1B512F0CACFE009F7BC5 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = A1000001241A0001000001A3 /* Products */;
 			projectDirPath = "";
@@ -423,6 +436,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4EE1B592F0CC35E009F7BC5 /* Secrets.swift.template in Resources */,
 				A44133622EF93201003DCDD3 /* Tools in Resources */,
 				A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */,
 				B1000001000000000011 /* Localizable.strings in Resources */,
@@ -459,6 +473,8 @@
 				G1000001000000000003 /* ScrcpySocketAcceptor.swift in Sources */,
 				G60942986538400935988421 /* ScrcpyErrorHelper.swift in Sources */,
 				G1000001000000000004 /* ScrcpyVideoStreamParser.swift in Sources */,
+				A4EE1B572F0CC35E009F7BC5 /* UpdateManager.swift in Sources */,
+				A4EE1B582F0CC35E009F7BC5 /* Secrets.swift in Sources */,
 				G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */,
 				B1000001000000000001 /* AppState.swift in Sources */,
 				B1000001000000000002 /* MetalRenderer.swift in Sources */,
@@ -645,7 +661,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
@@ -660,7 +676,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.webull.ScreenPresenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -678,7 +694,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
@@ -693,7 +709,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.webull.ScreenPresenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -732,6 +748,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A4EE1B512F0CACFE009F7BC5 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.1;
+			};
+		};
 		E1000003000000000003 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/alta/swift-opus.git";
@@ -743,6 +767,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A4EE1B522F0CACFE009F7BC5 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4EE1B512F0CACFE009F7BC5 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		E1000002000000000002 /* FBDeviceControlKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FBDeviceControlKit;

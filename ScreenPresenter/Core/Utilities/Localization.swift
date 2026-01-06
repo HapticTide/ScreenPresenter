@@ -178,6 +178,7 @@ enum L10n {
         static var hideOthers: String { "menu.hideOthers".localized }
         static var showAll: String { "menu.showAll".localized }
         static var quit: String { "menu.quit".localized }
+        static var checkForUpdates: String { "menu.checkForUpdates".localized }
         static var device: String { "menu.device".localized }
         static var refreshDevices: String { "menu.refreshDevices".localized }
         static var exportLogs: String { "menu.exportLogs".localized }

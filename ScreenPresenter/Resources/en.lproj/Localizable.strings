@@ -31,6 +31,7 @@
 "menu.hideOthers" = "Hide Others";
 "menu.showAll" = "Show All";
 "menu.quit" = "Quit ScreenPresenter";
+"menu.checkForUpdates" = "Check for Updates...";
 "menu.device" = "Device";
 "menu.refreshDevices" = "Refresh Devices";
 "menu.exportLogs" = "Export Logs...";

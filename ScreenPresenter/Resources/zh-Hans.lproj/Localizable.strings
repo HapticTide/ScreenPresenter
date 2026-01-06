@@ -31,6 +31,7 @@
 "menu.hideOthers" = "隐藏其他";
 "menu.showAll" = "全部显示";
 "menu.quit" = "退出 ScreenPresenter";
+"menu.checkForUpdates" = "检查更新...";
 "menu.device" = "设备";
 "menu.refreshDevices" = "刷新设备";
 "menu.exportLogs" = "导出日志...";

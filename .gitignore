@@ -69,6 +69,7 @@ Pods/
 *.cer
 *.mobileprovision
 *.provisionprofile
+Secrets.swift
 
 # =============================================================================
 # Logs & Debug

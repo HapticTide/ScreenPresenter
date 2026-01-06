@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 启动捕获电源协调器（管理防休眠）
         CapturePowerCoordinator.shared.start()
 
+        // 初始化自动更新管理器
+        UpdateManager.shared.initialize()
+
         // 初始化应用状态
         Task {
             AppLogger.app.info("开始异步初始化应用状态...")
@@ -189,6 +192,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
+        appMenu.addItem(NSMenuItem.separator())
+
+        // 检查更新
+        let checkUpdatesItem = appMenu.addItem(
+            withTitle: L10n.menu.checkForUpdates,
+            action: #selector(checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        checkUpdatesItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(
             withTitle: L10n.menu.preferences,
@@ -426,6 +439,10 @@ extension AppDelegate: NSWindowDelegate {
 extension AppDelegate {
     @IBAction func showPreferences(_ sender: Any?) {
         PreferencesWindowController.shared.showWindow(nil)
+    }
+
+    @IBAction func checkForUpdates(_ sender: Any?) {
+        UpdateManager.shared.checkForUpdates()
     }
 
     @IBAction func toggleColorCompensationPanel(_ sender: Any?) {
