@@ -56,7 +56,7 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/AIAugmentLab/ScreenPresenter/releases/download/1.0.5/ScreenPresenter.zip"
+                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/336866197"
                 length="9781039"
                 type="application/octet-stream"
                 sparkle:edSignature="Jt5exBqR/bbpzM9Jo2tO1gVvKt3nYxXU3MMEZVrVEO46vVf8+93aAq4v3Fw9eueFT1vQOIcyZVMgFc/po8pTCA=="

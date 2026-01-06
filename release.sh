@@ -207,28 +207,13 @@ sed -i '' "s|<sparkle:shortVersionString>[^<]*</sparkle:shortVersionString>|<spa
 # 更新 item 标题为版本号
 sed -i '' "s|<title>Version [^<]*</title>|<title>Version $VERSION</title>|g" "$APPCAST_PATH"
 
-# 更新下载链接
-sed -i '' "s|releases/download/[^/]*/ScreenPresenter.zip|releases/download/$VERSION/ScreenPresenter.zip|g" "$APPCAST_PATH"
-
 # 更新发布日期
 sed -i '' "s|<pubDate>[^<]*</pubDate>|<pubDate>$PUB_DATE</pubDate>|g" "$APPCAST_PATH"
 
-log_success "本地 appcast.xml 已更新"
+log_success "本地 appcast.xml 已更新（待获取 Asset ID 后更新下载链接）"
 
 # ============================================
-# 步骤 8: 更新 Gist
-# ============================================
-log_step "更新 Gist 中的 appcast.xml..."
-
-gh gist edit "$GIST_ID" "$APPCAST_PATH" || {
-    log_warning "Gist 更新失败，请手动更新"
-    log_info "Gist URL: https://gist.github.com/sunimp/$GIST_ID"
-}
-
-log_success "Gist 已更新"
-
-# ============================================
-# 步骤 9: 上传到 GitHub Releases
+# 步骤 8: 上传到 GitHub Releases
 # ============================================
 log_step "上传到 GitHub Releases..."
 
@@ -251,6 +236,44 @@ gh release create "$VERSION" \
 log_success "GitHub Release 创建完成"
 
 # ============================================
+# 步骤 9: 获取 Asset ID 并更新 appcast.xml
+# ============================================
+log_step "获取 Asset ID..."
+
+# 等待一下确保 Release 创建完成
+sleep 2
+
+# 获取 Release Assets 的 ID
+ASSET_ID=$(gh api "/repos/$GITHUB_REPO/releases/tags/$VERSION" --jq '.assets[0].id' 2>/dev/null)
+
+if [ -z "$ASSET_ID" ]; then
+    log_error "无法获取 Asset ID"
+    exit 1
+fi
+
+log_success "Asset ID: $ASSET_ID"
+
+# 更新 appcast.xml 中的下载链接为 API URL（私有仓库必须使用此格式）
+API_DOWNLOAD_URL="https://api.github.com/repos/$GITHUB_REPO/releases/assets/$ASSET_ID"
+sed -i '' "s|url=\"https://api.github.com/repos/$GITHUB_REPO/releases/assets/[0-9]*\"|url=\"$API_DOWNLOAD_URL\"|g" "$APPCAST_PATH"
+# 兼容旧格式的 browser_download_url
+sed -i '' "s|url=\"https://github.com/$GITHUB_REPO/releases/download/[^\"]*\"|url=\"$API_DOWNLOAD_URL\"|g" "$APPCAST_PATH"
+
+log_success "appcast.xml 下载链接已更新"
+
+# ============================================
+# 步骤 10: 更新 Gist
+# ============================================
+log_step "更新 Gist 中的 appcast.xml..."
+
+gh gist edit "$GIST_ID" "$APPCAST_PATH" || {
+    log_warning "Gist 更新失败，请手动更新"
+    log_info "Gist URL: https://gist.github.com/sunimp/$GIST_ID"
+}
+
+log_success "Gist 已更新"
+
+# ============================================
 # 完成
 # ============================================
 echo ""
@@ -260,6 +283,7 @@ echo "=========================================="
 echo ""
 echo "版本: $VERSION"
 echo "文件: $ZIP_PATH"
+echo "Asset ID: $ASSET_ID"
 echo ""
 echo "链接:"
 echo "  - Release: https://github.com/$GITHUB_REPO/releases/tag/$VERSION"
