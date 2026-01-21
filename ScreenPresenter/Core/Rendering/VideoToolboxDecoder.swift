@@ -73,9 +73,10 @@ final class VideoToolboxDecoder {
     private(set) var state: VideoToolboxDecoderState = .idle
 
     /// 解码队列
+    /// 注意：从 .userInteractive 降级为 .userInitiated，降低 CPU 调度压力
     private let decodeQueue = DispatchQueue(
         label: "com.screenPresenter.videoToolbox.decode",
-        qos: .userInteractive
+        qos: .userInitiated
     )
 
     /// 状态锁

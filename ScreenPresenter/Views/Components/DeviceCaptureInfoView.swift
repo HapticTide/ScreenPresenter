@@ -142,19 +142,18 @@ final class DeviceCaptureInfoView: NSView {
     }
 
     private func setupAudioControls() {
-        // 音频控制容器
+        // 音频控制容器（只包含音量调节，不包含开关）
         audioControlContainer.wantsLayer = true
         audioControlContainer.layer?.cornerRadius = 8
         audioControlContainer.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.1).cgColor
         contentContainer.addSubview(audioControlContainer)
 
-        // 音频开关按钮
+        // 音量图标（静态显示，不可点击）
         audioToggleButton.bezelStyle = .inline
         audioToggleButton.isBordered = false
-        audioToggleButton.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "音频")
+        audioToggleButton.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "音量")
         audioToggleButton.contentTintColor = .white
-        audioToggleButton.target = self
-        audioToggleButton.action = #selector(audioToggleTapped)
+        audioToggleButton.isEnabled = false  // 禁用点击，只作为图标显示
         audioControlContainer.addSubview(audioToggleButton)
 
         // 音量滑块
@@ -503,66 +502,43 @@ final class DeviceCaptureInfoView: NSView {
     func setPlatform(_ platform: DevicePlatform) {
         currentPlatform = platform
 
-        // iOS 和 Android（Android 11+）都支持音频捕获
-        let supportsAudio = (platform == .ios || platform == .android)
-        audioControlContainer.isHidden = !supportsAudio
+        // 根据平台和偏好设置决定是否显示音量调节控件
+        // 只有当偏好设置中启用了音频捕获时，才显示音量调节
+        let showVolumeControl: Bool
+        let volume: Float
+        if platform == .ios {
+            showVolumeControl = UserPreferences.shared.iosAudioEnabled
+            volume = UserPreferences.shared.iosAudioVolume
+        } else if platform == .android {
+            showVolumeControl = UserPreferences.shared.androidAudioEnabled
+            volume = UserPreferences.shared.androidAudioVolume
+        } else {
+            showVolumeControl = false
+            volume = 1.0
+        }
+        audioControlContainer.isHidden = !showVolumeControl
 
-        if supportsAudio {
-            // 从偏好设置加载初始状态
-            let enabled: Bool
-            let volume: Float
-            if platform == .ios {
-                enabled = UserPreferences.shared.iosAudioEnabled
-                volume = UserPreferences.shared.iosAudioVolume
-            } else {
-                enabled = UserPreferences.shared.androidAudioEnabled
-                volume = UserPreferences.shared.androidAudioVolume
-            }
-            updateAudioState(enabled: enabled, volume: volume)
+        if showVolumeControl {
+            // 初始化音量滑块状态
+            volumeSlider.floatValue = volume
+            let volumePercent = Int(volume * 100)
+            volumeLabel.stringValue = "\(volumePercent)%"
         }
 
         needsLayout = true
     }
 
-    /// 更新音频控件状态
+    /// 更新音频控件状态（只更新音量显示）
     /// - Parameters:
-    ///   - enabled: 音频是否启用
+    ///   - enabled: 音频是否启用（不再使用，保留参数兼容性）
     ///   - volume: 音量 (0.0 - 1.0)
-    func updateAudioState(enabled: Bool, volume: Float) {
-        let iconName = enabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
-        audioToggleButton.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
-        audioToggleButton.contentTintColor = enabled ? .systemBlue : .secondaryLabelColor
-
+    func updateAudioState(enabled _: Bool, volume: Float) {
         volumeSlider.floatValue = volume
-        volumeSlider.isEnabled = enabled
-
         let volumePercent = Int(volume * 100)
         volumeLabel.stringValue = "\(volumePercent)%"
-        volumeLabel.textColor = enabled ? .secondaryLabelColor : .tertiaryLabelColor
     }
 
     // MARK: - 操作
-
-    @objc private func audioToggleTapped() {
-        guard currentPlatform == .ios || currentPlatform == .android else { return }
-
-        // 切换音频状态
-        let newEnabled: Bool
-        let volume: Float
-
-        if currentPlatform == .ios {
-            newEnabled = !UserPreferences.shared.iosAudioEnabled
-            UserPreferences.shared.iosAudioEnabled = newEnabled
-            volume = UserPreferences.shared.iosAudioVolume
-        } else {
-            newEnabled = !UserPreferences.shared.androidAudioEnabled
-            UserPreferences.shared.androidAudioEnabled = newEnabled
-            volume = UserPreferences.shared.androidAudioVolume
-        }
-
-        updateAudioState(enabled: newEnabled, volume: volume)
-        onAudioToggle?(newEnabled)
-    }
 
     @objc private func volumeSliderChanged() {
         guard currentPlatform == .ios || currentPlatform == .android else { return }

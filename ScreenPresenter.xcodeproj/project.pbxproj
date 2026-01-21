@@ -18,6 +18,9 @@
 		908C36A37CB44D844E526D8E /* IOSScreenMirrorActivator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA214349613EC0729564B6E /* IOSScreenMirrorActivator.swift */; };
 		A1000001241A0001000001A1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001241A0002000001A1 /* AppDelegate.swift */; };
 		A2771ABD034F7D36AB14C564 /* CapturePowerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5168A0E78981463868422AC4 /* CapturePowerCoordinator.swift */; };
+		A400797C2F20BF4800CCD50D /* DisplayLinkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400797B2F20BF4800CCD50D /* DisplayLinkManager.swift */; };
+		A400797E2F20C05C00CCD50D /* ResourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400797D2F20C05C00CCD50D /* ResourceMonitor.swift */; };
+		A40079802F20C44200CCD50D /* AdaptiveFrameRateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400797F2F20C44200CCD50D /* AdaptiveFrameRateController.swift */; };
 		A441333F2EF93201003DCDD3 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133102EF93201003DCDD3 /* ProcessRunner.swift */; };
 		A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441330E2EF93201003DCDD3 /* UserPreferences.swift */; };
 		A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */; };
@@ -91,6 +94,9 @@
 		A1000001241A0002000001A1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000001241A001D000001A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000001241A001E000001A1 /* ScreenPresenter.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ScreenPresenter.entitlements; sourceTree = "<group>"; };
+		A400797B2F20BF4800CCD50D /* DisplayLinkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayLinkManager.swift; sourceTree = "<group>"; };
+		A400797D2F20C05C00CCD50D /* ResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceMonitor.swift; sourceTree = "<group>"; };
+		A400797F2F20C44200CCD50D /* AdaptiveFrameRateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveFrameRateController.swift; sourceTree = "<group>"; };
 		A44133032EF93201003DCDD3 /* AndroidDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidDevice.swift; sourceTree = "<group>"; };
 		A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidDeviceProvider.swift; sourceTree = "<group>"; };
 		A44133062EF93201003DCDD3 /* DeviceSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSource.swift; sourceTree = "<group>"; };
@@ -272,6 +278,8 @@
 		A44133202EF93201003DCDD3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				A400797F2F20C44200CCD50D /* AdaptiveFrameRateController.swift */,
+				A400797D2F20C05C00CCD50D /* ResourceMonitor.swift */,
 				A4EE1B542F0CC35E009F7BC5 /* Secrets.swift */,
 				A4EE1B552F0CC35E009F7BC5 /* Secrets.swift.template */,
 				A4EE1B562F0CC35E009F7BC5 /* UpdateManager.swift */,
@@ -280,6 +288,7 @@
 				B1000002000000000010 /* Localization.swift */,
 				A6E8B56161A4793149B39A9D /* SystemSleepBlocker.swift */,
 				5168A0E78981463868422AC4 /* CapturePowerCoordinator.swift */,
+				A400797B2F20BF4800CCD50D /* DisplayLinkManager.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -456,10 +465,12 @@
 				A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */,
 				A44133462EF93201003DCDD3 /* DeviceSource.swift in Sources */,
 				A44133472EF93201003DCDD3 /* CapturedFrame.swift in Sources */,
+				A400797E2F20C05C00CCD50D /* ResourceMonitor.swift in Sources */,
 				A44133482EF93201003DCDD3 /* AndroidDeviceProvider.swift in Sources */,
 				A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */,
 				A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */,
 				A441335D2EF93201003DCDD3 /* Logger.swift in Sources */,
+				A40079802F20C44200CCD50D /* AdaptiveFrameRateController.swift in Sources */,
 				A1000001241A0001000001A1 /* AppDelegate.swift in Sources */,
 				3D08D092E75081FC3BA6C7A9 /* IOSDevice.swift in Sources */,
 				87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */,
@@ -500,6 +511,7 @@
 				FB000001000000000005 /* FBDeviceControlService.swift in Sources */,
 				7C9E7C8622DBA7F73CEC7DF7 /* SystemSleepBlocker.swift in Sources */,
 				A2771ABD034F7D36AB14C564 /* CapturePowerCoordinator.swift in Sources */,
+				A400797C2F20BF4800CCD50D /* DisplayLinkManager.swift in Sources */,
 				66038F2E101C593EE7D0DE59 /* ColorProfile.swift in Sources */,
 				5ACB45AE4A9970E861B03E87 /* LUTGenerator.swift in Sources */,
 				B68F74DD04702214DE85159B /* ColorCompensationFilter.swift in Sources */,

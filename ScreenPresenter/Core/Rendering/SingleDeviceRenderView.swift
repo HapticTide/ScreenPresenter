@@ -41,7 +41,8 @@ final class SingleDeviceRenderView: NSView {
     // MARK: - 渲染状态
 
     private(set) var isRendering = false
-    private let renderQueue = DispatchQueue(label: "com.screenPresenter.singleRender", qos: .userInteractive)
+    /// 注意：从 .userInteractive 降级为 .userInitiated，降低 CPU 调度压力
+    private let renderQueue = DispatchQueue(label: "com.screenPresenter.singleRender", qos: .userInitiated)
 
     /// 标记是否有新帧需要渲染
     private var needsRender = false
@@ -104,6 +105,23 @@ final class SingleDeviceRenderView: NSView {
 
     /// 最大纹理更新间隔
     private var maxTextureUpdateInterval: Double = 0
+
+    // MARK: - 纹理缓存刷新优化
+
+    /// 纹理缓存刷新计数器
+    private var textureFlushCounter: Int = 0
+
+    /// 纹理缓存刷新间隔（每 N 帧刷新一次）
+    /// 从每帧刷新改为每 30 帧刷新，大幅降低 CPU 开销
+    private let textureFlushInterval: Int = 30
+
+    // MARK: - 资源监控
+
+    /// 帧索引（用于资源监控的丢帧计算）
+    private var frameIndex: Int = 0
+
+    /// 资源监控丢帧计数
+    private var resourceDroppedFrameCount: Int = 0
 
     // MARK: - 初始化
 
@@ -298,6 +316,17 @@ final class SingleDeviceRenderView: NSView {
             return
         }
 
+        // 资源监控：在内存紧张时丢帧以保护系统稳定性
+        frameIndex += 1
+        if ResourceMonitor.shared.shouldDropFrame(frameIndex: frameIndex) {
+            resourceDroppedFrameCount += 1
+            // 每 100 帧输出一次日志
+            if resourceDroppedFrameCount % 100 == 1 {
+                AppLogger.rendering.warning("[ResourceMonitor] 内存紧张，已丢弃 \(resourceDroppedFrameCount) 帧")
+            }
+            return
+        }
+
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
 
@@ -323,8 +352,12 @@ final class SingleDeviceRenderView: NSView {
         currentTexture = mtlTexture
         textureLock.unlock()
 
-        // 每帧刷新纹理缓存，立即释放不再使用的纹理
-        CVMetalTextureCacheFlush(cache, 0)
+        // 延迟刷新纹理缓存（每 N 帧刷新一次，降低 CPU 开销）
+        textureFlushCounter += 1
+        if textureFlushCounter >= textureFlushInterval {
+            CVMetalTextureCacheFlush(cache, 0)
+            textureFlushCounter = 0
+        }
 
         // 更新 FPS 统计
         let now = CFAbsoluteTimeGetCurrent()
@@ -372,10 +405,11 @@ final class SingleDeviceRenderView: NSView {
         fps = 0
         frameTimestamps.removeAll()
 
-        // 刷新纹理缓存
+        // 清理时立即刷新纹理缓存
         if let cache = textureCache {
             CVMetalTextureCacheFlush(cache, 0)
         }
+        textureFlushCounter = 0
 
         // 清除画面
         scheduleRender()

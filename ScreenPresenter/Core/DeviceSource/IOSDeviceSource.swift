@@ -36,7 +36,8 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     private var videoOutput: AVCaptureVideoDataOutput?
     private var audioOutput: AVCaptureAudioDataOutput?
     private let captureQueue = DispatchQueue(label: "com.screenPresenter.ios.capture", qos: .userInteractive)
-    private let audioQueue = DispatchQueue(label: "com.screenPresenter.ios.audio", qos: .userInteractive)
+    /// 注意：从 .userInteractive 降级为 .default，音频有缓冲可以稍微延迟
+    private let audioQueue = DispatchQueue(label: "com.screenPresenter.ios.audio", qos: .default)
 
     /// 视频输出代理
     private var videoDelegate: VideoCaptureDelegate?
@@ -52,6 +53,34 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
     /// 帧回调
     var onFrame: ((CVPixelBuffer) -> Void)?
+
+    // MARK: - 帧背压保护
+
+    /// 待处理帧计数（原子操作）
+    private var pendingFrameCount: Int32 = 0
+
+    /// 最大待处理帧数（超过此值将丢弃帧）
+    private let maxPendingFrames: Int32 = 4
+
+    /// 已丢弃帧计数
+    private var droppedFrameCount: Int = 0
+
+    /// 上次丢帧警告时间
+    private var lastDropWarningTime: CFAbsoluteTime = 0
+
+    // MARK: - 会话健康检查
+
+    /// 会话启动时间（用于检测长时间运行）
+    private var sessionStartTime: Date?
+
+    /// 会话健康检查定时器
+    private var sessionHealthTimer: Timer?
+
+    /// 最大会话持续时间（15 分钟后建议重建）
+    private let maxSessionDuration: TimeInterval = 15 * 60
+
+    /// 自适应帧率更新定时器
+    private var adaptiveFPSTimer: Timer?
 
     // MARK: - 音频控制
 
@@ -178,6 +207,13 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
                 DispatchQueue.main.async {
                     self.updateState(.capturing)
+
+                    // 启动会话健康检查
+                    self.startSessionHealthCheck()
+
+                    // 启动自适应帧率更新
+                    self.startAdaptiveFPSUpdate()
+
                     continuation.resume()
                 }
             }
@@ -187,6 +223,12 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     }
 
     override func stopCapture() async {
+        // 停止健康检查定时器
+        stopSessionHealthCheck()
+
+        // 停止自适应帧率更新
+        stopAdaptiveFPSUpdate()
+
         let wasCapturing = capturingLock.withLock { current -> Bool in
             let was = current
             current = false
@@ -292,6 +334,10 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
     /// 设置音频捕获
     /// iOS 设备通过 CoreMediaIO 暴露时，通常是 muxed 类型（同时包含视频和音频）
+    ///
+    /// 注意：由于 iOS 系统限制，当设备被用于屏幕投射时，音频会被系统"占用"
+    /// 即使不添加音频输出，iPhone 也会静音。因此我们始终捕获音频，
+    /// 通过 isAudioEnabled 控制是否在 Mac 上播放。
     private func setupAudioCapture(for session: AVCaptureSession, videoDevice: AVCaptureDevice) {
         // iOS 设备通过 CoreMediaIO 暴露时，通常是 muxed 类型（同时包含视频和音频）
         // 检查是否支持 muxed 或 audio
@@ -327,7 +373,7 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         audioPlayer?.volume = audioVolume
         audioPlayer?.isMuted = !isAudioEnabled
 
-        AppLogger.capture.info("[Audio] ✅ 音频捕获已启用")
+        AppLogger.capture.info("[Audio] ✅ 音频捕获已启用, 播放状态: \(isAudioEnabled ? "开启" : "静音")")
     }
 
     // MARK: - 音频处理
@@ -361,6 +407,26 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         // 检查捕获状态（使用线程安全的原子读取）
         let isCapturing = capturingLock.withLock { $0 }
         guard isCapturing else { return }
+
+        // 帧背压检测：如果待处理帧过多，丢弃当前帧
+        let currentPending = OSAtomicIncrement32(&pendingFrameCount)
+
+        if currentPending > maxPendingFrames {
+            // 帧积压过多，丢弃当前帧以防止内存和资源耗尽
+            OSAtomicDecrement32(&pendingFrameCount)
+            droppedFrameCount += 1
+
+            // 每 5 秒最多输出一次警告，避免日志刷屏
+            let now = CFAbsoluteTimeGetCurrent()
+            if now - lastDropWarningTime >= 5.0 {
+                AppLogger.capture.warning("[iOS] 帧背压过高，已丢弃 \(droppedFrameCount) 帧，当前积压: \(currentPending)")
+                lastDropWarningTime = now
+            }
+            return
+        }
+
+        // 使用 defer 确保帧处理完成后减少计数
+        defer { OSAtomicDecrement32(&pendingFrameCount) }
 
         // 获取 CVPixelBuffer
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -447,6 +513,94 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
             AppLogger.capture.warning("无法配置 iOS 帧率: \(error.localizedDescription)")
         }
     }
+
+    // MARK: - 会话健康检查
+
+    /// 启动会话健康检查
+    private func startSessionHealthCheck() {
+        sessionStartTime = Date()
+
+        // 停止已有的定时器
+        sessionHealthTimer?.invalidate()
+
+        // 每 60 秒检查一次会话健康状态
+        sessionHealthTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.checkSessionHealth()
+        }
+
+        AppLogger.capture.info("[SessionHealth] 会话健康检查已启动")
+    }
+
+    /// 停止会话健康检查
+    private func stopSessionHealthCheck() {
+        sessionHealthTimer?.invalidate()
+        sessionHealthTimer = nil
+        sessionStartTime = nil
+    }
+
+    /// 检查会话健康状态
+    private func checkSessionHealth() {
+        guard let startTime = sessionStartTime else { return }
+
+        let duration = Date().timeIntervalSince(startTime)
+        let durationMinutes = Int(duration / 60)
+
+        // 超过最大持续时间，发送警告
+        if duration > maxSessionDuration {
+            AppLogger.capture.warning("[SessionHealth] 会话已运行 \(durationMinutes) 分钟，建议重建以避免潜在问题")
+
+            // 发送通知，由上层决定是否重建
+            NotificationCenter.default.post(
+                name: .iosSessionNeedsRebuild,
+                object: self,
+                userInfo: [
+                    "deviceName": iosDevice.name,
+                    "durationMinutes": durationMinutes,
+                ]
+            )
+        } else {
+            AppLogger.capture.debug("[SessionHealth] 会话健康，已运行 \(durationMinutes) 分钟")
+        }
+    }
+
+    // MARK: - 自适应帧率（可选功能，默认禁用）
+
+    /// 启动自适应帧率更新
+    /// 注意：AdaptiveFrameRateController 默认禁用，此方法仅启动定时器
+    /// 需要手动调用 AdaptiveFrameRateController.shared.enable() 才会生效
+    private func startAdaptiveFPSUpdate() {
+        // 停止已有的定时器
+        adaptiveFPSTimer?.invalidate()
+
+        // 每 5 秒更新一次自适应帧率（仅在启用时生效）
+        adaptiveFPSTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            guard self != nil else { return }
+
+            // 更新自适应帧率控制器（内部会检查是否启用）
+            AdaptiveFrameRateController.shared.update()
+        }
+
+        // 注意：自适应帧率默认禁用，不输出启动日志避免混淆
+    }
+
+    /// 停止自适应帧率更新
+    private func stopAdaptiveFPSUpdate() {
+        adaptiveFPSTimer?.invalidate()
+        adaptiveFPSTimer = nil
+
+        // 重置自适应帧率控制器
+        AdaptiveFrameRateController.shared.reset()
+    }
+}
+
+// MARK: - 通知名称
+
+extension Notification.Name {
+    /// iOS 会话需要重建的通知
+    /// UserInfo 包含：
+    /// - deviceName: String - 设备名称
+    /// - durationMinutes: Int - 已运行分钟数
+    static let iosSessionNeedsRebuild = Notification.Name("com.screenPresenter.iosSessionNeedsRebuild")
 }
 
 // MARK: - 视频捕获代理

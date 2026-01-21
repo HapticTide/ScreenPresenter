@@ -803,6 +803,20 @@ final class PreferencesViewController: NSViewController {
 
             return stack
         })
+        // 背景透明度说明
+        let opacityNote = NSTextField(labelWithString: L10n.prefs.appearance.backgroundOpacityNote)
+        opacityNote.font = NSFont.systemFont(ofSize: 11)
+        opacityNote.textColor = .secondaryLabelColor
+        let opacityNoteContainer = PaddingView(
+            contentView: opacityNote,
+            insets: NSEdgeInsets(
+                top: 0,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding * 1.5,
+                right: 0
+            )
+        )
+        addGroupRow(appearanceGroup, opacityNoteContainer, addDivider: false)
 
         addGroupRow(appearanceGroup, createCheckboxRow(
             label: L10n.prefs.appearance.showDeviceBezel,

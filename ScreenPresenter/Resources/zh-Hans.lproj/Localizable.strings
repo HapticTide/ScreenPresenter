@@ -114,8 +114,8 @@
 // MARK: - Preferences - Audio
 "prefs.audio.enableCapture" = "启用音频捕获";
 "prefs.audio.volume" = "音量";
-"prefs.audio.iosNote" = "音频捕获需要通过 USB 连接 iOS 设备";
-"prefs.audio.androidNote" = "需要 Android 11 或更高版本。更改将在下次捕获时生效。";
+"prefs.audio.iosNote" = "启用时音频从 Mac 播放，关闭时 iPhone 静音（iOS 系统限制）。更改后需重启应用";
+"prefs.audio.androidNote" = "启用时音频从 Mac 播放，关闭时音频从设备播放。需要 Android 11+，更改后需重启应用";
 "prefs.audio.codec" = "音频编解码器";
 
 // MARK: - Preferences - General
@@ -127,6 +127,7 @@
 
 // MARK: - Preferences - Appearance
 "prefs.appearance.backgroundOpacity" = "背景透明度";
+"prefs.appearance.backgroundOpacityNote" = "仅影响全屏状态下的黑色背景透明度，窗口模式下不受此值影响";
 "prefs.appearance.showDeviceBezel" = "显示设备边框";
 
 // MARK: - Preferences - Power

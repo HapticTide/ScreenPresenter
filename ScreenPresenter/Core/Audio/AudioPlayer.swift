@@ -68,7 +68,8 @@ final class AudioPlayer {
     }
 
     /// 音频队列（用于缓冲）
-    private var audioQueue = DispatchQueue(label: "com.screenPresenter.audioPlayer", qos: .userInteractive)
+    /// 注意：从 .userInteractive 降级为 .default，音频有缓冲可以稍微延迟
+    private var audioQueue = DispatchQueue(label: "com.screenPresenter.audioPlayer", qos: .default)
 
     /// 缓冲区计数（用于调试）
     private var bufferCount = 0

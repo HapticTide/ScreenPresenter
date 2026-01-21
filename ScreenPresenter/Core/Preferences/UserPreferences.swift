@@ -283,11 +283,12 @@ final class UserPreferences {
 
     // MARK: - Audio Settings
 
-    /// iOS 音频是否启用（默认 true）
+    /// iOS 音频是否启用（默认 false，需要重启应用生效）
+    /// 注意：iOS 系统限制，无论开启还是关闭，iPhone 投屏时都会静音
     var iosAudioEnabled: Bool {
         get {
             if defaults.object(forKey: Keys.iosAudioEnabled) == nil {
-                return true
+                return false
             }
             return defaults.bool(forKey: Keys.iosAudioEnabled)
         }

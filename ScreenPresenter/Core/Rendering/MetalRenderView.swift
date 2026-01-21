@@ -20,12 +20,13 @@ final class MetalRenderView: NSView {
 
     private var metalLayer: CAMetalLayer?
     private var renderer: MetalRenderer?
-    private var displayLink: CVDisplayLink?
+    // 注意：displayLink 已移除，改用共享的 DisplayLinkManager
 
     // MARK: - 渲染队列
 
     /// 专用渲染队列（避免主线程渲染）
-    private let renderQueue = DispatchQueue(label: "com.screenPresenter.render", qos: .userInteractive)
+    /// 注意：从 .userInteractive 降级为 .userInitiated，降低 CPU 调度压力
+    private let renderQueue = DispatchQueue(label: "com.screenPresenter.render", qos: .userInitiated)
 
     // MARK: - 状态
 
@@ -132,9 +133,12 @@ final class MetalRenderView: NSView {
         guard !isRendering else { return }
 
         isRendering = true
-        setupDisplayLink()
+        // 使用共享的 DisplayLinkManager，避免多个 CVDisplayLink 同时运行
+        DisplayLinkManager.shared.register(id: displayLinkId) { [weak self] in
+            self?.displayLinkCallback()
+        }
 
-        AppLogger.rendering.info("开始渲染")
+        AppLogger.rendering.info("开始渲染 (使用共享 DisplayLinkManager)")
     }
 
     /// 停止渲染
@@ -142,7 +146,8 @@ final class MetalRenderView: NSView {
         guard isRendering else { return }
 
         isRendering = false
-        stopDisplayLink()
+        // 取消注册共享 DisplayLink
+        DisplayLinkManager.shared.unregister(id: displayLinkId)
 
         AppLogger.rendering.info("停止渲染")
     }
@@ -154,42 +159,9 @@ final class MetalRenderView: NSView {
 
     // MARK: - Display Link
 
-    private func setupDisplayLink() {
-        var link: CVDisplayLink?
-        CVDisplayLinkCreateWithActiveCGDisplays(&link)
-
-        guard let displayLink = link else {
-            AppLogger.rendering.error("无法创建 CVDisplayLink")
-            return
-        }
-
-        // 设置输出回调
-        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
-            guard let userInfo else { return kCVReturnSuccess }
-            let view = Unmanaged<MetalRenderView>.fromOpaque(userInfo).takeUnretainedValue()
-            view.displayLinkCallback()
-            return kCVReturnSuccess
-        }
-
-        let userInfo = Unmanaged.passUnretained(self).toOpaque()
-        CVDisplayLinkSetOutputCallback(displayLink, callback, userInfo)
-
-        // 设置当前显示
-        if let screen = window?.screen {
-            let displayID = screen
-                .deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? CGMainDisplayID()
-            CVDisplayLinkSetCurrentCGDisplay(displayLink, displayID)
-        }
-
-        CVDisplayLinkStart(displayLink)
-        self.displayLink = displayLink
-    }
-
-    private func stopDisplayLink() {
-        if let displayLink {
-            CVDisplayLinkStop(displayLink)
-        }
-        displayLink = nil
+    /// 唯一标识符（用于 DisplayLinkManager 注册）
+    private var displayLinkId: String {
+        "MetalRenderView-\(ObjectIdentifier(self).hashValue)"
     }
 
     private func displayLinkCallback() {

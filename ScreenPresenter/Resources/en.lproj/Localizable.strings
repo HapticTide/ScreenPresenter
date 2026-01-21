@@ -114,8 +114,8 @@
 // MARK: - Preferences - Audio
 "prefs.audio.enableCapture" = "Enable Audio Capture";
 "prefs.audio.volume" = "Volume";
-"prefs.audio.iosNote" = "Audio capture requires iOS device connected via USB";
-"prefs.audio.androidNote" = "Requires Android 11+. Changes take effect on next capture.";
+"prefs.audio.iosNote" = "When enabled, audio plays from Mac. When disabled, iPhone is muted (iOS limitation). Restart to apply.";
+"prefs.audio.androidNote" = "When enabled, audio plays from Mac. When disabled, audio plays from device. Requires Android 11+. Restart to apply.";
 "prefs.audio.codec" = "Audio Codec";
 
 // MARK: - Preferences - General
@@ -127,6 +127,7 @@
 
 // MARK: - Preferences - Appearance
 "prefs.appearance.backgroundOpacity" = "Background Opacity";
+"prefs.appearance.backgroundOpacityNote" = "Only affects the black background transparency in fullscreen mode. Does not apply to windowed mode.";
 "prefs.appearance.showDeviceBezel" = "Show Device Bezel";
 
 // MARK: - Preferences - Power

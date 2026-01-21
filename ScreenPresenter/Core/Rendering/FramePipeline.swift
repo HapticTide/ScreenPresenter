@@ -303,14 +303,14 @@ final class BufferedFrameSink: FrameSink {
 /// 渲染帧接收器
 /// 实现 CVDisplayLink 驱动的渲染循环
 /// 主动从 BufferedFrameSink 拉取帧，实现 vsync 同步
+/// 注意：已改用共享的 DisplayLinkManager，避免多个 CVDisplayLink 同时运行
 final class RenderFrameSink {
     // MARK: - 属性
 
     /// 帧源（BufferedFrameSink）
     private weak var frameSource: BufferedFrameSink?
 
-    /// CVDisplayLink
-    private var displayLink: CVDisplayLink?
+    // 注意：displayLink 已移除，改用共享的 DisplayLinkManager
 
     /// 渲染回调
     var onRender: ((CVPixelBuffer) -> Void)?
@@ -319,7 +319,11 @@ final class RenderFrameSink {
     private(set) var isRendering = false
 
     /// 渲染队列
-    private let renderQueue = DispatchQueue(label: "com.screenPresenter.renderSink", qos: .userInteractive)
+    /// 注意：从 .userInteractive 降级为 .userInitiated，降低 CPU 调度压力
+    private let renderQueue = DispatchQueue(label: "com.screenPresenter.renderSink", qos: .userInitiated)
+
+    /// 唯一标识符（用于 DisplayLinkManager 注册）
+    private let displayLinkId: String = "RenderFrameSink-\(UUID().uuidString)"
 
     // MARK: - 初始化
 
@@ -337,48 +341,23 @@ final class RenderFrameSink {
     func startRendering() {
         guard !isRendering else { return }
         isRendering = true
-        setupDisplayLink()
-        AppLogger.rendering.info("RenderFrameSink 开始渲染")
+        // 使用共享的 DisplayLinkManager，避免多个 CVDisplayLink 同时运行
+        DisplayLinkManager.shared.register(id: displayLinkId) { [weak self] in
+            self?.displayLinkCallback()
+        }
+        AppLogger.rendering.info("RenderFrameSink 开始渲染 (使用共享 DisplayLinkManager)")
     }
 
     /// 停止渲染
     func stopRendering() {
         guard isRendering else { return }
         isRendering = false
-        stopDisplayLink()
+        // 取消注册共享 DisplayLink
+        DisplayLinkManager.shared.unregister(id: displayLinkId)
         AppLogger.rendering.info("RenderFrameSink 停止渲染")
     }
 
-    // MARK: - Display Link
-
-    private func setupDisplayLink() {
-        var link: CVDisplayLink?
-        CVDisplayLinkCreateWithActiveCGDisplays(&link)
-
-        guard let displayLink = link else {
-            AppLogger.rendering.error("无法创建 CVDisplayLink")
-            return
-        }
-
-        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
-            guard let userInfo else { return kCVReturnSuccess }
-            let sink = Unmanaged<RenderFrameSink>.fromOpaque(userInfo).takeUnretainedValue()
-            sink.displayLinkCallback()
-            return kCVReturnSuccess
-        }
-
-        let userInfo = Unmanaged.passUnretained(self).toOpaque()
-        CVDisplayLinkSetOutputCallback(displayLink, callback, userInfo)
-        CVDisplayLinkStart(displayLink)
-        self.displayLink = displayLink
-    }
-
-    private func stopDisplayLink() {
-        if let displayLink {
-            CVDisplayLinkStop(displayLink)
-        }
-        displayLink = nil
-    }
+    // MARK: - Display Link 回调
 
     private func displayLinkCallback() {
         guard isRendering else { return }

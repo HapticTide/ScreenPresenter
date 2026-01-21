@@ -302,6 +302,7 @@ enum L10n {
 
         enum appearance {
             static var backgroundOpacity: String { "prefs.appearance.backgroundOpacity".localized }
+            static var backgroundOpacityNote: String { "prefs.appearance.backgroundOpacityNote".localized }
             static var showDeviceBezel: String { "prefs.appearance.showDeviceBezel".localized }
         }
 
