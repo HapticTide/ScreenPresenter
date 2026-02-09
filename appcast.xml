@@ -7,7 +7,7 @@
         <link>https://github.com/AIAugmentLab/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.0.2</title>
+            <title>Version 1.0.3</title>
             <description>
                 <![CDATA[
                 <h2>🚀 ScreenPresenter 1.0.3</h2>
@@ -29,17 +29,17 @@
                 </ul>
                 ]]>
             </description>
-            <pubDate>Wed, 04 Feb 2026 20:26:29 +0800</pubDate>
+            <pubDate>Mon, 09 Feb 2026 17:21:24 +0800</pubDate>
             
-            <sparkle:version>202602042025</sparkle:version>
-            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+            <sparkle:version>202602091719</sparkle:version>
+            <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/350567201"
-                length="10392525"
+                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/353007578"
+                length="14922465"
                 type="application/octet-stream"
-                sparkle:edSignature="yOESoIpbYL6HcqwRwt24yD7VwB17BheUY12jbVQCZ83JXXSNFITfODIyCaoo9t+1O86Wq7gGgCYIRZvN/uALCw=="
+                sparkle:edSignature="aMIKO4rvz98wtS0484rhnKQ7CoNuDbHbzBvOsMlTUdFTiHxaqjEHw+H2THmF3a8SU7sUevCaRhKqPxI0Y7JaDg=="
             />
         </item>
     </channel>
