@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScreenPresenter</title>
+  <style>
+    @font-face {
+      font-family: "SF Mono";
+      src: url("/chunk-loader/chunks/SF-Mono-Regular-DrcY-UX1.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "SF Mono";
+      font-weight: 500;
+      src: local("SF Mono Medium"), local("SFMono-Medium"), url("/chunk-loader/chunks/SF-Mono-Bold-GoU_0vk_.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "SF Mono";
+      font-weight: 700;
+      src: url("/chunk-loader/chunks/SF-Mono-Bold-GoU_0vk_.woff2") format("woff2");
+    }
+  </style>
+  <script>
+    window.config = "{{EDITOR_CONFIG}}";
+    ScreenPresenter = {
+      editorConfig: window.config,
+      userSettings: "{{USER_SETTINGS}}",
+    };
+  </script>
+  <script type="module" crossorigin src="/chunk-loader/chunks/index-CaOF5PV2.js"></script>
+  <link rel="stylesheet" crossorigin href="/chunk-loader/chunks/index-CoWvwzhW.css">
+</head>
+
+<body>
+  <div id="editor" role="textbox"></div>
+</body>
+
+</html>

@@ -10,6 +10,7 @@
 
 import AppKit
 import Foundation
+import MarkdownEditor
 
 // MARK: - Scrcpy 编解码器类型
 
@@ -62,6 +63,12 @@ final class UserPreferences {
         static let androidAudioEnabled = "androidAudioEnabled"
         static let androidAudioVolume = "androidAudioVolume"
         static let androidAudioCodec = "androidAudioCodec"
+        // Markdown 编辑器
+        static let markdownEditorVisible = "markdownEditorVisible"
+        static let markdownEditorPosition = "markdownEditorPosition"
+        static let markdownThemeMode = "markdownThemeMode"
+        static let markdownLastFilePath = "markdownLastFilePath"
+        static let recentMarkdownFiles = "recentMarkdownFiles"
     }
 
     // MARK: - UserDefaults
@@ -414,6 +421,77 @@ final class UserPreferences {
             audioCodec: androidAudioCodec,
             videoCodec: videoCodec
         )
+    }
+
+    // MARK: - Markdown Editor Settings
+
+    /// Markdown 编辑器是否可见（默认 false）
+    var markdownEditorVisible: Bool {
+        get { defaults.bool(forKey: Keys.markdownEditorVisible) }
+        set {
+            defaults.set(newValue, forKey: Keys.markdownEditorVisible)
+            NotificationCenter.default.post(name: .markdownEditorVisibilityDidChange, object: nil)
+        }
+    }
+
+    /// Markdown 编辑器位置（默认 center）
+    var markdownEditorPosition: MarkdownEditorPosition {
+        get {
+            guard
+                let raw = defaults.string(forKey: Keys.markdownEditorPosition),
+                let position = MarkdownEditorPosition(rawValue: raw)
+            else {
+                return .center
+            }
+            return position
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Keys.markdownEditorPosition)
+            NotificationCenter.default.post(name: .markdownEditorPositionDidChange, object: nil)
+        }
+    }
+
+    /// Markdown 编辑器主题模式（默认跟随系统）
+    var markdownThemeMode: MarkdownEditorThemeMode {
+        get {
+            guard
+                let raw = defaults.string(forKey: Keys.markdownThemeMode),
+                let mode = MarkdownEditorThemeMode(rawValue: raw)
+            else {
+                return .system
+            }
+            return mode
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Keys.markdownThemeMode)
+        }
+    }
+
+    /// 上次打开的 Markdown 文件路径
+    var markdownLastFilePath: String? {
+        get { defaults.string(forKey: Keys.markdownLastFilePath) }
+        set { defaults.set(newValue, forKey: Keys.markdownLastFilePath) }
+    }
+
+    /// 最近打开的 Markdown 文件列表（最多保留 10 个）
+    var recentMarkdownFiles: [String] {
+        get { defaults.stringArray(forKey: Keys.recentMarkdownFiles) ?? [] }
+        set {
+            // 最多保留 10 个
+            let trimmed = Array(newValue.prefix(10))
+            defaults.set(trimmed, forKey: Keys.recentMarkdownFiles)
+        }
+    }
+
+    /// 添加文件到最近使用列表
+    func addRecentMarkdownFile(_ path: String) {
+        var files = recentMarkdownFiles
+        // 如果已存在，先移除
+        files.removeAll { $0 == path }
+        // 添加到开头
+        files.insert(path, at: 0)
+        // 保存
+        recentMarkdownFiles = files
     }
 }
 

@@ -1,0 +1,66 @@
+//
+//  GotoLineWindow.swift
+//
+//  Created by Sun on 2026/2/6.
+//
+
+import AppKit
+
+public final class GotoLineWindow: NSWindow {
+    private enum Constants {
+        // Values are copied from Xcode
+        static let width: Double = 456
+        static let height: Double = 48
+    }
+
+    public init(
+        effectViewType: NSView.Type,
+        relativeTo parentRect: CGRect,
+        placeholder: String,
+        accessibilityHelp: String,
+        iconName: String,
+        defaultLineNumber: Int? = nil,
+        handler: @escaping (Int) -> Void
+    ) {
+        let rect = CGRect(
+            x: parentRect.minX + (parentRect.width - Constants.width) * 0.5,
+            y: parentRect.minY + parentRect.height - Constants.height - 150,
+            width: Constants.width,
+            height: Constants.height
+        )
+
+        super.init(
+            contentRect: rect,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+
+        contentView = GotoLineView(
+            effectViewType: effectViewType,
+            frame: rect,
+            placeholder: placeholder,
+            accessibilityHelp: accessibilityHelp,
+            iconName: iconName,
+            defaultLineNumber: defaultLineNumber,
+            handler: handler
+        )
+
+        isMovableByWindowBackground = true
+        isOpaque = false
+        hasShadow = true
+        backgroundColor = .clear
+    }
+
+    override public var canBecomeKey: Bool {
+        true
+    }
+
+    override public func resignKey() {
+        orderOut(self)
+    }
+
+    override public func cancelOperation(_ sender: Any?) {
+        orderOut(self)
+    }
+}

@@ -1,0 +1,43 @@
+//
+//  SettingsForm.swift
+//
+//  Created by Sun on 2026/2/6.
+//
+
+import SwiftUI
+
+/**
+ Lightweight form builder for SwiftUI.
+ */
+public struct SettingsForm: View {
+    // Generally speaking, we should avoid AnyView,
+    // but here we wanted to erase the type so badly.
+    public typealias TypedView = AnyView
+
+    @resultBuilder
+    public enum Builder {
+        public static func buildBlock(_ sections: any View...) -> [TypedView] {
+            sections.map { TypedView($0) }
+        }
+    }
+
+    private let padding: Double
+    private let builder: () -> [TypedView]
+
+    public init(padding: Double = 20, @Builder builder: @escaping () -> [TypedView]) {
+        self.padding = padding
+        self.builder = builder
+    }
+
+    public var body: some View {
+        let sections = builder()
+        Form {
+            ForEach(0..<sections.count, id: \.self) { index in
+                sections[index]
+                VStack {}.padding(.bottom, index < sections.count - 1 ? 12 : 0)
+            }
+        }
+        .fixedSize()
+        .padding(padding)
+    }
+}

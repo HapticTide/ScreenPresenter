@@ -1,0 +1,81 @@
+//
+//  NSMenu+Extension.swift
+//  MarkdownEditor
+//
+//  Created by Sun on 2026/2/6.
+//
+
+import AppKit
+
+extension NSMenu {
+    /**
+     Hook this method to work around the **Populating a menu window that is already visible** crash.
+     */
+    static let swizzleIsUpdatedExcludingContentTypesOnce: () = {
+        NSMenu.exchangeInstanceMethods(
+            originalSelector: sel_getUid("_isUpdatedExcludingContentTypes:"),
+            swizzledSelector: #selector(swizzled_isUpdatedExcludingContentTypes(_:))
+        )
+    }()
+
+    /**
+     The swizzled method handles differently when `needsHack` is flagged true.
+     */
+    var needsHack: Bool {
+        get {
+            (objc_getAssociatedObject(self, &AssociatedObjects.needsHack) as? Bool) ?? false
+        }
+        set {
+            objc_setAssociatedObject(
+                self,
+                &AssociatedObjects.needsHack,
+                newValue,
+                objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+        }
+    }
+
+    func firstActionNamed(_ title: String) -> NSMenuItem? {
+        firstDescendant {
+            $0.title == title && $0.action != nil
+        }
+    }
+
+    func firstMenuNamed(_ title: String) -> NSMenuItem? {
+        firstDescendant {
+            $0.title == title && $0.submenu != nil
+        }
+    }
+
+    func firstDescendant(matches predicate: (NSMenuItem) -> Bool) -> NSMenuItem? {
+        for item in items {
+            if predicate(item) {
+                return item
+            }
+
+            if let descendant = item.submenu?.firstDescendant(matches: predicate) {
+                return descendant
+            }
+        }
+
+        return nil
+    }
+}
+
+// MARK: - Private
+
+private extension NSMenu {
+    enum AssociatedObjects {
+        static var needsHack: UInt8 = 0
+    }
+
+    @objc func swizzled_isUpdatedExcludingContentTypes(_ contentTypes: Int) -> Bool {
+        if needsHack {
+            // The original implementation contains an invalid assertion that causes a crash.
+            // Based on testing, it would return false anyway, so we simply return false to bypass the assertion.
+            return false
+        }
+
+        return swizzled_isUpdatedExcludingContentTypes(contentTypes)
+    }
+}

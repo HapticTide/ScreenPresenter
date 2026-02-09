@@ -372,9 +372,10 @@ final class VideoToolboxDecoder {
         }
 
         guard let buffer = imageBuffer else { return }
-        let retainedBuffer = Unmanaged.passRetained(buffer)
+        let retainedBufferRef = Unmanaged.passRetained(buffer).toOpaque()
 
         decodeQueue.async { [weak self] in
+            let retainedBuffer = Unmanaged<CVImageBuffer>.fromOpaque(retainedBufferRef)
             let buffer = retainedBuffer.takeUnretainedValue()
             defer { retainedBuffer.release() }
 

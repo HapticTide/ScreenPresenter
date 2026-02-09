@@ -1,0 +1,45 @@
+//
+//  EditorTextInput.swift
+//  MarkdownEditor
+//
+//  Created by Sun on 2026/2/6.
+//
+
+import AppKit
+
+enum EditorTextAction {
+    case undo
+    case redo
+    case selectAll
+}
+
+/**
+ Abstraction of text input actions for `NSText` and `EditorWebView`.
+
+ For `NSText`, extend AppKit to provide an implementation.
+
+ For `EditorWebView`, delegate actions to controller that has access to the bridge.
+ */
+@MainActor
+protocol EditorTextInput {
+    func performTextAction(_ action: EditorTextAction, sender: Any?)
+}
+
+extension NSText: EditorTextInput {
+    func performTextAction(_ action: EditorTextAction, sender: Any?) {
+        switch action {
+        case .undo:
+            undoManager?.undo()
+        case .redo:
+            undoManager?.redo()
+        case .selectAll:
+            selectAll(sender)
+        }
+    }
+}
+
+extension EditorWebView: EditorTextInput {
+    func performTextAction(_ action: EditorTextAction, sender: Any?) {
+        actionDelegate?.editorWebView(self, didPerform: action, sender: sender)
+    }
+}

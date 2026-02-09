@@ -23,6 +23,12 @@
 "common.checking" = "Checking...";
 "common.loading" = "Loading...";
 
+// MARK: - Alert
+"alert.quit" = "Quit";
+"alert.cancel" = "Cancel";
+"alert.quitConfirmTitle" = "Quit ScreenPresenter?";
+"alert.quitConfirmMessage" = "Are you sure you want to quit ScreenPresenter?";
+
 // MARK: - Menu
 "menu.about" = "About ScreenPresenter";
 "menu.preferences" = "Preferences...";
@@ -41,6 +47,38 @@
 "menu.zoom" = "Zoom";
 "menu.bringAllToFront" = "Bring All to Front";
 "menu.help" = "Help";
+"menu.edit" = "Edit";
+"menu.undo" = "Undo";
+"menu.redo" = "Redo";
+"menu.cut" = "Cut";
+"menu.copy" = "Copy";
+"menu.paste" = "Paste";
+"menu.selectAll" = "Select All";
+"menu.find" = "Find";
+"menu.findAndReplace" = "Find and Replace...";
+"menu.findNext" = "Find Next";
+"menu.findPrevious" = "Find Previous";
+"menu.useSelectionForFind" = "Use Selection for Find";
+"menu.format" = "Format";
+"menu.bold" = "Bold";
+"menu.italic" = "Italic";
+"menu.strikethrough" = "Strikethrough";
+"menu.inlineCode" = "Inline Code";
+"menu.heading" = "Heading";
+"menu.heading1" = "Heading 1";
+"menu.heading2" = "Heading 2";
+"menu.heading3" = "Heading 3";
+"menu.heading4" = "Heading 4";
+"menu.heading5" = "Heading 5";
+"menu.heading6" = "Heading 6";
+"menu.bulletList" = "Bullet List";
+"menu.numberedList" = "Numbered List";
+"menu.blockquote" = "Blockquote";
+"menu.codeBlock" = "Code Block";
+"menu.insertLink" = "Insert Link...";
+"menu.insertImage" = "Insert Image...";
+"menu.insertTable" = "Insert Table...";
+"menu.insertHorizontalRule" = "Horizontal Rule";
 
 // MARK: - Window
 "window.preferences" = "Preferences";
@@ -224,6 +262,8 @@
 "toolbar.refreshComplete" = "Device list refreshed";
 "toolbar.deviceInfoRefreshed" = "Device info refreshed";
 "toolbar.swap" = "Swap";
+"toolbar.swapPanels" = "Swap";
+"toolbar.swapPanels.tooltip" = "Swap device positions";
 "toolbar.preferences" = "Preferences";
 "toolbar.swap.tooltip" = "Swap device positions";
 "toolbar.refresh.tooltip" = "Refresh device list";
@@ -389,3 +429,43 @@
 "menu.colorCompensation" = "Color Compensation...";
 "menu.toggleDeviceBezel" = "Show Device Bezel";
 "menu.togglePreventSleep" = "Prevent Sleep";
+
+// MARK: - Markdown Editor
+"menu.markdown" = "Document Editor";
+"menu.markdownNew" = "New";
+"menu.markdownNewFromClipboard" = "New from Clipboard";
+"menu.markdownNewTab" = "New Tab";
+"menu.markdownOpen" = "Open File...";
+"menu.markdownOpenRecent" = "Open Recent";
+"menu.markdownClearRecent" = "Clear Menu";
+"menu.markdownCloseTab" = "Close Current Tab";
+"menu.markdownCloseOtherTabs" = "Close Other Tabs";
+"menu.markdownCloseTabsToRight" = "Close Tabs to the Right";
+"menu.markdownRevealInFinder" = "Open in Finder";
+"menu.markdownCopyFilePath" = "Copy File Path";
+"menu.markdownRename" = "Rename...";
+"menu.markdownRenamePrompt" = "Enter a new file name (without extension)";
+"menu.markdownSave" = "Save";
+"menu.markdownSaveAs" = "Save As...";
+"menu.markdownZoomIn" = "Zoom In";
+"menu.markdownZoomOut" = "Zoom Out";
+"menu.markdownFormat" = "Format";
+"menu.markdownPosition" = "Editor Position";
+"menu.markdownTheme" = "Editor Theme";
+"menu.markdownThemeSystem" = "Follow System";
+"menu.markdownThemeLight" = "Light";
+"menu.markdownThemeDark" = "Dark";
+"menu.markdownSettings" = "Editor Settings";
+"menu.markdownToggle" = "Show/Hide Editor";
+"menu.markdownStatistics" = "Word Count";
+"menu.markdownFileVersion" = "File Version...";
+"menu.markdownPreview" = "Markdown Preview";
+"markdown.untitled" = "Untitled";
+"markdown.noRecentFiles" = "No Recent Files";
+"markdown.positionCenter" = "Center";
+"markdown.positionLeft" = "Left";
+"markdown.positionRight" = "Right";
+"toolbar.markdownEditor" = "Markdown";
+"toolbar.markdownEditorTooltip" = "Toggle Document Editor";
+"toolbar.swap" = "Swap";
+"toolbar.swapTooltip" = "Swap device positions";

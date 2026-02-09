@@ -1,0 +1,221 @@
+# ============================================================================
+# SwiftFormat Configuration
+#
+# 基于 Swift 社区最佳实践（Apple Style Guide、Google Swift Style Guide）
+# 适用于 SwiftFormat 0.54+
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Swift 版本
+# ----------------------------------------------------------------------------
+# 指定目标 Swift 版本，影响 if #available、@available 等语法的格式化
+--swiftversion 6.0
+
+# ----------------------------------------------------------------------------
+# 排除路径
+# ----------------------------------------------------------------------------
+# 跳过第三方依赖和构建产物，避免不必要的格式化
+--exclude Pods,Carthage,.build,.swiftpm,DerivedData,BuildTools
+
+# ----------------------------------------------------------------------------
+# 缩进与空白
+# ----------------------------------------------------------------------------
+# 使用 4 空格缩进（Apple 官方推荐，Xcode 默认设置）
+--indent 4
+
+# Tab 宽度（用于混合 Tab/空格的代码转换）
+--tabwidth 4
+
+# 智能 Tab：缩进用空格，对齐用 Tab（保持一致性，推荐禁用）
+--smarttabs disabled
+
+# switch-case 二级缩进（提高可读性，符合 Apple 风格）
+--indentcase false
+
+# 条件编译指令缩进策略：保持与周围代码一致的缩进层级
+--ifdef indent
+
+# 始终删除行尾空白（保持代码整洁，避免 git diff 噪音）
+--trimwhitespace always
+
+# 禁用 Xcode 风格的 guard/enum 缩进（保持一致的缩进规则）
+--xcodeindentation disabled
+
+# ----------------------------------------------------------------------------
+# 换行与大括号
+# ----------------------------------------------------------------------------
+# 使用 Unix 风格换行符（跨平台兼容性最佳）
+--linebreaks lf
+
+# K&R 风格大括号（Swift 标准风格，左括号在同一行）
+--allman false
+
+# else/catch 与前一个 } 在同一行（Swift 标准风格）
+--elseposition same-line
+
+# guard 的 else 位置
+--guardelse auto
+
+# ----------------------------------------------------------------------------
+# 行宽与换行策略
+# ----------------------------------------------------------------------------
+# 最大行宽 120 字符（业界常用标准，平衡可读性与屏幕利用率）
+--maxwidth 120
+
+# 函数调用参数换行：超过行宽时，每个参数独占一行，首参数换行
+--wraparguments before-first
+
+# 函数定义参数换行策略（同上）
+--wrapparameters before-first
+
+# 集合字面量换行策略
+--wrapcollections before-first
+
+# 条件语句换行策略（if/guard 的多条件）
+--wrapconditions before-first
+
+# 三元表达式换行：操作符在行首
+--wrapternary before-operators
+
+# 返回类型换行：保持原样（避免自动改变代码风格）
+--wrapreturntype preserve
+
+# typealias 换行：保持原样
+--wraptypealiases preserve
+
+# 多行表达式的右括号位置：与首行对齐
+--closingparen balanced
+
+# ----------------------------------------------------------------------------
+# 空格规则
+# ----------------------------------------------------------------------------
+# 逗号后始终加空格
+--commas always
+
+# 冒号前无空格，冒号后有空格（Swift 标准）
+--typeattributes preserve
+
+# 区间运算符两边加空格（提高可读性）
+--ranges spaced
+
+# 这些运算符不加空格（保持紧凑）
+--nospaceoperators ..<,...
+
+# 运算符函数声明的空格风格
+--operatorfunc spaced
+
+# ----------------------------------------------------------------------------
+# 数字字面量格式
+# ----------------------------------------------------------------------------
+# 十进制：千位分隔（6 位及以上才分组）
+--decimalgrouping 3,6
+
+# 二进制：4 位分组（8 位及以上）
+--binarygrouping 4,8
+
+# 八进制：3 位分组
+--octalgrouping 3,8
+
+# 十六进制：4 位分组（字节对齐）
+--hexgrouping 4,8
+
+# 小数部分和指数部分不分组（保持科学计数法的标准形式）
+--fractiongrouping disabled
+--exponentgrouping disabled
+
+# 十六进制字母小写（与 Apple 框架保持一致）
+--hexliteralcase lowercase
+
+# 指数符号小写
+--exponentcase lowercase
+
+# ----------------------------------------------------------------------------
+# import 语句组织
+# ----------------------------------------------------------------------------
+# import 分组排序：@testable import 放最后
+--importgrouping testable-last
+
+# ----------------------------------------------------------------------------
+# self 关键字与冗余代码
+# ----------------------------------------------------------------------------
+# 移除不必要的 self（Swift 推荐风格，减少视觉噪音）
+--self remove
+
+# 只移除闭包中未使用的参数名（用 _ 替代）
+--stripunusedargs closure-only
+
+# Void 返回类型使用 Void 而非 ()
+--voidtype void
+
+# ----------------------------------------------------------------------------
+# 其他格式化规则
+# ----------------------------------------------------------------------------
+# 分号：只允许在同一行的多语句中使用
+--semicolons inline
+
+# 文件头注释：保持原样（不自动添加或移除版权声明）
+--header ignore
+
+# 拒绝包含 Git 冲突标记的文件（确保代码合并完成）
+--conflictmarkers reject
+
+# 非代码片段模式（格式化完整文件）
+--fragment false
+
+# ----------------------------------------------------------------------------
+# MARK 注释与空行
+# ----------------------------------------------------------------------------
+# MARK 注释后添加空行（提高代码段落的视觉分隔）
+--lineaftermarks true
+
+# 不自动添加 MARK 分类注释（避免过度注释，保持代码简洁）
+--markcategories false
+
+# ----------------------------------------------------------------------------
+# 启用的规则
+# ----------------------------------------------------------------------------
+--enable blankLinesBetweenScopes
+--enable blankLinesAtEndOfScope
+--enable blankLinesAtStartOfScope
+--enable consecutiveBlankLines
+--enable consecutiveSpaces
+--enable duplicateImports
+--enable emptyBraces
+--enable linebreakAtEndOfFile
+--enable redundantBreak
+--enable redundantGet
+--enable redundantInit
+--enable redundantLet
+--enable redundantLetError
+--enable redundantNilInit
+--enable redundantObjc
+--enable redundantParens
+--enable redundantPattern
+--enable redundantRawValues
+--enable redundantReturn
+--enable redundantSelf
+--enable redundantType
+--enable redundantVoidReturnType
+--enable sortImports
+--enable strongOutlets
+--enable trailingClosures
+--enable trailingCommas
+--enable unusedArguments
+
+# ----------------------------------------------------------------------------
+# 禁用的规则
+# ----------------------------------------------------------------------------
+# 禁用 acronyms 规则（保留项目现有的命名约定，如 URL、ID 等）
+--disable acronyms
+
+# 禁用 sortDeclarations（声明顺序应由开发者根据逻辑组织）
+--disable sortDeclarations
+
+# 禁用 wrapMultilineStatementBraces（可能与项目风格冲突）
+--disable wrapMultilineStatementBraces
+
+# 禁用 docComments（避免自动转换注释格式）
+--disable docComments
+
+# 禁用 blankLineAfterImports（部分文件可能不需要）
+--disable blankLineAfterImports

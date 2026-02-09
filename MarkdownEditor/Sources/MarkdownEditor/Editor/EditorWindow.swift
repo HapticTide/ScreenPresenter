@@ -1,0 +1,62 @@
+//
+//  EditorWindow.swift
+//  MarkdownEditor
+//
+//  Created by Sun on 2026/2/6.
+//
+
+import AppKit
+
+final class EditorWindow: NSWindow {
+    var toolbarMode: ToolbarMode? {
+        didSet {
+            toolbarStyle = toolbarMode == .compact ? .unifiedCompact : .unified
+            super.toolbar = toolbarMode == .hidden ? nil : cachedToolbar
+        }
+    }
+
+    var reduceTransparency: Bool? {
+        didSet {
+            layoutIfNeeded()
+        }
+    }
+
+    var prefersTintedToolbar: Bool = false {
+        didSet {
+            layoutIfNeeded()
+        }
+    }
+
+    override var toolbar: NSToolbar? {
+        get {
+            super.toolbar
+        }
+        set {
+            cachedToolbar = newValue
+            super.toolbar = toolbarMode == .hidden ? nil : newValue
+        }
+    }
+
+    private var cachedToolbar: NSToolbar?
+
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        toolbar = NSToolbar() // Required for multi-tab layout
+        toolbarMode = AppPreferences.Window.toolbarMode
+        tabbingMode = AppPreferences.Window.tabbingMode
+        reduceTransparency = AppDesign.reduceTransparency
+    }
+
+    override func layoutIfNeeded() {
+        super.layoutIfNeeded()
+
+        // Slightly change the toolbar effect to match editor better
+        if let view = toolbarEffectView {
+            view.alphaValue = prefersTintedToolbar ? 0.3 : 0.7
+            view.isHidden = reduceTransparency == true || AppDesign.modernTitleBar
+
+            // Blend the color of contents behind the window
+            (view as? NSVisualEffectView)?.blendingMode = .behindWindow
+        }
+    }
+}

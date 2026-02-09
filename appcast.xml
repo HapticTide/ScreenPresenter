@@ -10,18 +10,22 @@
             <title>Version 1.0.2</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.0.2</h2>
-                <p>本次更新聚焦稳定性与解码回调安全。</p>
+                <h2>🚀 ScreenPresenter 1.0.3</h2>
+                <p>新增内嵌 Markdown 编辑器，支持多标签页编辑与丰富的主题选择。</p>
+
+                <h3>✨ 新功能</h3>
+                <ul>
+                    <li>内嵌 Markdown 编辑器：多标签页、语法高亮、10+ 代码主题</li>
+                    <li>查找与替换、格式快捷工具栏</li>
+                    <li>编辑器位置可配置（左侧 / 右侧 / 居中）</li>
+                    <li>标准编辑菜单（撤销、重做、剪切、复制、粘贴、查找）</li>
+                    <li>退出确认与未保存文档提示</li>
+                </ul>
 
                 <h3>🛠️ 修复</h3>
                 <ul>
-                    <li>修复 macOS 上偶发闪退（停止期回调 fence，避免清理后仍回调）</li>
-                    <li>修复解码线程与渲染线程并发写帧导致的竞态问题</li>
-                </ul>
-
-                <h3>🔒 稳定性</h3>
-                <ul>
-                    <li>停止/重连时更严格清理 VideoToolbox 回调</li>
+                    <li>修复 VideoToolbox 解码器跨线程引用传递的潜在崩溃</li>
+                    <li>编辑器主题不再影响主窗口外观</li>
                 </ul>
                 ]]>
             </description>

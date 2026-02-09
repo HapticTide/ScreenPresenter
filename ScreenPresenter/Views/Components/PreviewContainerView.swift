@@ -9,6 +9,175 @@
 //
 
 import AppKit
+import MarkdownEditor
+
+private final class MarkdownTabButtonView: NSView {
+    var onSelect: (() -> Void)?
+    var onClose: (() -> Void)?
+    var menuProvider: (() -> NSMenu?)?
+
+    private let titleField = NSTextField(labelWithString: "")
+    private let closeButton = NSButton()
+    private var trackingArea: NSTrackingArea?
+    private var isHovering = false {
+        didSet { updateAppearance() }
+    }
+
+    var isSelected = false {
+        didSet { updateAppearance() }
+    }
+
+    var title: String = "" {
+        didSet {
+            titleField.stringValue = title
+        }
+    }
+
+    func refreshAppearance() {
+        updateAppearance()
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupUI()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHovering = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHovering = false
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onSelect?()
+    }
+
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height * 0.5
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        menuProvider?()
+    }
+
+    @objc private func closeButtonClicked(_ sender: Any?) {
+        onClose?()
+    }
+
+    private func setupUI() {
+        wantsLayer = true
+        layer?.borderWidth = 1
+
+        titleField.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        titleField.lineBreakMode = .byTruncatingMiddle
+        titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        closeButton.isBordered = false
+        closeButton.setButtonType(.momentaryChange)
+        closeButton.bezelStyle = .shadowlessSquare
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)
+        closeButton.contentTintColor = .secondaryLabelColor
+        closeButton.target = self
+        closeButton.action = #selector(closeButtonClicked(_:))
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.isHidden = true
+
+        titleField.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleField)
+        addSubview(closeButton)
+
+        // 使用 defaultHigh 优先级，允许在空间不足时压缩
+        let heightConstraint = heightAnchor.constraint(equalToConstant: 26)
+        heightConstraint.priority = .defaultHigh
+
+        let minWidthConstraint = widthAnchor.constraint(greaterThanOrEqualToConstant: 108)
+        minWidthConstraint.priority = .defaultHigh
+
+        let closeWidthConstraint = closeButton.widthAnchor.constraint(equalToConstant: 14)
+        closeWidthConstraint.priority = .defaultHigh
+
+        let closeHeightConstraint = closeButton.heightAnchor.constraint(equalToConstant: 14)
+        closeHeightConstraint.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            heightConstraint,
+            minWidthConstraint,
+            widthAnchor.constraint(lessThanOrEqualToConstant: 240),
+
+            titleField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            titleField.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleField.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -6),
+
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            closeWidthConstraint,
+            closeHeightConstraint,
+        ])
+
+        updateAppearance()
+    }
+
+    private func updateAppearance() {
+        let showsClose = isSelected || isHovering
+        closeButton.isHidden = !showsClose
+
+        let activeColor = NSColor.controlAccentColor.withAlphaComponent(0.14)
+        let hoverColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.22)
+        let idleColor = NSColor.clear
+        let borderColor = isSelected
+            ? NSColor.controlAccentColor.withAlphaComponent(0.5)
+            : NSColor.separatorColor.withAlphaComponent(0.65)
+
+        layer?.backgroundColor = (isSelected ? activeColor : (isHovering ? hoverColor : idleColor)).cgColor
+        layer?.borderColor = borderColor.cgColor
+        titleField.textColor = isSelected ? .labelColor : .secondaryLabelColor
+        closeButton.contentTintColor = isSelected ? .labelColor : .secondaryLabelColor
+    }
+}
+
+/// 消除 NSTabView 即使在 .noTabsNoBorder 模式下仍保留的内部 content inset
+private final class FullBoundsTabView: NSTabView {
+    override var contentRect: NSRect {
+        bounds
+    }
+
+    override func layout() {
+        super.layout()
+        // 强制选中的 tab item 视图填满整个 bounds
+        if let selectedView = selectedTabViewItem?.view, selectedView.frame != bounds {
+            selectedView.frame = bounds
+        }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+}
 
 // MARK: - 布局模式
 
@@ -41,11 +210,20 @@ enum PreviewLayoutMode: String, CaseIterable {
 
 // MARK: - 预览容器视图
 
-final class PreviewContainerView: NSView {
+final class PreviewContainerView: NSView, NSTabViewDelegate {
+    private struct MarkdownTab {
+        let id: UUID
+        let item: NSTabViewItem
+        let editor: MarkdownEditorView
+        let buttonView: MarkdownTabButtonView
+    }
+
     // MARK: - UI 组件
 
     /// 左侧区域容器
     private let leftAreaView = NSView()
+    /// 中间编辑器区域容器
+    private let centerEditorAreaView = NSView()
     /// 右侧区域容器
     private let rightAreaView = NSView()
 
@@ -54,9 +232,31 @@ final class PreviewContainerView: NSView {
     /// Android 设备面板（默认在右侧）
     private(set) var androidPanelView = DevicePanelView()
 
+    /// Markdown 编辑器视图控制器
+    private(set) var markdownEditorView: MarkdownEditorView?
+    private let markdownTabBarView = NSVisualEffectView()
+    private let markdownTabButtonsStack = NSStackView()
+    private let markdownAddTabButton = NSButton()
+    private let markdownTabView = FullBoundsTabView()
+    private var markdownTabBarHeightConstraint: NSLayoutConstraint?
+    private var markdownTabs: [MarkdownTab] = []
+    private var contextMenuTabID: UUID?
+
     /// 交换按钮
     private(set) var swapButton = NSButton(title: "", target: nil, action: nil)
     private let swapButtonIconLayer = CALayer()
+
+    /// 全屏模式下的预览/编辑切换按钮
+    private let previewToggleButton: NSButton = {
+        let button = NSButton()
+        button.isBordered = false
+        button.setButtonType(.momentaryChange)
+        button.bezelStyle = .shadowlessSquare
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        button.isHidden = true
+        return button
+    }()
 
     // MARK: - 状态
 
@@ -66,10 +266,19 @@ final class PreviewContainerView: NSView {
     /// 是否交换了左右面板
     private(set) var isSwapped: Bool = false
 
+    /// 是否显示 Markdown 编辑器
+    private(set) var isMarkdownEditorVisible: Bool = false
+
+    /// Markdown 编辑器位置
+    private(set) var markdownEditorPosition: MarkdownEditorPosition = UserPreferences.shared.markdownEditorPosition
+
     /// 是否全屏模式
     var isFullScreen: Bool = false {
         didSet {
             if oldValue != isFullScreen {
+                updateMarkdownTabBarVisibilityForCurrentMode()
+                updateMarkdownEditorsFullScreenState()
+                updatePreviewToggleButton()
                 updateLayout(animated: false)
             }
         }
@@ -84,6 +293,10 @@ final class PreviewContainerView: NSView {
 
     /// 非全屏时的垂直内边距
     private let verticalPadding: CGFloat = 24
+
+    /// 编辑器占总宽度的比例（显示时）
+    private let editorWidthRatio: CGFloat = 0.38
+    private let markdownTabBarHeight: CGFloat = 26
 
     // MARK: - 回调
 
@@ -108,8 +321,11 @@ final class PreviewContainerView: NSView {
         wantsLayer = true
 
         setupAreaViews()
+        setupMarkdownTabView()
         setupDevicePanels()
         setupSwapButton()
+        setupPreviewToggleButton()
+        updateMarkdownTabBarVisibilityForCurrentMode()
 
         // 根据初始 layoutMode 设置 UI 状态
         updateAreaVisibility()
@@ -119,8 +335,100 @@ final class PreviewContainerView: NSView {
         // 左侧区域容器
         addSubview(leftAreaView)
 
+        // 中间编辑器区域容器
+        centerEditorAreaView.isHidden = true
+        addSubview(centerEditorAreaView)
+
         // 右侧区域容器
         addSubview(rightAreaView)
+    }
+
+    private func setupMarkdownTabView() {
+        markdownTabBarView.material = .headerView
+        markdownTabBarView.blendingMode = .withinWindow
+        markdownTabBarView.state = .active
+        markdownTabBarView.wantsLayer = true
+        markdownTabBarView.layer?.borderWidth = 0
+        markdownTabBarView.translatesAutoresizingMaskIntoConstraints = false
+        centerEditorAreaView.addSubview(markdownTabBarView)
+
+        markdownTabButtonsStack.orientation = .horizontal
+        markdownTabButtonsStack.alignment = .centerY
+        markdownTabButtonsStack.distribution = .fill
+        markdownTabButtonsStack.spacing = 6
+        markdownTabButtonsStack.translatesAutoresizingMaskIntoConstraints = false
+        markdownTabBarView.addSubview(markdownTabButtonsStack)
+
+        markdownAddTabButton.isBordered = false
+        markdownAddTabButton.setButtonType(.momentaryChange)
+        markdownAddTabButton.bezelStyle = .shadowlessSquare
+        markdownAddTabButton.image = NSImage(
+            systemSymbolName: "plus",
+            accessibilityDescription: L10n.markdown.newTab
+        )
+        markdownAddTabButton.contentTintColor = .secondaryLabelColor
+        markdownAddTabButton.target = self
+        markdownAddTabButton.action = #selector(newTabButtonClicked(_:))
+        markdownAddTabButton.translatesAutoresizingMaskIntoConstraints = false
+        markdownTabBarView.addSubview(markdownAddTabButton)
+
+        markdownTabView.delegate = self
+        markdownTabView.drawsBackground = false
+        markdownTabView.tabViewType = .noTabsNoBorder
+        markdownTabView.translatesAutoresizingMaskIntoConstraints = false
+        centerEditorAreaView.addSubview(markdownTabView)
+
+        let tabBarHeightConstraint = markdownTabBarView.heightAnchor.constraint(equalToConstant: markdownTabBarHeight)
+        markdownTabBarHeightConstraint = tabBarHeightConstraint
+
+        // 使用 defaultHigh 优先级，允许在父视图尺寸为零时打破约束（避免 Auto Layout 警告）
+        // centerEditorAreaView 使用 frame 布局，初始 frame 为零会导致 autoresizing mask 与子视图约束冲突
+        let tabBarLeading = markdownTabBarView.leadingAnchor.constraint(equalTo: centerEditorAreaView.leadingAnchor)
+        let tabBarTrailing = markdownTabBarView.trailingAnchor.constraint(equalTo: centerEditorAreaView.trailingAnchor)
+        let tabBarTop = markdownTabBarView.topAnchor.constraint(equalTo: centerEditorAreaView.topAnchor)
+        tabBarLeading.priority = .defaultHigh
+        tabBarTrailing.priority = .defaultHigh
+        tabBarTop.priority = .defaultHigh
+        tabBarHeightConstraint.priority = .defaultHigh
+
+        let addButtonWidth = markdownAddTabButton.widthAnchor.constraint(equalToConstant: 18)
+        let addButtonHeight = markdownAddTabButton.heightAnchor.constraint(equalToConstant: 18)
+        addButtonWidth.priority = .defaultHigh
+        addButtonHeight.priority = .defaultHigh
+
+        let stackBottom = markdownTabButtonsStack.bottomAnchor.constraint(equalTo: markdownTabBarView.bottomAnchor)
+        stackBottom.priority = .defaultHigh
+
+        let tabViewLeading = markdownTabView.leadingAnchor.constraint(equalTo: centerEditorAreaView.leadingAnchor)
+        let tabViewTrailing = markdownTabView.trailingAnchor.constraint(equalTo: centerEditorAreaView.trailingAnchor)
+        let tabViewTop = markdownTabView.topAnchor.constraint(equalTo: markdownTabBarView.bottomAnchor)
+        let tabViewBottom = markdownTabView.bottomAnchor.constraint(equalTo: centerEditorAreaView.bottomAnchor)
+        tabViewLeading.priority = .defaultHigh
+        tabViewTrailing.priority = .defaultHigh
+        tabViewTop.priority = .defaultHigh
+        tabViewBottom.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            tabBarLeading,
+            tabBarTrailing,
+            tabBarTop,
+            tabBarHeightConstraint,
+
+            markdownAddTabButton.trailingAnchor.constraint(equalTo: markdownTabBarView.trailingAnchor),
+            markdownAddTabButton.centerYAnchor.constraint(equalTo: markdownTabBarView.centerYAnchor),
+            addButtonWidth,
+            addButtonHeight,
+
+            markdownTabButtonsStack.leadingAnchor.constraint(equalTo: markdownTabBarView.leadingAnchor),
+            markdownTabButtonsStack.trailingAnchor.constraint(lessThanOrEqualTo: markdownAddTabButton.leadingAnchor),
+            markdownTabButtonsStack.topAnchor.constraint(equalTo: markdownTabBarView.topAnchor),
+            stackBottom,
+
+            tabViewLeading,
+            tabViewTrailing,
+            tabViewTop,
+            tabViewBottom,
+        ])
     }
 
     private func setupDevicePanels() {
@@ -132,31 +440,8 @@ final class PreviewContainerView: NSView {
     }
 
     private func setupSwapButton() {
-        swapButton.target = self
-        swapButton.action = #selector(swapTapped)
-        swapButton.bezelStyle = .circular
-        swapButton.isBordered = false
-        swapButton.wantsLayer = true
-        swapButton.layer?.cornerRadius = 16
-        swapButton.toolTip = L10n.toolbar.swapTooltip
-        swapButton.focusRingType = .none
-        swapButton.refusesFirstResponder = true
-        addSubview(swapButton)
-
-        // 添加图标图层
-        swapButtonIconLayer.contentsGravity = .resizeAspect
-        swapButton.layer?.addSublayer(swapButtonIconLayer)
-
-        // 设置图标大小和位置
-        let iconSize: CGFloat = 16
-        let buttonSize: CGFloat = 32
-        let iconOffset = (buttonSize - iconSize) / 2
-        swapButtonIconLayer.frame = CGRect(x: iconOffset, y: iconOffset, width: iconSize, height: iconSize)
-
-        // 设置初始样式
-        updateSwapButtonStyle()
-
-        // 交换按钮约束
+        // 悬浮 swap 按钮已移至 toolbar，不再在设备视图中间显示
+        // swapButton 相关代码已禁用
     }
 
     private func updateSwapButtonStyle() {
@@ -791,6 +1076,18 @@ final class PreviewContainerView: NSView {
 
     private func updateAreaFrames() {
         let fullBounds = bounds
+
+        // 如果编辑器可见，使用三区域布局
+        if isMarkdownEditorVisible {
+            updateAreaFramesWithEditor(fullBounds)
+            return
+        }
+
+        // 标准双设备布局（无编辑器）
+        // 注意：不再将 centerEditorAreaView.frame 设为 .zero
+        // 因为子视图（如 EditorFormatBar 的 NSStackView）有内部 Auto Layout 约束，
+        // 零尺寸会导致约束冲突。隐藏状态下保持原有 frame 即可。
+
         switch layoutMode {
         case .dual:
             let halfWidth = fullBounds.width / 2
@@ -802,6 +1099,32 @@ final class PreviewContainerView: NSView {
         case .rightOnly:
             rightAreaView.frame = fullBounds
             leftAreaView.frame = .zero
+        }
+    }
+
+    /// 编辑器可见时的三区域布局计算
+    private func updateAreaFramesWithEditor(_ fullBounds: CGRect) {
+        let editorWidth = fullBounds.width * editorWidthRatio
+        let deviceWidth = (fullBounds.width - editorWidth) / 2
+
+        switch markdownEditorPosition {
+        case .center:
+            // |  Device (31%)  |  Editor (38%)  |  Device (31%)  |
+            leftAreaView.frame = CGRect(x: 0, y: 0, width: deviceWidth, height: fullBounds.height)
+            centerEditorAreaView.frame = CGRect(x: deviceWidth, y: 0, width: editorWidth, height: fullBounds.height)
+            rightAreaView.frame = CGRect(x: deviceWidth + editorWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+
+        case .left:
+            // |  Editor (38%)  |  Device (31%)  |  Device (31%)  |
+            centerEditorAreaView.frame = CGRect(x: 0, y: 0, width: editorWidth, height: fullBounds.height)
+            leftAreaView.frame = CGRect(x: editorWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+            rightAreaView.frame = CGRect(x: editorWidth + deviceWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+
+        case .right:
+            // |  Device (31%)  |  Device (31%)  |  Editor (38%)  |
+            leftAreaView.frame = CGRect(x: 0, y: 0, width: deviceWidth, height: fullBounds.height)
+            rightAreaView.frame = CGRect(x: deviceWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+            centerEditorAreaView.frame = CGRect(x: deviceWidth * 2, y: 0, width: editorWidth, height: fullBounds.height)
         }
     }
 
@@ -820,10 +1143,27 @@ final class PreviewContainerView: NSView {
 
     override func layout() {
         super.layout()
-        updateAreaFrames()
+        // 动画期间不更新区域帧，避免覆盖动画初始状态
+        if !isAnimatingManualLayout {
+            updateAreaFrames()
+        }
         updateSwapButtonFrame()
         if !isInitialLayout, !isAnimatingManualLayout {
             updatePanelFrames()
+        }
+        // 全屏时更新预览切换按钮位置
+        if isFullScreen, !previewToggleButton.isHidden {
+            layoutPreviewToggleButton()
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        // 点击设备预览区域时，让编辑器失去焦点
+        // 检查点击位置是否在编辑器外部
+        let clickPoint = convert(event.locationInWindow, from: nil)
+        if isMarkdownEditorVisible, !centerEditorAreaView.frame.contains(clickPoint) {
+            window?.makeFirstResponder(nil)
         }
     }
 
@@ -831,5 +1171,814 @@ final class PreviewContainerView: NSView {
         super.viewDidChangeEffectiveAppearance()
         // 系统外观变化时更新交换按钮样式
         updateSwapButtonStyle()
+        updateMarkdownTabBarAppearance()
+        for tab in markdownTabs {
+            tab.buttonView.refreshAppearance()
+        }
+    }
+
+    // MARK: - Markdown 编辑器
+
+    /// 切换 Markdown 编辑器显示/隐藏
+    func toggleMarkdownEditor(animated: Bool = true) {
+        isMarkdownEditorVisible.toggle()
+        UserPreferences.shared.markdownEditorVisible = isMarkdownEditorVisible
+
+        if isMarkdownEditorVisible {
+            showMarkdownEditor(animated: animated)
+        } else {
+            hideMarkdownEditor(animated: animated)
+        }
+        updatePreviewToggleButton()
+    }
+
+    /// 设置 Markdown 编辑器位置
+    func setMarkdownEditorPosition(_ position: MarkdownEditorPosition, animated: Bool = true) {
+        guard markdownEditorPosition != position else { return }
+        markdownEditorPosition = position
+        UserPreferences.shared.markdownEditorPosition = position
+
+        if isMarkdownEditorVisible {
+            updateLayout(animated: animated)
+        }
+    }
+
+    /// 新建 Markdown 文件（清空当前内容）
+    func newMarkdownFile() {
+        newMarkdownTab()
+    }
+
+    /// 新建 Markdown 标签页
+    func newMarkdownTab() {
+        ensureMarkdownEditorVisible(createInitialTab: false)
+        let tab = createMarkdownTab(title: L10n.markdown.untitled)
+        tab.editor.setContent("")
+        refreshTabTitle(for: tab, fallbackTitle: L10n.markdown.untitled)
+    }
+
+    /// 从剪切板新建 Markdown 文件
+    func newMarkdownFromClipboard() {
+        ensureMarkdownEditorVisible(createInitialTab: false)
+        let tab = createMarkdownTab(title: L10n.markdown.untitled)
+
+        // 从剪切板获取文本
+        let pasteboard = NSPasteboard.general
+        if let text = pasteboard.string(forType: .string) {
+            tab.editor.setContent(text)
+        }
+        refreshTabTitle(for: tab, fallbackTitle: L10n.markdown.untitled)
+    }
+
+    /// 打开 Markdown 文件
+    func openMarkdownFile(at url: URL) {
+        ensureMarkdownEditorVisible(createInitialTab: false)
+        let tab = createMarkdownTab(title: url.lastPathComponent)
+
+        do {
+            try tab.editor.open(url: url)
+            refreshTabTitle(for: tab, fallbackTitle: url.lastPathComponent)
+        } catch {
+            removeMarkdownTab(tab)
+            AppLogger.app.error("打开 Markdown 文件失败: \(error.localizedDescription)")
+        }
+    }
+
+    /// 关闭当前 Markdown 标签页
+    func closeCurrentMarkdownTab() {
+        guard let tab = currentMarkdownTab() else { return }
+        closeMarkdownTab(withID: tab.id)
+    }
+
+    /// 保存当前 Markdown 文件
+    func saveMarkdownFile() {
+        guard let tab = currentMarkdownTab() else {
+            let newTab = createMarkdownTab(title: L10n.markdown.untitled)
+            do {
+                try newTab.editor.save()
+            } catch {
+                presentMarkdownSaveError(error)
+            }
+            return
+        }
+
+        do {
+            try tab.editor.save()
+        } catch {
+            presentMarkdownSaveError(error)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.refreshTabTitle(for: tab)
+        }
+    }
+
+    /// 触发系统“另存为”面板（遵循 MarkdownEditor 的保存逻辑）
+    func saveMarkdownFileAs(completion: ((URL?) -> Void)? = nil) {
+        guard let tab = currentMarkdownTab() else {
+            completion?(nil)
+            return
+        }
+
+        let previousURL = tab.editor.fileURL
+        tab.editor.saveAs()
+        waitForSaveAsResult(for: tab.id, previousURL: previousURL, warmupAttempts: 12, completion: completion)
+    }
+
+    /// 另存为 Markdown 文件
+    func saveMarkdownFile(to url: URL) {
+        guard let tab = currentMarkdownTab() else { return }
+        tab.editor.save(to: url) { [weak self] success in
+            guard success else {
+                self?.presentMarkdownSaveError(nil)
+                return
+            }
+            let fallbackName = tab.editor.fileURL?.lastPathComponent ?? url.lastPathComponent
+            self?.refreshTabTitle(for: tab, fallbackTitle: fallbackName)
+        }
+    }
+
+    /// 请求关闭 Markdown（有未保存内容时触发保存确认）
+    func requestCloseMarkdownIfNeeded(completion: @escaping (Bool) -> Void) {
+        let tabs = markdownTabs
+        guard !tabs.isEmpty else {
+            completion(true)
+            return
+        }
+        requestCloseForTabs(ArraySlice(tabs), completion: completion)
+    }
+
+    /// 设置 Markdown 主题模式
+    func setMarkdownThemeMode(_ mode: MarkdownEditorThemeMode) {
+        UserPreferences.shared.markdownThemeMode = mode
+        for tab in markdownTabs {
+            tab.editor.setThemeMode(mode)
+        }
+    }
+
+    /// Markdown 放大
+    func zoomInMarkdownEditor() {
+        currentMarkdownTab()?.editor.zoomIn()
+    }
+
+    /// Markdown 缩小
+    func zoomOutMarkdownEditor() {
+        currentMarkdownTab()?.editor.zoomOut()
+    }
+
+    /// 恢复编辑器可见性状态（应用启动时调用）
+    func restoreMarkdownEditorVisibility() {
+        if UserPreferences.shared.markdownEditorVisible {
+            isMarkdownEditorVisible = true
+            showMarkdownEditor(animated: false)
+        }
+    }
+
+    private func showMarkdownEditor(animated: Bool, createInitialTab: Bool = true) {
+        // 计算目标布局
+        let targetFrames = calculateTargetFramesWithEditor()
+
+        // 先设置 frame，确保子视图能获得正确的尺寸
+        leftAreaView.frame = targetFrames.left
+        centerEditorAreaView.frame = targetFrames.editor
+        rightAreaView.frame = targetFrames.right
+        // 强制 Auto Layout 立即更新子视图布局
+        centerEditorAreaView.layoutSubtreeIfNeeded()
+
+        // 现在创建标签页 - 此时 markdownTabView 已有正确尺寸
+        if createInitialTab, markdownTabs.isEmpty {
+            _ = createMarkdownTab(title: L10n.markdown.untitled)
+        }
+
+        if animated {
+            isAnimatingManualLayout = true
+
+            centerEditorAreaView.alphaValue = 0
+            centerEditorAreaView.isHidden = false
+            updatePanelFrames()
+
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.22
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.allowsImplicitAnimation = true
+
+                centerEditorAreaView.animator().alphaValue = 1
+
+                updatePanelFrames()
+            }, completionHandler: { [weak self] in
+                self?.isAnimatingManualLayout = false
+                // 动画完成后再次强制布局，确保所有视图状态正确
+                self?.centerEditorAreaView.layoutSubtreeIfNeeded()
+            })
+        } else {
+            // 显示中间区域
+            centerEditorAreaView.isHidden = false
+            centerEditorAreaView.alphaValue = 1
+            updatePanelFrames()
+        }
+    }
+
+    private func hideMarkdownEditor(animated: Bool) {
+        if animated {
+            isAnimatingManualLayout = true
+            let targetFrames = calculateTargetFramesWithoutEditor()
+
+            // 设备区域直接切到目标位置，编辑器仅淡出
+            leftAreaView.frame = targetFrames.left
+            rightAreaView.frame = targetFrames.right
+            updatePanelFrames()
+
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.allowsImplicitAnimation = true
+
+                centerEditorAreaView.animator().alphaValue = 0
+
+                updatePanelFrames()
+            }, completionHandler: { [weak self] in
+                guard let self else { return }
+                self.centerEditorAreaView.isHidden = true
+                self.centerEditorAreaView.alphaValue = 1
+                self.isAnimatingManualLayout = false
+                self.updateLayout(animated: false)
+            })
+        } else {
+            centerEditorAreaView.isHidden = true
+            updateLayout(animated: false)
+        }
+    }
+
+    private func ensureMarkdownEditorVisible(createInitialTab: Bool) {
+        if !isMarkdownEditorVisible {
+            isMarkdownEditorVisible = true
+            UserPreferences.shared.markdownEditorVisible = true
+            showMarkdownEditor(animated: true, createInitialTab: createInitialTab)
+        }
+    }
+
+    private func updateMarkdownTabBarVisibilityForCurrentMode() {
+        let shouldHideTabBar = isFullScreen
+        markdownTabBarHeightConstraint?.constant = shouldHideTabBar ? 0 : markdownTabBarHeight
+        markdownTabBarView.isHidden = shouldHideTabBar
+        markdownAddTabButton.isHidden = shouldHideTabBar
+        updateMarkdownTabBarAppearance()
+        centerEditorAreaView.needsLayout = true
+        centerEditorAreaView.layoutSubtreeIfNeeded()
+    }
+
+    private func updateMarkdownTabBarAppearance() {
+        markdownTabBarView.layer?.borderWidth = 0
+        markdownTabBarView.layer?.borderColor = nil
+    }
+
+    // MARK: - 预览切换按钮
+
+    private func setupPreviewToggleButton() {
+        previewToggleButton.target = self
+        previewToggleButton.action = #selector(previewToggleButtonClicked(_:))
+        previewToggleButton.toolTip = L10n.markdown.preview
+        centerEditorAreaView.addSubview(previewToggleButton)
+    }
+
+    @objc private func previewToggleButtonClicked(_ sender: Any?) {
+        guard let editor = currentMarkdownTab()?.editor else { return }
+        editor.togglePreview()
+        updatePreviewToggleButtonIcon()
+    }
+
+    /// 更新预览切换按钮的显示状态（全屏 + 编辑器可见时显示）
+    private func updatePreviewToggleButton() {
+        let shouldShow = isFullScreen && isMarkdownEditorVisible
+        previewToggleButton.isHidden = !shouldShow
+        if shouldShow {
+            updatePreviewToggleButtonIcon()
+            updatePreviewToggleButtonStyle()
+            layoutPreviewToggleButton()
+        }
+    }
+
+    /// 根据当前预览模式状态更新按钮图标
+    private func updatePreviewToggleButtonIcon() {
+        let isPreview = currentMarkdownTab()?.editor.isPreviewMode ?? false
+        let iconName = isPreview ? "pencil" : "eye"
+        let tooltip = isPreview ? L10n.toolbar.markdownEditor : L10n.markdown.preview
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        previewToggleButton.image = NSImage(
+            systemSymbolName: iconName,
+            accessibilityDescription: tooltip
+        )?.withSymbolConfiguration(config)
+        previewToggleButton.toolTip = tooltip
+        previewToggleButton.contentTintColor = .white
+    }
+
+    /// 更新预览切换按钮样式（全屏暗色风格）
+    private func updatePreviewToggleButtonStyle() {
+        guard let layer = previewToggleButton.layer else { return }
+        layer.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        layer.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        layer.borderWidth = 1
+        layer.cornerRadius = 6
+    }
+
+    /// 布局预览切换按钮（编辑器区域右上角）
+    private func layoutPreviewToggleButton() {
+        let size: CGFloat = 28
+        let margin: CGFloat = 8
+        let editorFrame = centerEditorAreaView.frame
+        // 相对于 centerEditorAreaView 内部的右上角
+        previewToggleButton.frame = CGRect(
+            x: editorFrame.width - size - margin,
+            y: editorFrame.height - size - margin,
+            width: size,
+            height: size
+        )
+    }
+
+    /// 将 isFullScreen 状态传播到所有 Markdown 编辑器
+    private func updateMarkdownEditorsFullScreenState() {
+        for tab in markdownTabs {
+            tab.editor.isFullScreen = isFullScreen
+        }
+    }
+
+    @objc private func newTabButtonClicked(_ sender: Any?) {
+        newMarkdownTab()
+    }
+
+    @objc private func contextMenuNewTab(_ sender: Any?) {
+        newMarkdownTab()
+    }
+
+    @objc private func contextMenuCloseTab(_ sender: Any?) {
+        guard let tab = contextMenuTab else { return }
+        closeMarkdownTab(withID: tab.id)
+    }
+
+    @objc private func contextMenuCloseOtherTabs(_ sender: Any?) {
+        guard let contextTab = contextMenuTab else { return }
+        let tabsToClose = markdownTabs.filter { $0.id != contextTab.id }
+        closeTabsAfterConfirmation(tabsToClose)
+    }
+
+    @objc private func contextMenuCloseTabsToRight(_ sender: Any?) {
+        guard let contextTab = contextMenuTab,
+              let contextIndex = markdownTabs.firstIndex(where: { $0.id == contextTab.id }) else {
+            return
+        }
+        guard contextIndex + 1 < markdownTabs.count else { return }
+        let tabsToClose = Array(markdownTabs[(contextIndex + 1)...])
+        closeTabsAfterConfirmation(tabsToClose)
+    }
+
+    @objc private func contextMenuRevealInFinder(_ sender: Any?) {
+        guard let url = contextMenuTab?.editor.fileURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    @objc private func contextMenuCopyFilePath(_ sender: Any?) {
+        guard let path = contextMenuTab?.editor.fileURL?.path else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(path, forType: .string)
+    }
+
+    @objc private func contextMenuRenameFile(_ sender: Any?) {
+        guard let tab = contextMenuTab,
+              let originalURL = tab.editor.fileURL,
+              let window else {
+            return
+        }
+        guard !tab.editor.hasUnsavedChanges else {
+            NSSound.beep()
+            return
+        }
+
+        let textField = NSTextField(string: originalURL.deletingPathExtension().lastPathComponent)
+        textField.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+        textField.placeholderString = originalURL.lastPathComponent
+
+        let alert = NSAlert()
+        alert.messageText = L10n.markdown.rename
+        alert.informativeText = L10n.markdown.renamePrompt
+        alert.alertStyle = .informational
+        alert.accessoryView = textField
+        alert.addButton(withTitle: L10n.common.ok)
+        alert.addButton(withTitle: L10n.common.cancel)
+
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.renameMarkdownFile(tabID: tab.id, originalURL: originalURL, newBaseName: textField.stringValue)
+        }
+    }
+
+    private func renameMarkdownFile(tabID: UUID, originalURL: URL, newBaseName: String) {
+        let trimmed = newBaseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let tab = tab(for: tabID) else { return }
+
+        var destinationURL = originalURL.deletingLastPathComponent().appendingPathComponent(trimmed)
+        if !originalURL.pathExtension.isEmpty {
+            destinationURL.appendPathExtension(originalURL.pathExtension)
+        }
+
+        guard destinationURL != originalURL else { return }
+
+        let fileManager = FileManager.default
+        guard !fileManager.fileExists(atPath: destinationURL.path) else {
+            NSSound.beep()
+            return
+        }
+
+        do {
+            try fileManager.moveItem(at: originalURL, to: destinationURL)
+            try tab.editor.open(url: destinationURL)
+            refreshTabTitle(for: tab, fallbackTitle: destinationURL.lastPathComponent)
+            syncRecentMarkdownPathsAfterRename(from: originalURL.path, to: destinationURL.path)
+        } catch {
+            NSSound.beep()
+            AppLogger.app.error("重命名 Markdown 文件失败: \(error.localizedDescription)")
+        }
+    }
+
+    private func syncRecentMarkdownPathsAfterRename(from oldPath: String, to newPath: String) {
+        if UserPreferences.shared.markdownLastFilePath == oldPath {
+            UserPreferences.shared.markdownLastFilePath = newPath
+        }
+
+        var recents = UserPreferences.shared.recentMarkdownFiles
+        recents.removeAll { $0 == oldPath || $0 == newPath }
+        recents.insert(newPath, at: 0)
+        UserPreferences.shared.recentMarkdownFiles = recents
+    }
+
+    private func closeMarkdownTab(withID tabID: UUID) {
+        guard let tab = tab(for: tabID) else { return }
+        tab.editor.requestCloseIfNeeded { [weak self] shouldClose in
+            guard let self, shouldClose else { return }
+            self.removeMarkdownTab(tab)
+            if self.markdownTabs.isEmpty {
+                let newTab = self.createMarkdownTab(title: L10n.markdown.untitled)
+                newTab.editor.setContent("")
+                self.refreshTabTitle(for: newTab, fallbackTitle: L10n.markdown.untitled)
+            }
+        }
+    }
+
+    private func closeTabsAfterConfirmation(_ tabs: [MarkdownTab]) {
+        guard !tabs.isEmpty else { return }
+        requestCloseForTabs(ArraySlice(tabs)) { [weak self] shouldClose in
+            guard let self, shouldClose else { return }
+            for tab in tabs {
+                if let latestTab = self.tab(for: tab.id) {
+                    self.removeMarkdownTab(latestTab)
+                }
+            }
+            if self.markdownTabs.isEmpty {
+                let newTab = self.createMarkdownTab(title: L10n.markdown.untitled)
+                newTab.editor.setContent("")
+                self.refreshTabTitle(for: newTab, fallbackTitle: L10n.markdown.untitled)
+            }
+        }
+    }
+
+    private func tab(for id: UUID) -> MarkdownTab? {
+        markdownTabs.first { $0.id == id }
+    }
+
+    private var contextMenuTab: MarkdownTab? {
+        guard let contextMenuTabID else { return nil }
+        return tab(for: contextMenuTabID)
+    }
+
+    private func makeTabContextMenu(for tabID: UUID) -> NSMenu {
+        contextMenuTabID = tabID
+        if let tab = tab(for: tabID) {
+            markdownTabView.selectTabViewItem(tab.item)
+        }
+        let hasFileURL = contextMenuTab?.editor.fileURL != nil
+        let canRenameFile = hasFileURL && !(contextMenuTab?.editor.hasUnsavedChanges ?? true)
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let newTabItem = menu.addItem(
+            withTitle: L10n.markdown.newTab,
+            action: #selector(contextMenuNewTab(_:)),
+            keyEquivalent: ""
+        )
+        newTabItem.target = self
+        newTabItem.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
+
+        let closeTabItem = menu.addItem(
+            withTitle: L10n.markdown.closeTab,
+            action: #selector(contextMenuCloseTab(_:)),
+            keyEquivalent: ""
+        )
+        closeTabItem.target = self
+        closeTabItem.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)
+
+        let closeOtherTabsItem = menu.addItem(
+            withTitle: L10n.markdown.closeOtherTabs,
+            action: #selector(contextMenuCloseOtherTabs(_:)),
+            keyEquivalent: ""
+        )
+        closeOtherTabsItem.target = self
+        closeOtherTabsItem.isEnabled = markdownTabs.count > 1
+        closeOtherTabsItem.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)
+
+        let closeTabsToRightItem = menu.addItem(
+            withTitle: L10n.markdown.closeTabsToRight,
+            action: #selector(contextMenuCloseTabsToRight(_:)),
+            keyEquivalent: ""
+        )
+        closeTabsToRightItem.target = self
+        if let contextIndex = markdownTabs.firstIndex(where: { $0.id == tabID }) {
+            closeTabsToRightItem.isEnabled = contextIndex < markdownTabs.count - 1
+        } else {
+            closeTabsToRightItem.isEnabled = false
+        }
+        closeTabsToRightItem.image = NSImage(systemSymbolName: "arrow.right.circle", accessibilityDescription: nil)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let revealInFinderItem = menu.addItem(
+            withTitle: L10n.markdown.revealInFinder,
+            action: #selector(contextMenuRevealInFinder(_:)),
+            keyEquivalent: ""
+        )
+        revealInFinderItem.target = self
+        revealInFinderItem.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        revealInFinderItem.isEnabled = hasFileURL
+
+        let copyFilePathItem = menu.addItem(
+            withTitle: L10n.markdown.copyFilePath,
+            action: #selector(contextMenuCopyFilePath(_:)),
+            keyEquivalent: ""
+        )
+        copyFilePathItem.target = self
+        copyFilePathItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        copyFilePathItem.isEnabled = hasFileURL
+
+        let renameFileItem = menu.addItem(
+            withTitle: L10n.markdown.rename,
+            action: #selector(contextMenuRenameFile(_:)),
+            keyEquivalent: ""
+        )
+        renameFileItem.target = self
+        renameFileItem.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: nil)
+        renameFileItem.isEnabled = canRenameFile
+
+        return menu
+    }
+
+    private func syncTabSelectionAppearance() {
+        let selectedTabID = currentMarkdownTab()?.id
+        for tab in markdownTabs {
+            tab.buttonView.isSelected = (tab.id == selectedTabID)
+        }
+    }
+
+    @discardableResult
+    private func createMarkdownTab(title: String) -> MarkdownTab {
+        let editorVC = MarkdownEditorView()
+        editorVC.setThemeMode(UserPreferences.shared.markdownThemeMode, animated: false)
+
+        let tabID = UUID()
+        let item = NSTabViewItem(identifier: UUID())
+        item.label = title
+        item.view = editorVC.view
+        markdownTabView.addTabViewItem(item)
+
+        let buttonView = MarkdownTabButtonView()
+        buttonView.title = title
+        buttonView.onSelect = { [weak self, weak item] in
+            guard let self, let item else { return }
+            self.markdownTabView.selectTabViewItem(item)
+        }
+        buttonView.onClose = { [weak self] in
+            self?.closeMarkdownTab(withID: tabID)
+        }
+        buttonView.menuProvider = { [weak self] in
+            self?.makeTabContextMenu(for: tabID)
+        }
+        markdownTabButtonsStack.addArrangedSubview(buttonView)
+
+        let tab = MarkdownTab(id: tabID, item: item, editor: editorVC, buttonView: buttonView)
+        markdownTabs.append(tab)
+        markdownTabView.selectTabViewItem(item)
+        markdownEditorView = editorVC
+        syncTabSelectionAppearance()
+
+        // 传播全屏状态到新建的编辑器
+        editorVC.isFullScreen = isFullScreen
+
+        // 监听文档标题变化，自动更新标签页标题（仅对未保存文档生效）
+        editorVC.onSuggestedTitleChange = { [weak self] title in
+            guard let self, let tab = self.markdownTabs.first(where: { $0.id == tabID }) else { return }
+            self.refreshTabTitle(for: tab, fallbackTitle: title ?? L10n.markdown.untitled)
+        }
+
+        // 监听预览模式变化，同步全屏预览/编辑切换按钮图标
+        editorVC.onPreviewModeChange = { [weak self] _ in
+            self?.updatePreviewToggleButtonIcon()
+        }
+
+        // 强制编辑器视图立即布局，确保 formatBar 获得正确的 bounds
+        // 这在首次创建标签页时尤其重要，因为此时 tab view 的尺寸可能还未确定
+        DispatchQueue.main.async { [weak editorVC] in
+            editorVC?.view.layoutSubtreeIfNeeded()
+        }
+
+        return tab
+    }
+
+    private func removeMarkdownTab(_ tab: MarkdownTab) {
+        markdownTabButtonsStack.removeArrangedSubview(tab.buttonView)
+        tab.buttonView.removeFromSuperview()
+        markdownTabView.removeTabViewItem(tab.item)
+        markdownTabs.removeAll { $0.id == tab.id }
+        markdownEditorView = currentMarkdownTab()?.editor
+        syncTabSelectionAppearance()
+    }
+
+    private func currentMarkdownTab() -> MarkdownTab? {
+        guard let selectedItem = markdownTabView.selectedTabViewItem else {
+            return markdownTabs.first
+        }
+        return markdownTabs.first { $0.item === selectedItem }
+    }
+
+    private func refreshTabTitle(for tab: MarkdownTab, fallbackTitle: String? = nil) {
+        // 对于未保存的文档，优先使用文档标题（来自第一个标题）
+        if tab.editor.fileURL == nil, let suggestedTitle = tab.editor.suggestedTitle {
+            tab.item.label = suggestedTitle
+            tab.buttonView.title = suggestedTitle
+            return
+        }
+        let resolved = tab.editor.fileURL?.lastPathComponent ?? fallbackTitle ?? tab.item.label
+        let finalTitle = resolved.isEmpty ? L10n.markdown.untitled : resolved
+        tab.item.label = finalTitle
+        tab.buttonView.title = finalTitle
+    }
+
+    private func waitForSaveAsResult(
+        for tabID: UUID,
+        previousURL: URL?,
+        warmupAttempts: Int,
+        completion: ((URL?) -> Void)?
+    ) {
+        guard let tab = tab(for: tabID) else {
+            completion?(nil)
+            return
+        }
+
+        let currentURL = tab.editor.fileURL
+        if let currentURL, currentURL != previousURL {
+            refreshTabTitle(for: tab, fallbackTitle: currentURL.lastPathComponent)
+            completion?(currentURL)
+            return
+        }
+
+        let hasAttachedSheet = window?.attachedSheet != nil
+        if !hasAttachedSheet {
+            if warmupAttempts > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                    self?.waitForSaveAsResult(
+                        for: tabID,
+                        previousURL: previousURL,
+                        warmupAttempts: warmupAttempts - 1,
+                        completion: completion
+                    )
+                }
+                return
+            }
+            completion?(nil)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            self?.waitForSaveAsResult(
+                for: tabID,
+                previousURL: previousURL,
+                warmupAttempts: warmupAttempts,
+                completion: completion
+            )
+        }
+    }
+
+    private func presentMarkdownSaveError(_ error: Error?) {
+        let detail = error?.localizedDescription ?? L10n.common.error
+        AppLogger.app.error("Markdown 保存失败: \(detail)")
+        NSSound.beep()
+
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = L10n.common.error
+        alert.informativeText = detail
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L10n.common.ok)
+        alert.beginSheetModal(for: window)
+    }
+
+    private func requestCloseForTabs(_ tabs: ArraySlice<MarkdownTab>, completion: @escaping (Bool) -> Void) {
+        guard let first = tabs.first else {
+            completion(true)
+            return
+        }
+
+        first.editor.requestCloseIfNeeded { [weak self] shouldClose in
+            guard let self else { return }
+            guard shouldClose else {
+                completion(false)
+                return
+            }
+            self.requestCloseForTabs(tabs.dropFirst(), completion: completion)
+        }
+    }
+
+    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        guard tabView === markdownTabView else { return }
+        markdownEditorView = currentMarkdownTab()?.editor
+        syncTabSelectionAppearance()
+        // 切换标签页后更新预览切换按钮图标
+        if !previewToggleButton.isHidden {
+            updatePreviewToggleButtonIcon()
+        }
+    }
+
+    /// 计算编辑器可见时的目标布局
+    private func calculateTargetFramesWithEditor() -> (left: CGRect, editor: CGRect, right: CGRect) {
+        let fullBounds = bounds
+
+        // 单设备模式特殊处理
+        if layoutMode == .leftOnly || layoutMode == .rightOnly {
+            let singleDeviceWidth = fullBounds.width * 0.55
+            let editorWidth = fullBounds.width - singleDeviceWidth
+
+            if layoutMode == .leftOnly {
+                // 仅左设备时：设备在左，编辑器在右
+                return (
+                    left: CGRect(x: 0, y: 0, width: singleDeviceWidth, height: fullBounds.height),
+                    editor: CGRect(x: singleDeviceWidth, y: 0, width: editorWidth, height: fullBounds.height),
+                    right: .zero
+                )
+            } else {
+                // 仅右设备时：编辑器在左，设备在右
+                return (
+                    left: .zero,
+                    editor: CGRect(x: 0, y: 0, width: editorWidth, height: fullBounds.height),
+                    right: CGRect(x: editorWidth, y: 0, width: singleDeviceWidth, height: fullBounds.height)
+                )
+            }
+        }
+
+        // 双设备模式
+        let editorWidth = fullBounds.width * editorWidthRatio
+        let deviceWidth = (fullBounds.width - editorWidth) / 2
+
+        switch markdownEditorPosition {
+        case .center:
+            return (
+                left: CGRect(x: 0, y: 0, width: deviceWidth, height: fullBounds.height),
+                editor: CGRect(x: deviceWidth, y: 0, width: editorWidth, height: fullBounds.height),
+                right: CGRect(x: deviceWidth + editorWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+            )
+        case .left:
+            return (
+                left: CGRect(x: editorWidth, y: 0, width: deviceWidth, height: fullBounds.height),
+                editor: CGRect(x: 0, y: 0, width: editorWidth, height: fullBounds.height),
+                right: CGRect(x: editorWidth + deviceWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+            )
+        case .right:
+            return (
+                left: CGRect(x: 0, y: 0, width: deviceWidth, height: fullBounds.height),
+                editor: CGRect(x: deviceWidth * 2, y: 0, width: editorWidth, height: fullBounds.height),
+                right: CGRect(x: deviceWidth, y: 0, width: deviceWidth, height: fullBounds.height)
+            )
+        }
+    }
+
+    /// 计算无编辑器时的目标布局
+    private func calculateTargetFramesWithoutEditor() -> (left: CGRect, right: CGRect) {
+        let fullBounds = bounds
+
+        switch layoutMode {
+        case .dual:
+            let halfWidth = fullBounds.width / 2
+            return (
+                left: CGRect(x: 0, y: 0, width: halfWidth, height: fullBounds.height),
+                right: CGRect(x: halfWidth, y: 0, width: halfWidth, height: fullBounds.height)
+            )
+        case .leftOnly:
+            return (
+                left: fullBounds,
+                right: .zero
+            )
+        case .rightOnly:
+            return (
+                left: .zero,
+                right: fullBounds
+            )
+        }
     }
 }

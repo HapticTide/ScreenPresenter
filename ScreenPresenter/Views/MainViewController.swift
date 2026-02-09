@@ -10,6 +10,8 @@
 
 import AppKit
 import Combine
+import MarkdownEditor
+import UniformTypeIdentifiers
 
 // MARK: - 主视图控制器
 
@@ -17,6 +19,13 @@ final class MainViewController: NSViewController {
     // MARK: - UI 组件
 
     private let previewContainerView = PreviewContainerView()
+
+    // MARK: - 公开属性
+
+    /// 当前 Markdown 编辑器视图（如果有）
+    var markdownEditorView: MarkdownEditorView? {
+        previewContainerView.markdownEditorView
+    }
 
     // MARK: - 设备面板快捷访问
 
@@ -62,6 +71,9 @@ final class MainViewController: NSViewController {
 
         // 应用初始 bezel 可见性设置
         previewContainerView.updateBezelVisibility()
+
+        // 恢复 Markdown 编辑器可见性
+        previewContainerView.restoreMarkdownEditorVisibility()
     }
 
     override func viewDidAppear() {
@@ -706,6 +718,176 @@ final class MainViewController: NSViewController {
         }
 
         return error.localizedDescription
+    }
+
+    // MARK: - 面板操作
+
+    /// 交换左右面板
+    func swapPanels() {
+        previewContainerView.swapPanels()
+        UserPreferences.shared.iosOnLeft = !previewContainerView.isSwapped
+    }
+
+    // MARK: - Markdown 编辑器
+
+    /// 切换 Markdown 编辑器显示/隐藏
+    func toggleMarkdownEditor() {
+        previewContainerView.toggleMarkdownEditor()
+        UserPreferences.shared.markdownEditorVisible = previewContainerView.isMarkdownEditorVisible
+    }
+
+    /// 设置 Markdown 编辑器位置
+    func setMarkdownEditorPosition(_ position: MarkdownEditorPosition) {
+        previewContainerView.setMarkdownEditorPosition(position)
+    }
+
+    /// 新建 Markdown 文件（清空当前内容）
+    func newMarkdownFile() {
+        previewContainerView.newMarkdownFile()
+    }
+
+    /// 新建 Markdown 标签页
+    func newMarkdownTab() {
+        previewContainerView.newMarkdownTab()
+    }
+
+    /// 从剪切板新建 Markdown 文件
+    func newMarkdownFromClipboard() {
+        previewContainerView.newMarkdownFromClipboard()
+    }
+
+    /// 打开 Markdown 文件
+    func openMarkdownFile() {
+        guard let window = view.window else { return }
+
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = markdownContentTypes()
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = false
+        openPanel.allowsMultipleSelection = false
+
+        openPanel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = openPanel.url else { return }
+            self?.previewContainerView.openMarkdownFile(at: url)
+            UserPreferences.shared.markdownLastFilePath = url.path
+            UserPreferences.shared.addRecentMarkdownFile(url.path)
+        }
+    }
+
+    /// 打开指定 URL 的 Markdown 文件（用于最近使用列表）
+    func openMarkdownFile(url: URL) {
+        previewContainerView.openMarkdownFile(at: url)
+        UserPreferences.shared.markdownLastFilePath = url.path
+        UserPreferences.shared.addRecentMarkdownFile(url.path)
+    }
+
+    /// 关闭当前 Markdown 标签页
+    func closeCurrentMarkdownTab() {
+        previewContainerView.closeCurrentMarkdownTab()
+    }
+
+    /// 保存当前 Markdown 文件
+    func saveMarkdownFile() {
+        previewContainerView.saveMarkdownFile()
+    }
+
+    /// 另存为 Markdown 文件
+    func saveMarkdownFileAs() {
+        previewContainerView.saveMarkdownFileAs { url in
+            guard let url else { return }
+            UserPreferences.shared.markdownLastFilePath = url.path
+            UserPreferences.shared.addRecentMarkdownFile(url.path)
+        }
+    }
+
+    /// 关闭主窗口/退出应用前确认 Markdown 保存状态
+    func requestCloseMarkdownIfNeeded(completion: @escaping (Bool) -> Void) {
+        previewContainerView.requestCloseMarkdownIfNeeded(completion: completion)
+    }
+
+    /// 设置 Markdown 主题模式
+    func setMarkdownThemeMode(_ mode: MarkdownEditorThemeMode) {
+        previewContainerView.setMarkdownThemeMode(mode)
+    }
+
+    /// Markdown 放大
+    func zoomInMarkdownEditor() {
+        previewContainerView.zoomInMarkdownEditor()
+    }
+
+    /// Markdown 缩小
+    func zoomOutMarkdownEditor() {
+        previewContainerView.zoomOutMarkdownEditor()
+    }
+
+    private func markdownContentTypes() -> [UTType] {
+        let extensions = ["md", "markdown", "txt"]
+        var types = extensions.compactMap { UTType(filenameExtension: $0) }
+        if !types.contains(.plainText) {
+            types.append(.plainText)
+        }
+        return types
+    }
+
+    // MARK: - 查找操作
+
+    /// 执行文本查找操作
+    func performTextFinderAction(_ action: NSTextFinder.Action) {
+        previewContainerView.markdownEditorView?.performTextFinderAction(action)
+    }
+
+    // MARK: - 格式操作
+
+    func toggleBold() {
+        previewContainerView.markdownEditorView?.toggleBold()
+    }
+
+    func toggleItalic() {
+        previewContainerView.markdownEditorView?.toggleItalic()
+    }
+
+    func toggleStrikethrough() {
+        previewContainerView.markdownEditorView?.toggleStrikethrough()
+    }
+
+    func toggleInlineCode() {
+        previewContainerView.markdownEditorView?.toggleInlineCode()
+    }
+
+    func toggleHeading(level: Int) {
+        previewContainerView.markdownEditorView?.toggleHeading(level: level)
+    }
+
+    func toggleBullet() {
+        previewContainerView.markdownEditorView?.toggleBullet()
+    }
+
+    func toggleNumbering() {
+        previewContainerView.markdownEditorView?.toggleNumbering()
+    }
+
+    func toggleBlockquote() {
+        previewContainerView.markdownEditorView?.toggleBlockquote()
+    }
+
+    func insertCodeBlock() {
+        previewContainerView.markdownEditorView?.insertCodeBlock()
+    }
+
+    func insertLink() {
+        previewContainerView.markdownEditorView?.insertLink()
+    }
+
+    func insertImage() {
+        previewContainerView.markdownEditorView?.insertImage()
+    }
+
+    func insertTable() {
+        previewContainerView.markdownEditorView?.insertTable()
+    }
+
+    func insertHorizontalRule() {
+        previewContainerView.markdownEditorView?.insertHorizontalRule()
     }
 }
 

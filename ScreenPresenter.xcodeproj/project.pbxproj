@@ -38,6 +38,9 @@
 		A481F7B32F0BB61C00D9DAB0 /* RingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A481F7B12F0BB61C00D9DAB0 /* RingBuffer.swift */; };
 		A481F7B42F0BB61C00D9DAB0 /* AudioSynchronizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A481F7B02F0BB61C00D9DAB0 /* AudioSynchronizer.swift */; };
 		A4BF9B8B2EFCF160003DD09D /* PreviewContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BF9B8A2EFCF160003DD09D /* PreviewContainerView.swift */; };
+		A4C8D2EE2F3978010083B267 /* MarkdownCore in Frameworks */ = {isa = PBXBuildFile; productRef = A4C8D2ED2F3978010083B267 /* MarkdownCore */; };
+		A4C8D2F12F39780A0083B267 /* MarkdownKit in Frameworks */ = {isa = PBXBuildFile; productRef = A4C8D2F02F39780A0083B267 /* MarkdownKit */; };
+		A4C8D2F42F3978150083B267 /* MarkdownEditor in Frameworks */ = {isa = PBXBuildFile; productRef = A4C8D2F32F3978150083B267 /* MarkdownEditor */; };
 		A4EE1B532F0CACFE009F7BC5 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A4EE1B522F0CACFE009F7BC5 /* Sparkle */; };
 		A4EE1B572F0CC35E009F7BC5 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EE1B562F0CC35E009F7BC5 /* UpdateManager.swift */; };
 		A4EE1B582F0CC35E009F7BC5 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EE1B542F0CC35E009F7BC5 /* Secrets.swift */; };
@@ -64,6 +67,7 @@
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		E1000001000000000002 /* FBDeviceControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000002 /* FBDeviceControlKit */; };
 		E1000001000000000003 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000003 /* Opus */; };
+		E1000001000000000006 /* MarkdownEditor in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000006 /* MarkdownEditor */; };
 		F1000001000000000001 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000002000000000001 /* Colors.swift */; };
 		FB000001000000000001 /* IOSDeviceStateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000001 /* IOSDeviceStateMapper.swift */; };
 		FB000001000000000005 /* FBDeviceControlService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000006 /* FBDeviceControlService.swift */; };
@@ -74,6 +78,19 @@
 		G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000005 /* VideoToolboxDecoder.swift */; };
 		G60942986538400935988421 /* ScrcpyErrorHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = G34952747508024177339802 /* ScrcpyErrorHelper.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		PREVIEW000005000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A7A9976317BC37F1A5CA0E6 /* ColorCompensationFilter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorCompensationFilter.swift; sourceTree = "<group>"; };
@@ -152,7 +169,11 @@
 			files = (
 				A4EE1B532F0CACFE009F7BC5 /* Sparkle in Frameworks */,
 				E1000001000000000002 /* FBDeviceControlKit in Frameworks */,
+				A4C8D2EE2F3978010083B267 /* MarkdownCore in Frameworks */,
 				E1000001000000000003 /* Opus in Frameworks */,
+				A4C8D2F12F39780A0083B267 /* MarkdownKit in Frameworks */,
+				A4C8D2F42F3978150083B267 /* MarkdownEditor in Frameworks */,
+				E1000001000000000006 /* MarkdownEditor in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,6 +398,7 @@
 				A10000012419FFFC000001A1 /* Sources */,
 				A10000012419FFFD000001A1 /* Frameworks */,
 				A10000012419FFFE000001A1 /* Resources */,
+				PREVIEW000005000000000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -387,6 +409,10 @@
 				E1000002000000000002 /* FBDeviceControlKit */,
 				E1000002000000000003 /* Opus */,
 				A4EE1B522F0CACFE009F7BC5 /* Sparkle */,
+				E1000002000000000006 /* MarkdownEditor */,
+				A4C8D2ED2F3978010083B267 /* MarkdownCore */,
+				A4C8D2F02F39780A0083B267 /* MarkdownKit */,
+				A4C8D2F32F3978150083B267 /* MarkdownEditor */,
 			);
 			productName = ScreenPresenter;
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
@@ -400,7 +426,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					A10000012419FFFF000001A1 = {
 						CreatedOnToolsVersion = 15.0;
@@ -421,6 +447,9 @@
 				E1000003000000000002 /* XCLocalSwiftPackageReference "FBDeviceControlKit" */,
 				E1000003000000000003 /* XCRemoteSwiftPackageReference "swift-opus" */,
 				A4EE1B512F0CACFE009F7BC5 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				A4C8D2EC2F3978010083B267 /* XCLocalSwiftPackageReference "MarkdownCore" */,
+				A4C8D2EF2F39780A0083B267 /* XCLocalSwiftPackageReference "MarkdownKit" */,
+				A4C8D2F22F3978150083B267 /* XCLocalSwiftPackageReference "MarkdownEditor" */,
 			);
 			productRefGroup = A1000001241A0001000001A3 /* Products */;
 			projectDirPath = "";
@@ -564,6 +593,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -630,6 +660,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -663,9 +694,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 202602042025;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ScreenPresenter/Info.plist;
@@ -698,9 +729,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 202602042025;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ScreenPresenter/Info.plist;
@@ -745,6 +776,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		A4C8D2EC2F3978010083B267 /* XCLocalSwiftPackageReference "MarkdownCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MarkdownCore;
+		};
+		A4C8D2EF2F39780A0083B267 /* XCLocalSwiftPackageReference "MarkdownKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MarkdownKit;
+		};
+		A4C8D2F22F3978150083B267 /* XCLocalSwiftPackageReference "MarkdownEditor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MarkdownEditor;
+		};
 		E1000003000000000002 /* XCLocalSwiftPackageReference "FBDeviceControlKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = FBDeviceControlKit;
@@ -771,6 +814,18 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A4C8D2ED2F3978010083B267 /* MarkdownCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkdownCore;
+		};
+		A4C8D2F02F39780A0083B267 /* MarkdownKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkdownKit;
+		};
+		A4C8D2F32F3978150083B267 /* MarkdownEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkdownEditor;
+		};
 		A4EE1B522F0CACFE009F7BC5 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A4EE1B512F0CACFE009F7BC5 /* XCRemoteSwiftPackageReference "Sparkle" */;
@@ -784,6 +839,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E1000003000000000003 /* XCRemoteSwiftPackageReference "swift-opus" */;
 			productName = Opus;
+		};
+		E1000002000000000006 /* MarkdownEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MarkdownEditor;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

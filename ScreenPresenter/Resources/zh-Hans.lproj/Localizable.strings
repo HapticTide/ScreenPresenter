@@ -23,6 +23,12 @@
 "common.checking" = "检查中...";
 "common.loading" = "加载中...";
 
+// MARK: - Alert
+"alert.quit" = "退出";
+"alert.cancel" = "取消";
+"alert.quitConfirmTitle" = "退出 ScreenPresenter？";
+"alert.quitConfirmMessage" = "确定要退出 ScreenPresenter 吗？";
+
 // MARK: - Menu
 "menu.about" = "关于 ScreenPresenter";
 "menu.preferences" = "偏好设置...";
@@ -41,6 +47,38 @@
 "menu.zoom" = "缩放";
 "menu.bringAllToFront" = "前置全部窗口";
 "menu.help" = "帮助";
+"menu.edit" = "编辑";
+"menu.undo" = "撤销";
+"menu.redo" = "重做";
+"menu.cut" = "剪切";
+"menu.copy" = "拷贝";
+"menu.paste" = "粘贴";
+"menu.selectAll" = "全选";
+"menu.find" = "查找";
+"menu.findAndReplace" = "查找和替换...";
+"menu.findNext" = "查找下一个";
+"menu.findPrevious" = "查找上一个";
+"menu.useSelectionForFind" = "用所选内容查找";
+"menu.format" = "格式";
+"menu.bold" = "粗体";
+"menu.italic" = "斜体";
+"menu.strikethrough" = "删除线";
+"menu.inlineCode" = "行内代码";
+"menu.heading" = "标题";
+"menu.heading1" = "一级标题";
+"menu.heading2" = "二级标题";
+"menu.heading3" = "三级标题";
+"menu.heading4" = "四级标题";
+"menu.heading5" = "五级标题";
+"menu.heading6" = "六级标题";
+"menu.bulletList" = "无序列表";
+"menu.numberedList" = "有序列表";
+"menu.blockquote" = "引用块";
+"menu.codeBlock" = "代码块";
+"menu.insertLink" = "插入链接...";
+"menu.insertImage" = "插入图片...";
+"menu.insertTable" = "插入表格...";
+"menu.insertHorizontalRule" = "水平分割线";
 
 // MARK: - Window
 "window.preferences" = "偏好设置";
@@ -224,6 +262,8 @@
 "toolbar.refreshComplete" = "设备列表已刷新";
 "toolbar.deviceInfoRefreshed" = "设备信息已刷新";
 "toolbar.swap" = "交换";
+"toolbar.swapPanels" = "交换";
+"toolbar.swapPanels.tooltip" = "交换设备位置";
 "toolbar.preferences" = "偏好设置";
 "toolbar.swap.tooltip" = "交换设备位置";
 "toolbar.refresh.tooltip" = "刷新设备列表";
@@ -390,3 +430,42 @@
 "menu.toggleDeviceBezel" = "显示设备边框";
 "menu.togglePreventSleep" = "禁止息屏";
 
+// MARK: - Markdown Editor
+"menu.markdown" = "文档编辑器";
+"menu.markdownNew" = "新建";
+"menu.markdownNewFromClipboard" = "从剪切板新建";
+"menu.markdownNewTab" = "新建标签页";
+"menu.markdownOpen" = "打开文件…";
+"menu.markdownOpenRecent" = "打开最近使用";
+"menu.markdownClearRecent" = "清除菜单";
+"menu.markdownCloseTab" = "关闭当前标签页";
+"menu.markdownCloseOtherTabs" = "关闭其他标签页";
+"menu.markdownCloseTabsToRight" = "关闭右侧标签页";
+"menu.markdownRevealInFinder" = "在 Finder 中打开";
+"menu.markdownCopyFilePath" = "复制文件路径";
+"menu.markdownRename" = "重命名…";
+"menu.markdownRenamePrompt" = "请输入新的文件名（无需扩展名）";
+"menu.markdownSave" = "保存";
+"menu.markdownSaveAs" = "另存为…";
+"menu.markdownZoomIn" = "放大";
+"menu.markdownZoomOut" = "缩小";
+"menu.markdownFormat" = "格式";
+"menu.markdownPosition" = "编辑器位置";
+"menu.markdownTheme" = "编辑器主题";
+"menu.markdownThemeSystem" = "跟随系统";
+"menu.markdownThemeLight" = "浅色";
+"menu.markdownThemeDark" = "深色";
+"menu.markdownSettings" = "编辑器设置";
+"menu.markdownToggle" = "显示/隐藏编辑器";
+"menu.markdownStatistics" = "字数统计";
+"menu.markdownFileVersion" = "文件版本…";
+"menu.markdownPreview" = "Markdown 预览";
+"markdown.untitled" = "未命名";
+"markdown.noRecentFiles" = "暂无最近文件";
+"markdown.positionCenter" = "居中";
+"markdown.positionLeft" = "左侧";
+"markdown.positionRight" = "右侧";
+"toolbar.markdownEditor" = "Markdown";
+"toolbar.markdownEditorTooltip" = "打开/关闭文档编辑器";
+"toolbar.swap" = "交换";
+"toolbar.swapTooltip" = "交换设备位置";

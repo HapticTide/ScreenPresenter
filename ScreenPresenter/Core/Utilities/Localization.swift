@@ -168,6 +168,15 @@ enum L10n {
         static var loading: String { "common.loading".localized }
     }
 
+    // MARK: - Alert
+
+    enum alert {
+        static var quit: String { "alert.quit".localized }
+        static var cancel: String { "alert.cancel".localized }
+        static var quitConfirmTitle: String { "alert.quitConfirmTitle".localized }
+        static var quitConfirmMessage: String { "alert.quitConfirmMessage".localized }
+    }
+
     // MARK: - Menu
 
     enum menu {
@@ -192,6 +201,40 @@ enum L10n {
         static var zoom: String { "menu.zoom".localized }
         static var bringAllToFront: String { "menu.bringAllToFront".localized }
         static var help: String { "menu.help".localized }
+        // 编辑菜单
+        static var edit: String { "menu.edit".localized }
+        static var undo: String { "menu.undo".localized }
+        static var redo: String { "menu.redo".localized }
+        static var cut: String { "menu.cut".localized }
+        static var copy: String { "menu.copy".localized }
+        static var paste: String { "menu.paste".localized }
+        static var selectAll: String { "menu.selectAll".localized }
+        static var find: String { "menu.find".localized }
+        static var findAndReplace: String { "menu.findAndReplace".localized }
+        static var findNext: String { "menu.findNext".localized }
+        static var findPrevious: String { "menu.findPrevious".localized }
+        static var useSelectionForFind: String { "menu.useSelectionForFind".localized }
+        // 格式菜单
+        static var format: String { "menu.format".localized }
+        static var bold: String { "menu.bold".localized }
+        static var italic: String { "menu.italic".localized }
+        static var strikethrough: String { "menu.strikethrough".localized }
+        static var inlineCode: String { "menu.inlineCode".localized }
+        static var heading: String { "menu.heading".localized }
+        static var heading1: String { "menu.heading1".localized }
+        static var heading2: String { "menu.heading2".localized }
+        static var heading3: String { "menu.heading3".localized }
+        static var heading4: String { "menu.heading4".localized }
+        static var heading5: String { "menu.heading5".localized }
+        static var heading6: String { "menu.heading6".localized }
+        static var bulletList: String { "menu.bulletList".localized }
+        static var numberedList: String { "menu.numberedList".localized }
+        static var blockquote: String { "menu.blockquote".localized }
+        static var codeBlock: String { "menu.codeBlock".localized }
+        static var insertLink: String { "menu.insertLink".localized }
+        static var insertImage: String { "menu.insertImage".localized }
+        static var insertTable: String { "menu.insertTable".localized }
+        static var insertHorizontalRule: String { "menu.insertHorizontalRule".localized }
     }
 
     // MARK: - Window
@@ -453,6 +496,8 @@ enum L10n {
         static var refreshComplete: String { "toolbar.refreshComplete".localized }
         static var deviceInfoRefreshed: String { "toolbar.deviceInfoRefreshed".localized }
         static var swap: String { "toolbar.swap".localized }
+        static var swapPanels: String { "toolbar.swapPanels".localized }
+        static var swapPanelsTooltip: String { "toolbar.swapPanels.tooltip".localized }
         static var preferences: String { "toolbar.preferences".localized }
         static var swapTooltip: String { "toolbar.swap.tooltip".localized }
         static var refreshTooltip: String { "toolbar.refresh.tooltip".localized }
@@ -467,6 +512,8 @@ enum L10n {
         static var preventSleepTooltip: String { "toolbar.preventSleep.tooltip".localized }
         static var preventSleepOn: String { "toolbar.preventSleep.on".localized }
         static var preventSleepOff: String { "toolbar.preventSleep.off".localized }
+        static var markdownEditor: String { "toolbar.markdownEditor".localized }
+        static var markdownEditorTooltip: String { "toolbar.markdownEditorTooltip".localized }
     }
 
     // MARK: - Toast
@@ -653,5 +700,44 @@ enum L10n {
             static var grayishTV: String { "color.preset.grayishTV".localized }
             static var oversaturatedTV: String { "color.preset.oversaturatedTV".localized }
         }
+    }
+
+    // MARK: - Markdown Editor
+
+    enum markdown {
+        static var menu: String { "menu.markdown".localized }
+        static var new: String { "menu.markdownNew".localized }
+        static var newFromClipboard: String { "menu.markdownNewFromClipboard".localized }
+        static var newTab: String { "menu.markdownNewTab".localized }
+        static var open: String { "menu.markdownOpen".localized }
+        static var openRecent: String { "menu.markdownOpenRecent".localized }
+        static var clearRecent: String { "menu.markdownClearRecent".localized }
+        static var closeTab: String { "menu.markdownCloseTab".localized }
+        static var closeOtherTabs: String { "menu.markdownCloseOtherTabs".localized }
+        static var closeTabsToRight: String { "menu.markdownCloseTabsToRight".localized }
+        static var revealInFinder: String { "menu.markdownRevealInFinder".localized }
+        static var copyFilePath: String { "menu.markdownCopyFilePath".localized }
+        static var rename: String { "menu.markdownRename".localized }
+        static var renamePrompt: String { "menu.markdownRenamePrompt".localized }
+        static var save: String { "menu.markdownSave".localized }
+        static var saveAs: String { "menu.markdownSaveAs".localized }
+        static var zoomIn: String { "menu.markdownZoomIn".localized }
+        static var zoomOut: String { "menu.markdownZoomOut".localized }
+        static var format: String { "menu.markdownFormat".localized }
+        static var position: String { "menu.markdownPosition".localized }
+        static var theme: String { "menu.markdownTheme".localized }
+        static var themeSystem: String { "menu.markdownThemeSystem".localized }
+        static var themeLight: String { "menu.markdownThemeLight".localized }
+        static var themeDark: String { "menu.markdownThemeDark".localized }
+        static var settings: String { "menu.markdownSettings".localized }
+        static var toggle: String { "menu.markdownToggle".localized }
+        static var statistics: String { "menu.markdownStatistics".localized }
+        static var fileVersion: String { "menu.markdownFileVersion".localized }
+        static var preview: String { "menu.markdownPreview".localized }
+        static var positionCenter: String { "markdown.positionCenter".localized }
+        static var positionLeft: String { "markdown.positionLeft".localized }
+        static var positionRight: String { "markdown.positionRight".localized }
+        static var untitled: String { "markdown.untitled".localized }
+        static var noRecentFiles: String { "markdown.noRecentFiles".localized }
     }
 }

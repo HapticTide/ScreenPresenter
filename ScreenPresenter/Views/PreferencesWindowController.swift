@@ -2278,4 +2278,6 @@ extension Notification.Name {
     static let layoutModeDidChange = Notification.Name("layoutModeDidChange")
     static let preventAutoLockSettingDidChange = Notification.Name("preventAutoLockSettingDidChange")
     static let audioSettingsDidChange = Notification.Name("audioSettingsDidChange")
+    static let markdownEditorVisibilityDidChange = Notification.Name("markdownEditorVisibilityDidChange")
+    static let markdownEditorPositionDidChange = Notification.Name("markdownEditorPositionDidChange")
 }
