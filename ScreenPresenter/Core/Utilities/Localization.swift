@@ -175,6 +175,8 @@ enum L10n {
         static var cancel: String { "alert.cancel".localized }
         static var quitConfirmTitle: String { "alert.quitConfirmTitle".localized }
         static var quitConfirmMessage: String { "alert.quitConfirmMessage".localized }
+        static func quitConfirmImpactMessage(_ count: Int) -> String { "alert.quitConfirmImpactMessage".localized(count) }
+        static var quitConfirmShortcutHint: String { "alert.quitConfirmShortcutHint".localized }
     }
 
     // MARK: - Menu
@@ -189,6 +191,7 @@ enum L10n {
         static var quit: String { "menu.quit".localized }
         static var checkForUpdates: String { "menu.checkForUpdates".localized }
         static var device: String { "menu.device".localized }
+        static var capture: String { "menu.capture".localized }
         static var refreshDevices: String { "menu.refreshDevices".localized }
         static var exportLogs: String { "menu.exportLogs".localized }
         static var close: String { "menu.close".localized }
@@ -201,6 +204,8 @@ enum L10n {
         static var zoom: String { "menu.zoom".localized }
         static var bringAllToFront: String { "menu.bringAllToFront".localized }
         static var help: String { "menu.help".localized }
+        static var githubHomepage: String { "menu.githubHomepage".localized }
+        static var reportIssue: String { "menu.reportIssue".localized }
         // 编辑菜单
         static var edit: String { "menu.edit".localized }
         static var undo: String { "menu.undo".localized }
@@ -375,6 +380,7 @@ enum L10n {
         enum audioPref {
             static var enableCapture: String { "prefs.audio.enableCapture".localized }
             static var volume: String { "prefs.audio.volume".localized }
+            static var restartRequiredNote: String { "prefs.audio.restartRequiredNote".localized }
             static var iosNote: String { "prefs.audio.iosNote".localized }
             static var androidNote: String { "prefs.audio.androidNote".localized }
             static var codec: String { "prefs.audio.codec".localized }

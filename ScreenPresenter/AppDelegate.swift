@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var markdownToggleMenuItem: NSMenuItem?
     private var recentFilesMenu: NSMenu?
     private var markdownThemeMenu: NSMenu?
+    private let repositoryHomepageURL = URL(string: "https://github.com/HapticTide/ScreenPresenter")!
+    private var repositoryIssuesURL: URL { repositoryHomepageURL.appendingPathComponent("issues") }
     
     /// FormatMenuProvider 协议 - 格式标题子菜单
     private(set) var formatHeadersMenu: NSMenu?
@@ -47,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
     private var isClosingWindowAfterMarkdownConfirmation = false
     private var isTerminationCloseApproved = false
+    private var isCaptureQuitConfirmationPresented = false
+    private var quitConfirmationShortcutMonitor: Any?
 
     // MARK: - 应用生命周期
 
@@ -201,34 +205,143 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             return .terminateNow
         }
 
-        // 第一步：处理未保存的文档
-        mainViewController.requestCloseMarkdownIfNeeded { [weak self] shouldProceed in
-            guard let self, shouldProceed else {
-                // 用户取消了保存操作
+        if isTerminationCloseApproved {
+            return .terminateNow
+        }
+
+        // 二次确认弹窗已显示时，再次按 Cmd+Q 直接退出
+        if isCaptureQuitConfirmationPresented {
+            isTerminationCloseApproved = true
+            return .terminateNow
+        }
+
+        // 3.1: 存在“未保存到磁盘”的文档，Cmd+Q 仅触发保存，不进入退出确认流程
+        if mainViewController.hasUnsavedNewMarkdownDocuments() {
+            mainViewController.autoSaveUnsavedFileBackedMarkdownDocuments { [weak mainViewController] saved in
+                guard let mainViewController else { return }
+                if !saved {
+                    NSSound.beep()
+                    return
+                }
+                mainViewController.promptSaveForUnsavedNewMarkdownDocuments { }
+            }
+            return .terminateCancel
+        }
+
+        // 没有“已落盘但未保存”的文档时，按投屏状态直接决定退出行为
+        guard mainViewController.hasUnsavedFileBackedMarkdownDocuments() else {
+            if hasActiveCaptureSession {
+                presentCaptureQuitConfirmation()
+                return .terminateLater
+            }
+            return .terminateNow
+        }
+
+        // 3.2: 对“已落盘但编辑未保存”的文档先自动保存，再按投屏状态决定
+        mainViewController.autoSaveUnsavedFileBackedMarkdownDocuments { [weak self] saved in
+            guard let self else {
                 NSApp.reply(toApplicationShouldTerminate: false)
                 return
             }
-
-            // 第二步：显示退出确认对话框
-            self.showQuitConfirmation { confirmed in
-                self.isTerminationCloseApproved = confirmed
-                NSApp.reply(toApplicationShouldTerminate: confirmed)
+            guard saved else {
+                NSSound.beep()
+                NSApp.reply(toApplicationShouldTerminate: false)
+                return
             }
+            self.continueTerminationAfterDocumentSave()
         }
         return .terminateLater
     }
 
-    /// 显示退出确认对话框
-    private func showQuitConfirmation(completion: @escaping (Bool) -> Void) {
+    private var hasActiveCaptureSession: Bool {
+        MainActor.assumeIsolated {
+            AppState.shared.iosCapturing || AppState.shared.androidCapturing
+        }
+    }
+
+    private var activeCaptureSessionCount: Int {
+        MainActor.assumeIsolated {
+            var count = 0
+            if AppState.shared.iosCapturing {
+                count += 1
+            }
+            if AppState.shared.androidCapturing {
+                count += 1
+            }
+            return count
+        }
+    }
+
+    private func continueTerminationAfterDocumentSave() {
+        if hasActiveCaptureSession {
+            presentCaptureQuitConfirmation()
+        } else {
+            isTerminationCloseApproved = true
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+    }
+
+    private func presentCaptureQuitConfirmation() {
+        guard !isCaptureQuitConfirmationPresented else { return }
+        isCaptureQuitConfirmationPresented = true
+
         let alert = NSAlert()
         alert.messageText = L10n.alert.quitConfirmTitle
-        alert.informativeText = L10n.alert.quitConfirmMessage
+        let sessionCount = max(activeCaptureSessionCount, 1)
+        alert.informativeText = [
+            L10n.alert.quitConfirmMessage,
+            L10n.alert.quitConfirmImpactMessage(sessionCount),
+            L10n.alert.quitConfirmShortcutHint,
+        ].joined(separator: "\n\n")
         alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
         alert.addButton(withTitle: L10n.alert.quit)
         alert.addButton(withTitle: L10n.alert.cancel)
 
-        let response = alert.runModal()
-        completion(response == .alertFirstButtonReturn)
+        startQuitConfirmationShortcutMonitor()
+
+        let complete: (Bool) -> Void = { [weak self] confirmed in
+            guard let self else { return }
+            self.stopQuitConfirmationShortcutMonitor()
+            self.isCaptureQuitConfirmationPresented = false
+            self.isTerminationCloseApproved = confirmed
+            NSApp.reply(toApplicationShouldTerminate: confirmed)
+        }
+
+        if let mainWindow {
+            alert.beginSheetModal(for: mainWindow) { response in
+                complete(response == .alertFirstButtonReturn)
+            }
+        } else {
+            complete(alert.runModal() == .alertFirstButtonReturn)
+        }
+    }
+
+    private func startQuitConfirmationShortcutMonitor() {
+        guard quitConfirmationShortcutMonitor == nil else { return }
+        quitConfirmationShortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            guard self.isCaptureQuitConfirmationPresented else { return event }
+            let key = event.charactersIgnoringModifiers?.lowercased()
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard modifiers.contains(.command), key == "q" else { return event }
+
+            if let mainWindow = self.mainWindow, let sheet = mainWindow.attachedSheet {
+                mainWindow.endSheet(sheet, returnCode: .alertFirstButtonReturn)
+            } else {
+                self.stopQuitConfirmationShortcutMonitor()
+                self.isCaptureQuitConfirmationPresented = false
+                self.isTerminationCloseApproved = true
+                NSApp.reply(toApplicationShouldTerminate: true)
+            }
+            return nil
+        }
+    }
+
+    private func stopQuitConfirmationShortcutMonitor() {
+        guard let quitConfirmationShortcutMonitor else { return }
+        NSEvent.removeMonitor(quitConfirmationShortcutMonitor)
+        self.quitConfirmationShortcutMonitor = nil
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -307,22 +420,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
         mainMenu.addItem(appMenuItem)
 
-        // 设备菜单
-        let deviceMenu = NSMenu(title: L10n.menu.device)
-        let deviceMenuItem = NSMenuItem()
-        deviceMenuItem.submenu = deviceMenu
+        // 捕获菜单（设备 + 显示）
+        let captureMenu = NSMenu(title: L10n.menu.capture)
+        let captureMenuItem = NSMenuItem()
+        captureMenuItem.submenu = captureMenu
 
-        let refreshItem = deviceMenu.addItem(
+        let refreshItem = captureMenu.addItem(
             withTitle: L10n.menu.refreshDevices,
             action: #selector(refreshDevices(_:)),
             keyEquivalent: "r"
         )
         refreshItem.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)
 
-        deviceMenu.addItem(NSMenuItem.separator())
+        captureMenu.addItem(NSMenuItem.separator())
 
         // 导出日志
-        let exportItem = deviceMenu.addItem(
+        let exportItem = captureMenu.addItem(
             withTitle: L10n.menu.exportLogs,
             action: #selector(exportLogs(_:)),
             keyEquivalent: "E"
@@ -330,102 +443,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         exportItem.keyEquivalentModifierMask = [.command, .shift]
         exportItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
 
-        deviceMenu.addItem(NSMenuItem.separator())
-
-        let closeItem = deviceMenu.addItem(
-            withTitle: L10n.menu.close,
-            action: #selector(NSWindow.performClose(_:)),
-            keyEquivalent: "w"
-        )
-        closeItem.target = nil
-
-        mainMenu.addItem(deviceMenuItem)
-
-        // 编辑菜单（标准操作：撤销、剪切、复制、粘贴等）
-        let editMenu = NSMenu(title: L10n.menu.edit)
-        let editMenuItem = NSMenuItem()
-        editMenuItem.submenu = editMenu
-
-        editMenu.addItem(
-            withTitle: L10n.menu.undo,
-            action: #selector(UndoManager.undo),
-            keyEquivalent: "z"
-        )
-        editMenu.addItem(
-            withTitle: L10n.menu.redo,
-            action: #selector(UndoManager.redo),
-            keyEquivalent: "Z"
-        )
-        editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(
-            withTitle: L10n.menu.cut,
-            action: #selector(NSText.cut(_:)),
-            keyEquivalent: "x"
-        )
-        editMenu.addItem(
-            withTitle: L10n.menu.copy,
-            action: #selector(NSText.copy(_:)),
-            keyEquivalent: "c"
-        )
-        editMenu.addItem(
-            withTitle: L10n.menu.paste,
-            action: #selector(NSText.paste(_:)),
-            keyEquivalent: "v"
-        )
-        editMenu.addItem(
-            withTitle: L10n.menu.selectAll,
-            action: #selector(NSText.selectAll(_:)),
-            keyEquivalent: "a"
-        )
-
-        editMenu.addItem(NSMenuItem.separator())
-
-        // 查找子菜单
-        let findMenu = NSMenu(title: L10n.menu.find)
-        let findMenuItem = editMenu.addItem(
-            withTitle: L10n.menu.find,
-            action: nil,
-            keyEquivalent: ""
-        )
-        findMenuItem.submenu = findMenu
-
-        findMenu.addItem(
-            withTitle: L10n.menu.findAndReplace,
-            action: #selector(performFindPanelAction(_:)),
-            keyEquivalent: "f"
-        ).tag = Int(NSTextFinder.Action.showFindInterface.rawValue)
-
-        findMenu.addItem(
-            withTitle: L10n.menu.findNext,
-            action: #selector(performFindPanelAction(_:)),
-            keyEquivalent: "g"
-        ).tag = Int(NSTextFinder.Action.nextMatch.rawValue)
-
-        let findPrevItem = findMenu.addItem(
-            withTitle: L10n.menu.findPrevious,
-            action: #selector(performFindPanelAction(_:)),
-            keyEquivalent: "G"
-        )
-        findPrevItem.tag = Int(NSTextFinder.Action.previousMatch.rawValue)
-
-        findMenu.addItem(NSMenuItem.separator())
-
-        let useSelItem = findMenu.addItem(
-            withTitle: L10n.menu.useSelectionForFind,
-            action: #selector(performFindPanelAction(_:)),
-            keyEquivalent: "e"
-        )
-        useSelItem.tag = Int(NSTextFinder.Action.setSearchString.rawValue)
-
-        mainMenu.addItem(editMenuItem)
-
-        // 显示菜单
-        let viewMenu = NSMenu(title: L10n.menu.view)
-        let viewMenuItem = NSMenuItem()
-        viewMenuItem.submenu = viewMenu
+        captureMenu.addItem(NSMenuItem.separator())
 
         // 显示/隐藏设备边框
-        let bezelItem = viewMenu.addItem(
+        let bezelItem = captureMenu.addItem(
             withTitle: L10n.menu.toggleDeviceBezel,
             action: #selector(toggleDeviceBezel(_:)),
             keyEquivalent: "B"
@@ -436,7 +457,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         bezelMenuItem = bezelItem
 
         // 禁止息屏
-        let sleepItem = viewMenu.addItem(
+        let sleepItem = captureMenu.addItem(
             withTitle: L10n.menu.togglePreventSleep,
             action: #selector(togglePreventSleep(_:)),
             keyEquivalent: "S"
@@ -446,10 +467,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         sleepItem.state = UserPreferences.shared.preventAutoLockDuringCapture ? .on : .off
         preventSleepMenuItem = sleepItem
 
-        viewMenu.addItem(NSMenuItem.separator())
+        captureMenu.addItem(NSMenuItem.separator())
 
         // 颜色补偿
-        let colorCompItem = viewMenu.addItem(
+        let colorCompItem = captureMenu.addItem(
             withTitle: L10n.menu.colorCompensation,
             action: #selector(toggleColorCompensationPanel(_:)),
             keyEquivalent: "C"
@@ -457,9 +478,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         colorCompItem.keyEquivalentModifierMask = [.command, .shift]
         colorCompItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
 
-        viewMenu.addItem(NSMenuItem.separator())
+        captureMenu.addItem(NSMenuItem.separator())
 
-        mainMenu.addItem(viewMenuItem)
+        let closeItem = captureMenu.addItem(
+            withTitle: L10n.menu.close,
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: ""
+        )
+        closeItem.target = nil
 
         // Markdown 菜单
         let mdMenu = NSMenu(title: L10n.markdown.menu)
@@ -652,10 +678,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             action: #selector(closeCurrentMarkdownTab(_:)),
             keyEquivalent: "w"
         )
-        closeTabItem.keyEquivalentModifierMask = [.command, .option]
+        closeTabItem.keyEquivalentModifierMask = [.command]
         closeTabItem.image = symbolImage("xmark.rectangle")
 
         mainMenu.addItem(mdMenuItem)
+        mainMenu.addItem(captureMenuItem)
 
         // 窗口菜单
         let windowMenu = NSMenu(title: L10n.menu.window)
@@ -686,6 +713,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         let helpMenu = NSMenu(title: L10n.menu.help)
         let helpMenuItem = NSMenuItem()
         helpMenuItem.submenu = helpMenu
+        let githubHomeItem = helpMenu.addItem(
+            withTitle: L10n.menu.githubHomepage,
+            action: #selector(openGitHubHomepage(_:)),
+            keyEquivalent: ""
+        )
+        githubHomeItem.target = self
+        githubHomeItem.image = symbolImage("house")
+
+        let reportIssueItem = helpMenu.addItem(
+            withTitle: L10n.menu.reportIssue,
+            action: #selector(reportIssue(_:)),
+            keyEquivalent: ""
+        )
+        reportIssueItem.target = self
+        reportIssueItem.image = symbolImage("exclamationmark.bubble")
         mainMenu.addItem(helpMenuItem)
         NSApp.helpMenu = helpMenu
 
@@ -982,6 +1024,14 @@ extension AppDelegate {
         UpdateManager.shared.checkForUpdates()
     }
 
+    @IBAction func openGitHubHomepage(_ sender: Any?) {
+        openExternalLink(repositoryHomepageURL)
+    }
+
+    @IBAction func reportIssue(_ sender: Any?) {
+        openExternalLink(repositoryIssuesURL)
+    }
+
     @IBAction func toggleColorCompensationPanel(_ sender: Any?) {
         ColorCompensationPanel.shared.togglePanel()
     }
@@ -1012,6 +1062,14 @@ extension AppDelegate {
         savePanel.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let url = savePanel.url else { return }
             self?.collectAndExportLogs(to: url)
+        }
+    }
+
+    private func openExternalLink(_ url: URL) {
+        guard NSWorkspace.shared.open(url) else {
+            NSSound.beep()
+            AppLogger.app.error("打开外部链接失败: \(url.absoluteString)")
+            return
         }
     }
 
@@ -1205,6 +1263,7 @@ extension AppDelegate {
     }
 
     @IBAction func closeCurrentMarkdownTab(_ sender: Any?) {
+        guard mainViewController?.isMarkdownEditorVisible == true else { return }
         mainViewController?.closeCurrentMarkdownTab()
     }
 
@@ -1627,6 +1686,10 @@ extension AppDelegate: NSMenuItemValidation {
                 return !editorView.isPreviewMode
             }
             return true
+        }
+
+        if action == #selector(closeCurrentMarkdownTab(_:)) {
+            return mainViewController?.isMarkdownEditorVisible == true
         }
 
         return true

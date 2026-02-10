@@ -28,6 +28,8 @@
 "alert.cancel" = "取消";
 "alert.quitConfirmTitle" = "退出 ScreenPresenter？";
 "alert.quitConfirmMessage" = "确定要退出 ScreenPresenter 吗？";
+"alert.quitConfirmImpactMessage" = "退出后将中断当前 %d 个正在进行的投屏会话。";
+"alert.quitConfirmShortcutHint" = "提示：在此确认弹窗显示期间，再按一次 Cmd+Q 可直接退出。";
 
 // MARK: - Menu
 "menu.about" = "关于 ScreenPresenter";
@@ -39,6 +41,7 @@
 "menu.quit" = "退出 ScreenPresenter";
 "menu.checkForUpdates" = "检查更新...";
 "menu.device" = "设备";
+"menu.capture" = "捕获";
 "menu.refreshDevices" = "刷新设备";
 "menu.exportLogs" = "导出日志...";
 "menu.close" = "关闭";
@@ -47,6 +50,8 @@
 "menu.zoom" = "缩放";
 "menu.bringAllToFront" = "前置全部窗口";
 "menu.help" = "帮助";
+"menu.githubHomepage" = "GitHub 主页";
+"menu.reportIssue" = "反馈问题";
 "menu.edit" = "编辑";
 "menu.undo" = "撤销";
 "menu.redo" = "重做";
@@ -152,8 +157,9 @@
 // MARK: - Preferences - Audio
 "prefs.audio.enableCapture" = "启用音频捕获";
 "prefs.audio.volume" = "音量";
+"prefs.audio.restartRequiredNote" = "注意：切换“启用音频捕获”后，需要重启 App 才会生效。";
 "prefs.audio.iosNote" = "音频捕获需要通过 USB 连接 iOS 设备";
-"prefs.audio.androidNote" = "需要 Android 11 或更高版本。更改将在下次捕获时生效。";
+"prefs.audio.androidNote" = "需要 Android 11 或更高版本。";
 "prefs.audio.codec" = "音频编解码器";
 
 // MARK: - Preferences - General

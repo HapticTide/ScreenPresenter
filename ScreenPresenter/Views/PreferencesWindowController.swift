@@ -974,6 +974,17 @@ final class PreferencesViewController: NSViewController {
         // 音频设置组（包含 iOS 和 Android）
         let audioGroup = createSettingsGroup(title: L10n.prefs.section.audio, icon: "speaker.wave.2.fill")
 
+        let audioRestartRequiredNote = NSTextField(labelWithString: L10n.prefs.audioPref.restartRequiredNote)
+        audioRestartRequiredNote.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        audioRestartRequiredNote.textColor = NSColor.systemYellow
+        audioRestartRequiredNote.maximumNumberOfLines = 0
+        audioRestartRequiredNote.lineBreakMode = .byWordWrapping
+        let audioRestartRequiredNoteContainer = PaddingView(
+            contentView: audioRestartRequiredNote,
+            insets: NSEdgeInsets(top: 0, left: 0, bottom: LayoutMetrics.rowVerticalPadding, right: 0)
+        )
+        addGroupRow(audioGroup, audioRestartRequiredNoteContainer, addDivider: false)
+
         // iOS 子标题
         let iosSubtitle = NSTextField(labelWithString: "iOS")
         iosSubtitle.font = NSFont.systemFont(ofSize: 12, weight: .semibold)

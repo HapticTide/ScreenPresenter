@@ -1,8 +1,8 @@
 # ScreenPresenter
 
 macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕，具备仿真设备边框渲染效果。
-
-## ✨ 特性
+ 
+## ✨ 特性 
 
 - 📱 **iOS 投屏**: QuickTime 同款路径 (CoreMediaIO + AVFoundation)
 - 🤖 **Android 投屏**: scrcpy 码流 + VideoToolbox 硬件解码

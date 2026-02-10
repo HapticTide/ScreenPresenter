@@ -28,6 +28,8 @@
 "alert.cancel" = "Cancel";
 "alert.quitConfirmTitle" = "Quit ScreenPresenter?";
 "alert.quitConfirmMessage" = "Are you sure you want to quit ScreenPresenter?";
+"alert.quitConfirmImpactMessage" = "Quitting will stop %d active screen mirroring session(s).";
+"alert.quitConfirmShortcutHint" = "Tip: while this confirmation is visible, press Cmd+Q again to quit immediately.";
 
 // MARK: - Menu
 "menu.about" = "About ScreenPresenter";
@@ -39,6 +41,7 @@
 "menu.quit" = "Quit ScreenPresenter";
 "menu.checkForUpdates" = "Check for Updates...";
 "menu.device" = "Device";
+"menu.capture" = "Capture";
 "menu.refreshDevices" = "Refresh Devices";
 "menu.exportLogs" = "Export Logs...";
 "menu.close" = "Close";
@@ -47,6 +50,8 @@
 "menu.zoom" = "Zoom";
 "menu.bringAllToFront" = "Bring All to Front";
 "menu.help" = "Help";
+"menu.githubHomepage" = "GitHub Homepage";
+"menu.reportIssue" = "Report an Issue";
 "menu.edit" = "Edit";
 "menu.undo" = "Undo";
 "menu.redo" = "Redo";
@@ -152,8 +157,9 @@
 // MARK: - Preferences - Audio
 "prefs.audio.enableCapture" = "Enable Audio Capture";
 "prefs.audio.volume" = "Volume";
+"prefs.audio.restartRequiredNote" = "Note: changing \"Enable Audio Capture\" takes effect after restarting the app.";
 "prefs.audio.iosNote" = "Audio capture requires iOS device connected via USB";
-"prefs.audio.androidNote" = "Requires Android 11+. Changes take effect on next capture.";
+"prefs.audio.androidNote" = "Requires Android 11+.";
 "prefs.audio.codec" = "Audio Codec";
 
 // MARK: - Preferences - General

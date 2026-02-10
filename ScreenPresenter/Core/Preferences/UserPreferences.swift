@@ -69,11 +69,16 @@ final class UserPreferences {
         static let markdownThemeMode = "markdownThemeMode"
         static let markdownLastFilePath = "markdownLastFilePath"
         static let recentMarkdownFiles = "recentMarkdownFiles"
+        static let markdownOpenedFilePaths = "markdownOpenedFilePaths"
     }
 
     // MARK: - UserDefaults
 
     private let defaults = UserDefaults.standard
+    /// 本次应用启动时 iOS 音频捕获开关快照（运行期偏好改动需重启后生效）
+    private var iosAudioEnabledAtLaunch: Bool = false
+    /// 本次应用启动时 Android 音频捕获开关快照（运行期偏好改动需重启后生效）
+    private var androidAudioEnabledAtLaunch: Bool = false
 
     // MARK: - Layout Settings
 
@@ -290,11 +295,11 @@ final class UserPreferences {
 
     // MARK: - Audio Settings
 
-    /// iOS 音频是否启用（默认 true）
+    /// iOS 音频是否启用（默认 false，需要用户手动启用）
     var iosAudioEnabled: Bool {
         get {
             if defaults.object(forKey: Keys.iosAudioEnabled) == nil {
-                return true
+                return false
             }
             return defaults.bool(forKey: Keys.iosAudioEnabled)
         }
@@ -376,11 +381,24 @@ final class UserPreferences {
         }
     }
 
+    /// 本次应用启动会话中，指定平台的音频捕获是否开启
+    /// 说明：该值在应用启动时固定，偏好设置的运行时修改需要重启应用后才生效。
+    func isAudioCaptureEnabledForCurrentSession(platform: DevicePlatform) -> Bool {
+        switch platform {
+        case .ios:
+            iosAudioEnabledAtLaunch
+        case .android:
+            androidAudioEnabledAtLaunch
+        }
+    }
+
     // MARK: - Private Init
 
     private init() {
         // 设置默认值
         registerDefaults()
+        iosAudioEnabledAtLaunch = defaults.bool(forKey: Keys.iosAudioEnabled)
+        androidAudioEnabledAtLaunch = defaults.bool(forKey: Keys.androidAudioEnabled)
     }
 
     private func registerDefaults() {
@@ -394,7 +412,7 @@ final class UserPreferences {
             Keys.scrcpyPortRangeStart: 27183,
             Keys.scrcpyPortRangeEnd: 27199,
             Keys.scrcpyCodec: ScrcpyCodecType.h264.rawValue,
-            Keys.iosAudioEnabled: true,
+            Keys.iosAudioEnabled: false,
             Keys.iosAudioVolume: 1.0,
             Keys.androidAudioEnabled: false,
             Keys.androidAudioVolume: 1.0,
@@ -480,6 +498,19 @@ final class UserPreferences {
             // 最多保留 10 个
             let trimmed = Array(newValue.prefix(10))
             defaults.set(trimmed, forKey: Keys.recentMarkdownFiles)
+        }
+    }
+
+    /// 上次会话打开的 Markdown 文件列表（按标签页顺序）
+    var markdownOpenedFilePaths: [String] {
+        get { defaults.stringArray(forKey: Keys.markdownOpenedFilePaths) ?? [] }
+        set {
+            var deduplicated: [String] = []
+            deduplicated.reserveCapacity(newValue.count)
+            for path in newValue where !path.isEmpty && !deduplicated.contains(path) {
+                deduplicated.append(path)
+            }
+            defaults.set(Array(deduplicated.prefix(20)), forKey: Keys.markdownOpenedFilePaths)
         }
     }
 

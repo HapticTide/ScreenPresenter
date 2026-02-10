@@ -27,6 +27,11 @@ final class MainViewController: NSViewController {
         previewContainerView.markdownEditorView
     }
 
+    /// Markdown 编辑器当前是否可见
+    var isMarkdownEditorVisible: Bool {
+        previewContainerView.isMarkdownEditorVisible
+    }
+
     // MARK: - 设备面板快捷访问
 
     /// iOS 面板（默认在左侧）
@@ -803,6 +808,26 @@ final class MainViewController: NSViewController {
     /// 关闭主窗口/退出应用前确认 Markdown 保存状态
     func requestCloseMarkdownIfNeeded(completion: @escaping (Bool) -> Void) {
         previewContainerView.requestCloseMarkdownIfNeeded(completion: completion)
+    }
+
+    /// 是否存在“未保存到磁盘且有改动”的文档
+    func hasUnsavedNewMarkdownDocuments() -> Bool {
+        previewContainerView.hasUnsavedNewMarkdownDocuments()
+    }
+
+    /// 是否存在“已落盘但有改动未保存”的文档
+    func hasUnsavedFileBackedMarkdownDocuments() -> Bool {
+        previewContainerView.hasUnsavedFileBackedMarkdownDocuments()
+    }
+
+    /// 自动保存“已落盘但有改动未保存”的文档
+    func autoSaveUnsavedFileBackedMarkdownDocuments(completion: @escaping (Bool) -> Void) {
+        previewContainerView.autoSaveUnsavedFileBackedMarkdownDocuments(completion: completion)
+    }
+
+    /// 对“未保存到磁盘且有改动”的文档触发保存提示
+    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping () -> Void) {
+        previewContainerView.promptSaveForUnsavedNewMarkdownDocuments(completion: completion)
     }
 
     /// 设置 Markdown 主题模式

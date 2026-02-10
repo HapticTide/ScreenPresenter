@@ -4,39 +4,41 @@
         <title>ScreenPresenter Updates</title>
         <description>ScreenPresenter - macOS 设备投屏工具</description>
         <language>zh-Hans</language>
-        <link>https://github.com/AIAugmentLab/ScreenPresenter</link>
+        <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.0.3</title>
+            <title>Version 1.0.4</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.0.3</h2>
-                <p>新增内嵌 Markdown 编辑器，支持多标签页编辑与丰富的主题选择。</p>
+                <h2>🚀 ScreenPresenter 1.0.4</h2>
+                <p>本次更新重点优化 Markdown 编辑体验、退出流程与菜单结构。</p>
 
                 <h3>✨ 新功能</h3>
                 <ul>
-                    <li>内嵌 Markdown 编辑器：多标签页、语法高亮、10+ 代码主题</li>
-                    <li>查找与替换、格式快捷工具栏</li>
-                    <li>编辑器位置可配置（左侧 / 右侧 / 居中）</li>
-                    <li>标准编辑菜单（撤销、重做、剪切、复制、粘贴、查找）</li>
-                    <li>退出确认与未保存文档提示</li>
+                    <li>Markdown 文件打开支持复用单个空白标签页，减少无效标签堆积</li>
+                    <li>启动时自动恢复上次打开文档（支持多文件，自动跳过不存在文件）</li>
+                    <li>标签页新增未保存状态标记（新建未保存 / 已落盘但未保存）</li>
+                    <li>退出逻辑按投屏状态分流：投屏中弹确认，非投屏直接退出</li>
+                    <li>二次确认弹窗支持再次按 Cmd+Q 直接退出，并显示退出影响说明</li>
+                    <li>主菜单重组为：文档编辑器｜捕获｜窗口｜帮助</li>
+                    <li>帮助菜单新增 GitHub 主页与反馈问题（Issues）快捷入口</li>
                 </ul>
 
-                <h3>🛠️ 修复</h3>
+                <h3>🛠️ 改进</h3>
                 <ul>
-                    <li>修复 VideoToolbox 解码器跨线程引用传递的潜在崩溃</li>
-                    <li>编辑器主题不再影响主窗口外观</li>
+                    <li>音频捕获默认关闭；关闭时 DeviceCaptureInfoView 隐藏全部音频相关控件</li>
+                    <li>音频捕获开关改为重启 App 后生效，偏好设置新增黄色提示说明</li>
                 </ul>
                 ]]>
             </description>
             <pubDate>Mon, 09 Feb 2026 17:21:24 +0800</pubDate>
             
             <sparkle:version>202602091719</sparkle:version>
-            <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+            <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://api.github.com/repos/AIAugmentLab/ScreenPresenter/releases/assets/353007578"
+                url="https://api.github.com/repos/HapticTide/ScreenPresenter/releases/assets/353007578"
                 length="14922465"
                 type="application/octet-stream"
                 sparkle:edSignature="aMIKO4rvz98wtS0484rhnKQ7CoNuDbHbzBvOsMlTUdFTiHxaqjEHw+H2THmF3a8SU7sUevCaRhKqPxI0Y7JaDg=="

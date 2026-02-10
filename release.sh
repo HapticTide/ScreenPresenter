@@ -67,8 +67,13 @@ SIGN_UPDATE="$SPARKLE_BIN/sign_update"
 # Gist 配置
 GIST_ID="529546d3936dfdc120e88bdbe21bef55"
 
-# GitHub 仓库
-GITHUB_REPO="AIAugmentLab/ScreenPresenter"
+# GitHub 仓库（优先从 origin 自动解析）
+REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+if [[ "$REMOTE_URL" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
+    GITHUB_REPO="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+else
+    GITHUB_REPO="HapticTide/ScreenPresenter"
+fi
 
 echo ""
 echo "=========================================="

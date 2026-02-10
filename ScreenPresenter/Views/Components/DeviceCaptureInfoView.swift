@@ -58,6 +58,8 @@ final class DeviceCaptureInfoView: NSView {
 
     /// 当前设备平台
     private var currentPlatform: DevicePlatform = .ios
+    /// 当前是否显示音量调节控件（滑块和百分比）
+    private var showsVolumeControls: Bool = false
 
     // MARK: - 回调
 
@@ -165,6 +167,7 @@ final class DeviceCaptureInfoView: NSView {
         volumeSlider.action = #selector(volumeSliderChanged)
         volumeSlider.controlSize = .small
         audioControlContainer.addSubview(volumeSlider)
+        volumeSlider.isHidden = true
 
         // 音量标签
         volumeLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
@@ -172,6 +175,7 @@ final class DeviceCaptureInfoView: NSView {
         volumeLabel.alignment = .right
         volumeLabel.stringValue = "100%"
         audioControlContainer.addSubview(volumeLabel)
+        volumeLabel.isHidden = true
 
         // 默认隐藏音频控制（等待设置平台后显示）
         audioControlContainer.isHidden = true
@@ -278,7 +282,13 @@ final class DeviceCaptureInfoView: NSView {
 
         // 音频控件尺寸
         let audioControlHeight: CGFloat = audioControlContainer.isHidden ? 0 : 32
-        let audioControlWidth: CGFloat = min(availableWidth, 200)
+        let audioControlWidth: CGFloat = if audioControlContainer.isHidden {
+            0
+        } else if showsVolumeControls {
+            min(availableWidth, 200)
+        } else {
+            44
+        }
 
         let contentWidth = max(topStatusWidth, resolutionWidth, deviceNameWidth, deviceInfoWidth, audioControlWidth, 48)
         let audioSpacing: CGFloat = audioControlContainer.isHidden ? 0 : 16
@@ -358,29 +368,38 @@ final class DeviceCaptureInfoView: NSView {
 
             // 布局音频控件内部元素
             let buttonSize: CGFloat = 24
-            let sliderWidth: CGFloat = audioControlWidth - buttonSize - 50 - 16 // 按钮 + 标签 + 间距
-            let labelWidth: CGFloat = 40
+            if showsVolumeControls {
+                let sliderWidth: CGFloat = audioControlWidth - buttonSize - 50 - 16 // 按钮 + 标签 + 间距
+                let labelWidth: CGFloat = 40
 
-            audioToggleButton.frame = CGRect(
-                x: 8,
-                y: (audioControlHeight - buttonSize) / 2,
-                width: buttonSize,
-                height: buttonSize
-            )
+                audioToggleButton.frame = CGRect(
+                    x: 8,
+                    y: (audioControlHeight - buttonSize) / 2,
+                    width: buttonSize,
+                    height: buttonSize
+                )
 
-            volumeSlider.frame = CGRect(
-                x: 8 + buttonSize + 8,
-                y: (audioControlHeight - 20) / 2,
-                width: sliderWidth,
-                height: 20
-            )
+                volumeSlider.frame = CGRect(
+                    x: 8 + buttonSize + 8,
+                    y: (audioControlHeight - 20) / 2,
+                    width: sliderWidth,
+                    height: 20
+                )
 
-            volumeLabel.frame = CGRect(
-                x: audioControlWidth - labelWidth - 8,
-                y: (audioControlHeight - 16) / 2,
-                width: labelWidth,
-                height: 16
-            )
+                volumeLabel.frame = CGRect(
+                    x: audioControlWidth - labelWidth - 8,
+                    y: (audioControlHeight - 16) / 2,
+                    width: labelWidth,
+                    height: 16
+                )
+            } else {
+                audioToggleButton.frame = CGRect(
+                    x: (audioControlWidth - buttonSize) / 2,
+                    y: (audioControlHeight - buttonSize) / 2,
+                    width: buttonSize,
+                    height: buttonSize
+                )
+            }
         }
 
         y -= 24
@@ -505,20 +524,23 @@ final class DeviceCaptureInfoView: NSView {
 
         // iOS 和 Android（Android 11+）都支持音频捕获
         let supportsAudio = (platform == .ios || platform == .android)
-        audioControlContainer.isHidden = !supportsAudio
+        let audioEnabledInCurrentSession = UserPreferences.shared.isAudioCaptureEnabledForCurrentSession(platform: platform)
+        let shouldShowAudioControls = supportsAudio && audioEnabledInCurrentSession
+        audioControlContainer.isHidden = !shouldShowAudioControls
 
-        if supportsAudio {
-            // 从偏好设置加载初始状态
-            let enabled: Bool
+        if shouldShowAudioControls {
+            // 运行期偏好设置更改需重启生效，这里仅使用当前会话的音频启用状态（已为 true）
             let volume: Float
             if platform == .ios {
-                enabled = UserPreferences.shared.iosAudioEnabled
                 volume = UserPreferences.shared.iosAudioVolume
             } else {
-                enabled = UserPreferences.shared.androidAudioEnabled
                 volume = UserPreferences.shared.androidAudioVolume
             }
-            updateAudioState(enabled: enabled, volume: volume)
+            updateAudioState(enabled: true, volume: volume)
+        } else {
+            showsVolumeControls = false
+            volumeSlider.isHidden = true
+            volumeLabel.isHidden = true
         }
 
         needsLayout = true
@@ -529,16 +551,30 @@ final class DeviceCaptureInfoView: NSView {
     ///   - enabled: 音频是否启用
     ///   - volume: 音量 (0.0 - 1.0)
     func updateAudioState(enabled: Bool, volume: Float) {
+        guard enabled else {
+            audioControlContainer.isHidden = true
+            showsVolumeControls = false
+            volumeSlider.isHidden = true
+            volumeLabel.isHidden = true
+            needsLayout = true
+            return
+        }
+
+        audioControlContainer.isHidden = false
         let iconName = enabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
         audioToggleButton.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
         audioToggleButton.contentTintColor = enabled ? .systemBlue : .secondaryLabelColor
 
+        showsVolumeControls = true
+        volumeSlider.isHidden = false
+        volumeLabel.isHidden = false
         volumeSlider.floatValue = volume
-        volumeSlider.isEnabled = enabled
+        volumeSlider.isEnabled = true
 
         let volumePercent = Int(volume * 100)
         volumeLabel.stringValue = "\(volumePercent)%"
-        volumeLabel.textColor = enabled ? .secondaryLabelColor : .tertiaryLabelColor
+        volumeLabel.textColor = .secondaryLabelColor
+        needsLayout = true
     }
 
     // MARK: - 操作

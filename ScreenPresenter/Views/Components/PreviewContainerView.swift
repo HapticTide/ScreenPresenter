@@ -241,6 +241,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     private var markdownTabBarHeightConstraint: NSLayoutConstraint?
     private var markdownTabs: [MarkdownTab] = []
     private var contextMenuTabID: UUID?
+    private var markdownUnsavedStateTimer: Timer?
 
     /// 交换按钮
     private(set) var swapButton = NSButton(title: "", target: nil, action: nil)
@@ -297,6 +298,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     /// 编辑器占总宽度的比例（显示时）
     private let editorWidthRatio: CGFloat = 0.38
     private let markdownTabBarHeight: CGFloat = 26
+    private let markdownUnsavedTabSuffix = " *"
 
     // MARK: - 回调
 
@@ -315,6 +317,10 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         setupUI()
     }
 
+    deinit {
+        markdownUnsavedStateTimer?.invalidate()
+    }
+
     // MARK: - UI 设置
 
     private func setupUI() {
@@ -326,6 +332,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         setupSwapButton()
         setupPreviewToggleButton()
         updateMarkdownTabBarVisibilityForCurrentMode()
+        startMarkdownUnsavedStateTimer()
 
         // 根据初始 layoutMode 设置 UI 状态
         updateAreaVisibility()
@@ -1214,6 +1221,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         let tab = createMarkdownTab(title: L10n.markdown.untitled)
         tab.editor.setContent("")
         refreshTabTitle(for: tab, fallbackTitle: L10n.markdown.untitled)
+        persistOpenedMarkdownFilePaths()
     }
 
     /// 从剪切板新建 Markdown 文件
@@ -1227,20 +1235,19 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
             tab.editor.setContent(text)
         }
         refreshTabTitle(for: tab, fallbackTitle: L10n.markdown.untitled)
+        persistOpenedMarkdownFilePaths()
     }
 
     /// 打开 Markdown 文件
     func openMarkdownFile(at url: URL) {
         ensureMarkdownEditorVisible(createInitialTab: false)
-        let tab = createMarkdownTab(title: url.lastPathComponent)
-
-        do {
-            try tab.editor.open(url: url)
-            refreshTabTitle(for: tab, fallbackTitle: url.lastPathComponent)
-        } catch {
-            removeMarkdownTab(tab)
-            AppLogger.app.error("打开 Markdown 文件失败: \(error.localizedDescription)")
+        if let reusableTab = reusableSingleEmptyMarkdownTab() {
+            _ = openMarkdownFile(at: url, in: reusableTab, removeTabOnFailure: false)
+        } else {
+            let tab = createMarkdownTab(title: url.lastPathComponent)
+            _ = openMarkdownFile(at: url, in: tab, removeTabOnFailure: true)
         }
+        persistOpenedMarkdownFilePaths()
     }
 
     /// 关闭当前 Markdown 标签页
@@ -1270,6 +1277,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.refreshTabTitle(for: tab)
+            self?.persistOpenedMarkdownFilePaths()
         }
     }
 
@@ -1295,6 +1303,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
             }
             let fallbackName = tab.editor.fileURL?.lastPathComponent ?? url.lastPathComponent
             self?.refreshTabTitle(for: tab, fallbackTitle: fallbackName)
+            self?.persistOpenedMarkdownFilePaths()
         }
     }
 
@@ -1306,6 +1315,36 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
             return
         }
         requestCloseForTabs(ArraySlice(tabs), completion: completion)
+    }
+
+    /// 是否存在“未保存到磁盘且有改动”的文档
+    func hasUnsavedNewMarkdownDocuments() -> Bool {
+        markdownTabs.contains { $0.editor.fileURL == nil && $0.editor.hasUnsavedChanges }
+    }
+
+    /// 是否存在“已落盘但有改动未保存”的文档
+    func hasUnsavedFileBackedMarkdownDocuments() -> Bool {
+        markdownTabs.contains { $0.editor.fileURL != nil && $0.editor.hasUnsavedChanges }
+    }
+
+    /// 对“已落盘但有改动未保存”的文档执行自动保存
+    func autoSaveUnsavedFileBackedMarkdownDocuments(completion: @escaping (Bool) -> Void) {
+        let tabsToSave = markdownTabs.filter { $0.editor.fileURL != nil && $0.editor.hasUnsavedChanges }
+        guard !tabsToSave.isEmpty else {
+            completion(true)
+            return
+        }
+        saveFileBackedMarkdownTabs(ArraySlice(tabsToSave), completion: completion)
+    }
+
+    /// 对“未保存到磁盘且有改动”的文档逐个触发保存提示（不负责退出应用）
+    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping () -> Void) {
+        let tabsToPrompt = markdownTabs.filter { $0.editor.fileURL == nil && $0.editor.hasUnsavedChanges }
+        guard !tabsToPrompt.isEmpty else {
+            completion()
+            return
+        }
+        promptSaveForNewMarkdownTabs(ArraySlice(tabsToPrompt), completion: completion)
     }
 
     /// 设置 Markdown 主题模式
@@ -1328,6 +1367,9 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
 
     /// 恢复编辑器可见性状态（应用启动时调用）
     func restoreMarkdownEditorVisibility() {
+        if restorePreviouslyOpenedMarkdownFilesIfNeeded() {
+            return
+        }
         if UserPreferences.shared.markdownEditorVisible {
             isMarkdownEditorVisible = true
             showMarkdownEditor(animated: false)
@@ -1430,6 +1472,23 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     private func updateMarkdownTabBarAppearance() {
         markdownTabBarView.layer?.borderWidth = 0
         markdownTabBarView.layer?.borderColor = nil
+    }
+
+    private func startMarkdownUnsavedStateTimer() {
+        guard markdownUnsavedStateTimer == nil else { return }
+        markdownUnsavedStateTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
+            self?.refreshMarkdownTabUnsavedIndicators()
+        }
+        if let markdownUnsavedStateTimer {
+            RunLoop.main.add(markdownUnsavedStateTimer, forMode: .common)
+        }
+    }
+
+    private func refreshMarkdownTabUnsavedIndicators() {
+        guard !markdownTabs.isEmpty else { return }
+        for tab in markdownTabs {
+            refreshTabTitle(for: tab)
+        }
     }
 
     // MARK: - 预览切换按钮
@@ -1594,6 +1653,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
             try tab.editor.open(url: destinationURL)
             refreshTabTitle(for: tab, fallbackTitle: destinationURL.lastPathComponent)
             syncRecentMarkdownPathsAfterRename(from: originalURL.path, to: destinationURL.path)
+            persistOpenedMarkdownFilePaths()
         } catch {
             NSSound.beep()
             AppLogger.app.error("重命名 Markdown 文件失败: \(error.localizedDescription)")
@@ -1609,6 +1669,72 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         recents.removeAll { $0 == oldPath || $0 == newPath }
         recents.insert(newPath, at: 0)
         UserPreferences.shared.recentMarkdownFiles = recents
+    }
+
+    private func persistOpenedMarkdownFilePaths() {
+        let paths = markdownTabs.compactMap { $0.editor.fileURL?.path }
+        UserPreferences.shared.markdownOpenedFilePaths = paths
+    }
+
+    private func reusableSingleEmptyMarkdownTab() -> MarkdownTab? {
+        guard markdownTabs.count == 1, let onlyTab = markdownTabs.first else {
+            return nil
+        }
+        guard onlyTab.editor.fileURL == nil else {
+            return nil
+        }
+        guard !onlyTab.editor.hasUnsavedChanges else {
+            return nil
+        }
+        return onlyTab
+    }
+
+    @discardableResult
+    private func openMarkdownFile(at url: URL, in tab: MarkdownTab, removeTabOnFailure: Bool) -> Bool {
+        do {
+            try tab.editor.open(url: url)
+            refreshTabTitle(for: tab, fallbackTitle: url.lastPathComponent)
+            return true
+        } catch {
+            if removeTabOnFailure {
+                removeMarkdownTab(tab)
+            }
+            AppLogger.app.error("打开 Markdown 文件失败: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func restorePreviouslyOpenedMarkdownFilesIfNeeded() -> Bool {
+        let existingURLs = resolveExistingMarkdownFileURLs(from: UserPreferences.shared.markdownOpenedFilePaths)
+        guard !existingURLs.isEmpty else {
+            UserPreferences.shared.markdownOpenedFilePaths = []
+            return false
+        }
+
+        isMarkdownEditorVisible = true
+        UserPreferences.shared.markdownEditorVisible = true
+        showMarkdownEditor(animated: false, createInitialTab: false)
+
+        for url in existingURLs {
+            let tab = createMarkdownTab(title: url.lastPathComponent)
+            _ = openMarkdownFile(at: url, in: tab, removeTabOnFailure: true)
+        }
+
+        if let lastURL = existingURLs.last {
+            UserPreferences.shared.markdownLastFilePath = lastURL.path
+        }
+        persistOpenedMarkdownFilePaths()
+        return !markdownTabs.isEmpty
+    }
+
+    private func resolveExistingMarkdownFileURLs(from paths: [String]) -> [URL] {
+        let fileManager = FileManager.default
+        return paths.compactMap { path in
+            guard !path.isEmpty, fileManager.fileExists(atPath: path) else {
+                return nil
+            }
+            return URL(fileURLWithPath: path)
+        }
     }
 
     private func closeMarkdownTab(withID tabID: UUID) {
@@ -1799,6 +1925,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         markdownTabs.removeAll { $0.id == tab.id }
         markdownEditorView = currentMarkdownTab()?.editor
         syncTabSelectionAppearance()
+        persistOpenedMarkdownFilePaths()
     }
 
     private func currentMarkdownTab() -> MarkdownTab? {
@@ -1809,16 +1936,26 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     }
 
     private func refreshTabTitle(for tab: MarkdownTab, fallbackTitle: String? = nil) {
-        // 对于未保存的文档，优先使用文档标题（来自第一个标题）
-        if tab.editor.fileURL == nil, let suggestedTitle = tab.editor.suggestedTitle {
-            tab.item.label = suggestedTitle
-            tab.buttonView.title = suggestedTitle
-            return
-        }
-        let resolved = tab.editor.fileURL?.lastPathComponent ?? fallbackTitle ?? tab.item.label
-        let finalTitle = resolved.isEmpty ? L10n.markdown.untitled : resolved
+        let baseTitle: String = {
+            // 对于未保存的文档，优先使用文档标题（来自第一个标题）
+            if tab.editor.fileURL == nil, let suggestedTitle = tab.editor.suggestedTitle, !suggestedTitle.isEmpty {
+                return suggestedTitle
+            }
+            let resolved = tab.editor.fileURL?.lastPathComponent ?? fallbackTitle ?? tab.item.label
+            return resolved.isEmpty ? L10n.markdown.untitled : resolved
+        }()
+
+        let finalTitle = decorateMarkdownTabTitle(baseTitle: baseTitle, editor: tab.editor)
         tab.item.label = finalTitle
         tab.buttonView.title = finalTitle
+    }
+
+    private func decorateMarkdownTabTitle(baseTitle: String, editor: MarkdownEditorView) -> String {
+        let needsUnsavedMarker = (editor.fileURL == nil) || editor.hasUnsavedChanges
+        guard needsUnsavedMarker else {
+            return baseTitle
+        }
+        return baseTitle.hasSuffix(markdownUnsavedTabSuffix) ? baseTitle : (baseTitle + markdownUnsavedTabSuffix)
     }
 
     private func waitForSaveAsResult(
@@ -1835,6 +1972,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         let currentURL = tab.editor.fileURL
         if let currentURL, currentURL != previousURL {
             refreshTabTitle(for: tab, fallbackTitle: currentURL.lastPathComponent)
+            persistOpenedMarkdownFilePaths()
             completion?(currentURL)
             return
         }
@@ -1893,6 +2031,76 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
                 return
             }
             self.requestCloseForTabs(tabs.dropFirst(), completion: completion)
+        }
+    }
+
+    private func promptSaveForNewMarkdownTabs(_ tabs: ArraySlice<MarkdownTab>, completion: @escaping () -> Void) {
+        guard let first = tabs.first else {
+            completion()
+            return
+        }
+
+        first.editor.requestCloseIfNeeded { [weak self] shouldContinue in
+            guard let self else {
+                completion()
+                return
+            }
+            self.refreshTabTitle(for: first)
+            self.persistOpenedMarkdownFilePaths()
+
+            guard shouldContinue else {
+                completion()
+                return
+            }
+            self.promptSaveForNewMarkdownTabs(tabs.dropFirst(), completion: completion)
+        }
+    }
+
+    private func saveFileBackedMarkdownTabs(_ tabs: ArraySlice<MarkdownTab>, completion: @escaping (Bool) -> Void) {
+        guard let first = tabs.first else {
+            completion(true)
+            return
+        }
+
+        do {
+            try first.editor.save()
+        } catch {
+            AppLogger.app.error("自动保存 Markdown 文件失败: \(error.localizedDescription)")
+            completion(false)
+            return
+        }
+
+        waitUntilMarkdownTabSaved(first.id, remainingAttempts: 80) { [weak self] saved in
+            guard let self else {
+                completion(false)
+                return
+            }
+            guard saved else {
+                AppLogger.app.error("自动保存 Markdown 文件超时: \(first.item.label)")
+                completion(false)
+                return
+            }
+            self.refreshTabTitle(for: first)
+            self.persistOpenedMarkdownFilePaths()
+            self.saveFileBackedMarkdownTabs(tabs.dropFirst(), completion: completion)
+        }
+    }
+
+    private func waitUntilMarkdownTabSaved(_ tabID: UUID, remainingAttempts: Int, completion: @escaping (Bool) -> Void) {
+        guard let tab = tab(for: tabID) else {
+            completion(false)
+            return
+        }
+        if !tab.editor.hasUnsavedChanges {
+            completion(true)
+            return
+        }
+        guard remainingAttempts > 0 else {
+            completion(false)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.waitUntilMarkdownTabSaved(tabID, remainingAttempts: remainingAttempts - 1, completion: completion)
         }
     }
 
