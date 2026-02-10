@@ -8,17 +8,17 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 |---|---|
 | ![双设备主界面](screenshots/1.png) | ![单设备主界面](screenshots/2.png) |
 
-| 分屏文档查看 | 分屏文档编辑 |
+| 文档编辑 | 分屏查看 |
 |---|---|
-| ![分屏文档查看](screenshots/3.png) | ![分屏文档编辑](screenshots/4.png) |
+| ![文档编辑](screenshots/3.png) | ![文档查看](screenshots/4.png) |
 
-| 双设备投屏中 | 偏好设置-通用/捕获/权限 |
+| 双设备投屏中 | 偏好设置-通用 |
 |---|---|
-| ![双设备投屏中](screenshots/5.png) | ![偏好设置-权限](screenshots/6.png) |
+| ![双设备投屏中](screenshots/5.png) | ![偏好设置-通用](screenshots/6.png) |
 
-| 偏好设置-通用 | 偏好设置-捕获 |
+| 偏好设置-捕获 | 偏好设置-权限 |
 |---|---|
-| ![偏好设置-通用](screenshots/7.png) | ![偏好设置-捕获](screenshots/8.png) |
+| ![偏好设置-捕获](screenshots/7.png) | ![偏好设置-权限](screenshots/8.png) |
 
 ## 核心特性
 
