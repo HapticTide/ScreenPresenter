@@ -71,14 +71,14 @@ public final class MarkdownEditorView: NSViewController {
         set { editorVC.isHostFullScreen = newValue }
     }
 
-    /// 建议的标题（来自文档第一个标题），未保存的文档会根据内容自动更新
+    /// 建议的标题（来自文档中的首个 Markdown 标题），未保存的文档会根据内容自动更新
     /// 对于已保存的文档（有 fileURL），始终返回 nil
     public var suggestedTitle: String? {
         guard document?.fileURL == nil else { return nil }
         return document?.displayName
     }
 
-    /// 当建议标题（来自文档第一个标题）变化时调用
+    /// 当建议标题变化时调用
     public var onSuggestedTitleChange: ((String?) -> Void)?
 
     /// 当预览模式状态变化时调用（参数为当前是否处于预览模式）
@@ -406,7 +406,7 @@ private extension MarkdownEditorView {
     }
 
     func setupNotificationObservers() {
-        // 监听文档建议标题（来自第一个标题）变化，通知外部更新标签页标题
+        // 监听文档建议标题变化，通知外部更新标签页标题
         suggestedTitleObserver = NotificationCenter.default.addObserver(
             forName: EditorDocument.suggestedFilenameDidChangeNotification,
             object: nil,

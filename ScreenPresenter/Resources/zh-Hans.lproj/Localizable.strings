@@ -29,6 +29,11 @@
 "alert.quitConfirmMessage" = "确定要退出 ScreenPresenter 吗？";
 "alert.quitConfirmImpactMessage" = "退出后将中断当前 %d 个正在进行的投屏会话。";
 "alert.quitConfirmShortcutHint" = "提示：在此确认弹窗显示期间，再按一次 Cmd+Q 可直接退出。";
+"alert.unsavedMarkdownQuitMessage" = "有文稿尚未保存。";
+"alert.unsavedMarkdownQuitDetail" = "共有 %d 个未保存到磁盘的文稿。要先保存再退出吗？";
+"alert.unsavedMarkdownCloseMessage" = "此文稿尚未保存。";
+"alert.unsavedMarkdownCloseDetail" = "要在关闭标签页前保存吗？";
+"alert.dontSave" = "不保存";
 
 // MARK: - Menu
 "menu.about" = "关于 ScreenPresenter";

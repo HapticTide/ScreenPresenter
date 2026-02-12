@@ -29,6 +29,7 @@ final class EditorViewController: NSViewController {
     var writingToolsObservation: NSKeyValueObservation?
     var safeAreaObservation: NSKeyValueObservation?
     var userDefinedMenuItems = [EditorMenuItem]()
+    var suggestedFilenameRefreshTask: Task<Void, Never>?
 
     weak var presentedMenu: NSMenu?
     weak var presentedPopover: NSPopover?
@@ -259,6 +260,7 @@ final class EditorViewController: NSViewController {
             NSEvent.removeMonitor(monitor)
             localEventMonitor = nil
         }
+        suggestedFilenameRefreshTask?.cancel()
     }
 
     init() {

@@ -186,6 +186,7 @@ extension EditorViewController: EditorModuleCoreDelegate {
         hasBeenEdited = hasBeenEdited || contentEdited
         if contentEdited {
             document?.isOutdated = true
+            scheduleSuggestedFilenameRefresh()
         }
 
         // Only update the dirty state when it's edited,
@@ -423,5 +424,33 @@ extension EditorViewController: EditorReplacePanelDelegate {
 
     func editorReplacePanelDidClickReplaceAll(_ sender: EditorReplacePanel) {
         replaceAllInTextFinder()
+    }
+}
+
+// MARK: - Private
+
+private extension EditorViewController {
+    func scheduleSuggestedFilenameRefresh() {
+        guard document?.fileURL == nil else {
+            suggestedFilenameRefreshTask?.cancel()
+            suggestedFilenameRefreshTask = nil
+            return
+        }
+
+        suggestedFilenameRefreshTask?.cancel()
+        suggestedFilenameRefreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            do {
+                try await Task.sleep(nanoseconds: 250_000_000)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            let latestText = await editorText
+            guard !Task.isCancelled else { return }
+            document?.refreshSuggestedFilename(using: latestText)
+        }
     }
 }

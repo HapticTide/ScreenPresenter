@@ -176,6 +176,13 @@ enum L10n {
         static var quitConfirmMessage: String { "alert.quitConfirmMessage".localized }
         static func quitConfirmImpactMessage(_ count: Int) -> String { "alert.quitConfirmImpactMessage".localized(count) }
         static var quitConfirmShortcutHint: String { "alert.quitConfirmShortcutHint".localized }
+        static var unsavedMarkdownQuitMessage: String { "alert.unsavedMarkdownQuitMessage".localized }
+        static func unsavedMarkdownQuitDetail(_ count: Int) -> String {
+            "alert.unsavedMarkdownQuitDetail".localized(count)
+        }
+        static var unsavedMarkdownCloseMessage: String { "alert.unsavedMarkdownCloseMessage".localized }
+        static var unsavedMarkdownCloseDetail: String { "alert.unsavedMarkdownCloseDetail".localized }
+        static var dontSave: String { "alert.dontSave".localized }
     }
 
     // MARK: - Menu

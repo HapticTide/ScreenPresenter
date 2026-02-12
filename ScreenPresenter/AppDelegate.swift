@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var isClosingWindowAfterMarkdownConfirmation = false
     private var isTerminationCloseApproved = false
     private var isCaptureQuitConfirmationPresented = false
+    private var isUnsavedNewMarkdownQuitFlowInProgress = false
     private var quitConfirmationShortcutMonitor: Any?
 
     // MARK: - 应用生命周期
@@ -210,23 +211,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             return .terminateNow
         }
 
+        if isUnsavedNewMarkdownQuitFlowInProgress {
+            return .terminateCancel
+        }
+
         // 二次确认弹窗已显示时，再次按 Cmd+Q 直接退出
         if isCaptureQuitConfirmationPresented {
             isTerminationCloseApproved = true
             return .terminateNow
         }
 
-        // 3.1: 存在“未保存到磁盘”的文档，Cmd+Q 仅触发保存，不进入退出确认流程
+        // 3.1: 存在“未保存到磁盘”的文档，先触发保存流程，再继续退出决策
         if mainViewController.hasUnsavedNewMarkdownDocuments() {
-            mainViewController.autoSaveUnsavedFileBackedMarkdownDocuments { [weak mainViewController] saved in
-                guard let mainViewController else { return }
-                if !saved {
-                    NSSound.beep()
+            isUnsavedNewMarkdownQuitFlowInProgress = true
+            mainViewController.autoSaveUnsavedFileBackedMarkdownDocuments { [weak self, weak mainViewController] saved in
+                guard let self else {
+                    NSApp.reply(toApplicationShouldTerminate: false)
                     return
                 }
-                mainViewController.promptSaveForUnsavedNewMarkdownDocuments { }
+                guard let mainViewController else {
+                    self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                    NSApp.reply(toApplicationShouldTerminate: false)
+                    return
+                }
+                if !saved {
+                    self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                    NSSound.beep()
+                    NSApp.reply(toApplicationShouldTerminate: false)
+                    return
+                }
+                let unsavedCount = max(mainViewController.unsavedNewMarkdownDocumentCount(), 1)
+                self.presentUnsavedMarkdownQuitConfirmation(documentCount: unsavedCount) { [weak self, weak mainViewController] decision in
+                    guard let self else {
+                        NSApp.reply(toApplicationShouldTerminate: false)
+                        return
+                    }
+                    guard let mainViewController else {
+                        self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                        NSApp.reply(toApplicationShouldTerminate: false)
+                        return
+                    }
+
+                    switch decision {
+                    case .save:
+                        mainViewController.promptSaveForUnsavedNewMarkdownDocuments { [weak self] didSaveAll in
+                            guard let self else {
+                                NSApp.reply(toApplicationShouldTerminate: false)
+                                return
+                            }
+                            self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                            guard didSaveAll else {
+                                NSApp.reply(toApplicationShouldTerminate: false)
+                                return
+                            }
+                            self.continueTerminationAfterDocumentSave()
+                        }
+                    case .discard:
+                        self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                        self.continueTerminationAfterDocumentSave()
+                    case .cancel:
+                        self.isUnsavedNewMarkdownQuitFlowInProgress = false
+                        NSApp.reply(toApplicationShouldTerminate: false)
+                    }
+                }
             }
-            return .terminateCancel
+            return .terminateLater
         }
 
         // 没有“已落盘但未保存”的文档时，按投屏状态直接决定退出行为
@@ -279,6 +328,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         } else {
             isTerminationCloseApproved = true
             NSApp.reply(toApplicationShouldTerminate: true)
+        }
+    }
+
+    private enum UnsavedMarkdownQuitDecision {
+        case save
+        case discard
+        case cancel
+    }
+
+    private func presentUnsavedMarkdownQuitConfirmation(
+        documentCount: Int,
+        completion: @escaping (UnsavedMarkdownQuitDecision) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = L10n.alert.unsavedMarkdownQuitMessage
+        alert.informativeText = L10n.alert.unsavedMarkdownQuitDetail(documentCount)
+        alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: L10n.markdown.save)
+        alert.addButton(withTitle: L10n.alert.dontSave)
+        alert.addButton(withTitle: L10n.common.cancel)
+
+        let resolveDecision: (NSApplication.ModalResponse) -> UnsavedMarkdownQuitDecision = { response in
+            switch response {
+            case .alertFirstButtonReturn:
+                .save
+            case .alertSecondButtonReturn:
+                .discard
+            default:
+                .cancel
+            }
+        }
+
+        if let mainWindow {
+            alert.beginSheetModal(for: mainWindow) { response in
+                completion(resolveDecision(response))
+            }
+        } else {
+            completion(resolveDecision(alert.runModal()))
         }
     }
 
@@ -1493,16 +1581,26 @@ extension AppDelegate {
             emptyItem.isEnabled = false
             emptyItem.image = symbolImage("tray")
         } else {
+            let displayInfos = recentFileDisplayInfos(for: recentFiles)
             for path in recentFiles {
                 let url = URL(fileURLWithPath: path)
+                let displayInfo = displayInfos[path]
+                let fallbackTitle = displayInfo.map { "\($0.fileName) — \($0.directoryDetail)" } ?? url.lastPathComponent
                 let item = menu.addItem(
-                    withTitle: url.lastPathComponent,
+                    withTitle: fallbackTitle,
                     action: #selector(openRecentFile(_:)),
                     keyEquivalent: ""
                 )
                 item.representedObject = path
                 item.toolTip = path
-                item.image = symbolImage("doc.text")
+                item.image = systemIcon(forFile: path)
+                if let displayInfo {
+                    item.attributedTitle = recentFileAttributedTitle(
+                        fileName: displayInfo.fileName,
+                        directoryDetail: displayInfo.directoryDetail,
+                        directoryPath: url.deletingLastPathComponent().path
+                    )
+                }
             }
 
             menu.addItem(NSMenuItem.separator())
@@ -1514,6 +1612,121 @@ extension AppDelegate {
             )
             clearItem.image = symbolImage("trash")
         }
+    }
+
+    private func recentFileDisplayInfos(for paths: [String]) -> [String: (fileName: String, directoryDetail: String)] {
+        let urlsByPath = Dictionary(uniqueKeysWithValues: paths.map { ($0, URL(fileURLWithPath: $0)) })
+
+        var pathsByFileName: [String: [String]] = [:]
+        for path in paths {
+            guard let url = urlsByPath[path] else { continue }
+            pathsByFileName[url.lastPathComponent, default: []].append(path)
+        }
+
+        var detailByPath: [String: String] = [:]
+        for groupedPaths in pathsByFileName.values {
+            let groupedDetails = directoryDisambiguationDetails(for: groupedPaths, minimumDepth: 1)
+            detailByPath.merge(groupedDetails, uniquingKeysWith: { current, _ in current })
+        }
+
+        var result: [String: (fileName: String, directoryDetail: String)] = [:]
+        for path in paths {
+            guard let url = urlsByPath[path] else { continue }
+            let fileName = url.lastPathComponent
+            let fallbackDetail = (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
+            let detail = detailByPath[path] ?? fallbackDetail
+            result[path] = (fileName, detail)
+        }
+
+        return result
+    }
+
+    private func recentFileAttributedTitle(
+        fileName: String,
+        directoryDetail: String,
+        directoryPath: String
+    ) -> NSAttributedString {
+        let font = NSFont.menuFont(ofSize: 0)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.labelColor,
+        ]
+
+        let attributed = NSMutableAttributedString(string: "\(fileName) — ", attributes: attributes)
+
+        if let folderIcon = systemIcon(forFile: directoryPath, size: 14) {
+            folderIcon.isTemplate = false
+
+            let attachment = NSTextAttachment()
+            attachment.image = folderIcon
+            attachment.bounds = NSRect(
+                x: 0,
+                y: floor((font.capHeight - 14) / 2.0) - 1,
+                width: 14,
+                height: 14
+            )
+            attributed.append(NSAttributedString(attachment: attachment))
+            attributed.append(NSAttributedString(string: " ", attributes: attributes))
+        }
+
+        attributed.append(NSAttributedString(string: directoryDetail, attributes: attributes))
+        return attributed
+    }
+
+    private func systemIcon(forFile path: String, size: CGFloat = 16) -> NSImage? {
+        let icon = (NSWorkspace.shared.icon(forFile: path).copy() as? NSImage) ?? NSWorkspace.shared.icon(forFile: path)
+        icon.size = NSSize(width: size, height: size)
+        icon.isTemplate = false
+        return icon
+    }
+
+    private func directoryDisambiguationDetails(for paths: [String], minimumDepth: Int) -> [String: String] {
+        let directoryComponentsList: [[String]] = paths.map { path in
+            let directoryURL = URL(fileURLWithPath: path).deletingLastPathComponent()
+            return directoryURL.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        }
+
+        let maxDepth = directoryComponentsList.map(\.count).max() ?? 0
+        let resolvedDepth: Int = {
+            guard maxDepth > 0 else { return 0 }
+            let startDepth = max(1, min(minimumDepth, maxDepth))
+            for depth in startDepth...maxDepth {
+                var seen = Set<String>()
+                var isUnique = true
+                for components in directoryComponentsList {
+                    let key = components.suffix(depth).joined(separator: "/")
+                    if seen.contains(key) {
+                        isUnique = false
+                        break
+                    }
+                    seen.insert(key)
+                }
+                if isUnique {
+                    return depth
+                }
+            }
+            return maxDepth
+        }()
+
+        var result: [String: String] = [:]
+        for (index, path) in paths.enumerated() {
+            let components = directoryComponentsList[index]
+            if resolvedDepth == 0 {
+                let directoryPath = URL(fileURLWithPath: path).deletingLastPathComponent().path
+                result[path] = (directoryPath as NSString).abbreviatingWithTildeInPath
+                continue
+            }
+
+            let suffix = components.suffix(resolvedDepth).joined(separator: "/")
+            if suffix.isEmpty {
+                let directoryPath = URL(fileURLWithPath: path).deletingLastPathComponent().path
+                result[path] = (directoryPath as NSString).abbreviatingWithTildeInPath
+            } else {
+                result[path] = suffix
+            }
+        }
+
+        return result
     }
 
     private func updateMarkdownToolbarAndMenu() {

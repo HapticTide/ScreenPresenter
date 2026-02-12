@@ -29,6 +29,11 @@
 "alert.quitConfirmMessage" = "Are you sure you want to quit ScreenPresenter?";
 "alert.quitConfirmImpactMessage" = "Quitting will stop %d active screen mirroring session(s).";
 "alert.quitConfirmShortcutHint" = "Tip: while this confirmation is visible, press Cmd+Q again to quit immediately.";
+"alert.unsavedMarkdownQuitMessage" = "There are unsaved documents.";
+"alert.unsavedMarkdownQuitDetail" = "There are %d document(s) not saved to disk. Do you want to save before quitting?";
+"alert.unsavedMarkdownCloseMessage" = "This document has unsaved changes.";
+"alert.unsavedMarkdownCloseDetail" = "Do you want to save before closing this tab?";
+"alert.dontSave" = "Don't Save";
 
 // MARK: - Menu
 "menu.about" = "About ScreenPresenter";

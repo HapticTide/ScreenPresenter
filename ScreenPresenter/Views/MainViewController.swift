@@ -825,6 +825,11 @@ final class MainViewController: NSViewController {
         previewContainerView.hasUnsavedNewMarkdownDocuments()
     }
 
+    /// “未保存到磁盘且有改动”的文档数量
+    func unsavedNewMarkdownDocumentCount() -> Int {
+        previewContainerView.unsavedNewMarkdownDocumentCount()
+    }
+
     /// 是否存在“已落盘但有改动未保存”的文档
     func hasUnsavedFileBackedMarkdownDocuments() -> Bool {
         previewContainerView.hasUnsavedFileBackedMarkdownDocuments()
@@ -835,8 +840,8 @@ final class MainViewController: NSViewController {
         previewContainerView.autoSaveUnsavedFileBackedMarkdownDocuments(completion: completion)
     }
 
-    /// 对“未保存到磁盘且有改动”的文档触发保存提示
-    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping () -> Void) {
+    /// 对“未保存到磁盘且有改动”的文档触发保存提示（返回是否全部保存成功）
+    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping (Bool) -> Void) {
         previewContainerView.promptSaveForUnsavedNewMarkdownDocuments(completion: completion)
     }
 

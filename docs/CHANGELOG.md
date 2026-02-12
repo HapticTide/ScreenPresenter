@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1
+
+### 改动
+
+- docs: acknowledge MarkEdit origin in README
+- Update screenshots and table labels in README
+- release: finalize 1.1.0 metadata
+
+
 ## 1.1.0
 
 ### 新功能

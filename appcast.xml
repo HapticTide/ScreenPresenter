@@ -7,33 +7,24 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.1.0</title>
+            <title>Version 1.1.1</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.1.0</h2>
+                <h2>🚀 ScreenPresenter 1.1.1</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>**Markdown 编辑器工作流增强**</li>
-                    <li>**退出与快捷键行为重构**</li>
-                    <li>**菜单结构调整**</li>
-                    <li>**音频捕获配置与运行时一致性**</li>
-                    <li>**自动更新与发布链路迁移到公开仓库**</li>
-                    <li>修复查找面板相关 Auto Layout 约束冲突与潜在布局循环导致的崩溃</li>
-                    <li>修复 `⌘F` 后查找框不可见、无响应等交互问题</li>
-                    <li>修复查找输入中 `⌘A` 全选异常</li>
-                    <li>移除“编辑器失焦自动切换预览”导致的模式误切换问题</li>
-                    <li>README 更新为公开仓库分发与当前菜单/快捷键行为</li>
-                    <li>新增应用截图资源（`screenshots/`）</li>
-                    <li>新增 MIT 许可证（`LICENSE`）</li>
+                    <li>docs: acknowledge MarkEdit origin in README</li>
+                    <li>Update screenshots and table labels in README</li>
+                    <li>release: finalize 1.1.0 metadata</li>
                 </ul>
                 ]]>
             </description>
             <pubDate>Tue, 10 Feb 2026 15:30:50 +0800</pubDate>
             
             <sparkle:version>202602101528</sparkle:version>
-            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 

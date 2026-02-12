@@ -72,7 +72,7 @@ final class EditorDocument: NSDocument {
     static let suggestedFilenameDidChangeNotification = Notification.Name("EditorDocumentSuggestedFilenameDidChange")
 
     /**
-     File name from the table of contents.
+     File name suggested by the first markdown heading in content.
      */
     private var suggestedFilename: String? {
         didSet {
@@ -94,6 +94,19 @@ final class EditorDocument: NSDocument {
         if !stringValue.isEmpty {
             hostViewController?.representedObject = self
         }
+    }
+
+    /// 根据编辑器内容刷新建议文件名（仅对未落盘文档生效）
+    func refreshSuggestedFilename(using editorText: String?) {
+        guard fileURL == nil else {
+            suggestedFilename = nil
+            return
+        }
+        guard let editorText else {
+            suggestedFilename = nil
+            return
+        }
+        suggestedFilename = Self.firstMarkdownHeadingTitle(in: editorText)
     }
 
     override func makeWindowControllers() {
@@ -334,6 +347,7 @@ extension EditorDocument {
                 case let .fileExtension(value):
                     guard let savePanel else { return }
                     self?.suggestedFileExtension = value
+                    Self.updateSavePanelFilenameExtension(savePanel, with: value)
                     // 由于每个扩展名现在都有独立的 UTType（app.screenpresenter.md/markdown/txt），
                     // 直接调用 enforceUniformType 即可触发 NSSavePanel 更新文件名
                     savePanel.enforceUniformType(value.uniformType)
@@ -356,8 +370,11 @@ extension EditorDocument {
         if fileURL == nil, textBundle == nil {
             let preferredExtension = AppPreferences.General.newFilenameExtension
             let baseName = suggestedFilename ?? externalFilename ?? Localized.Document.untitled
-            savePanel.nameFieldStringValue = "\(baseName).\(preferredExtension.rawValue)"
-            savePanel.isExtensionHidden = false
+            Self.updateSavePanelFilenameExtension(
+                savePanel,
+                with: preferredExtension,
+                preferredBaseName: baseName
+            )
             savePanel.enforceUniformType(preferredExtension.uniformType)
         }
 
@@ -467,16 +484,44 @@ extension EditorDocument {
 // MARK: - Save Helpers
 
 private extension EditorDocument {
-    static func updateSavePanelFilenameExtension(_ savePanel: NSSavePanel, with fileExtension: NewFilenameExtension) {
+    static let autoFilenameMaxLength = 64
+    static let atxHeadingRegex = try? NSRegularExpression(
+        pattern: #"^\s{0,3}#{1,6}[ \t]+(.+?)\s*$"#,
+        options: []
+    )
+    static let setextHeadingUnderlineRegex = try? NSRegularExpression(
+        pattern: #"^\s{0,3}(=+|-+)\s*$"#,
+        options: []
+    )
+    static let trailingATXHeadingMarkRegex = try? NSRegularExpression(
+        pattern: #"\s+#+\s*$"#,
+        options: []
+    )
+    static let invalidFilenameCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+
+    static func updateSavePanelFilenameExtension(
+        _ savePanel: NSSavePanel,
+        with fileExtension: NewFilenameExtension,
+        preferredBaseName: String? = nil
+    ) {
         let currentName = savePanel.nameFieldStringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallbackBaseName = Localized.Document.untitled
-        let baseName: String = {
+        let baseCandidate: String = {
+            if let preferredBaseName {
+                return preferredBaseName
+            }
             guard !currentName.isEmpty else { return fallbackBaseName }
-            let nsName = currentName as NSString
-            let stripped = nsName.pathExtension.isEmpty ? currentName : nsName.deletingPathExtension
+            let stripped = (currentName as NSString).deletingPathExtension
             return stripped.isEmpty ? fallbackBaseName : stripped
         }()
-        savePanel.nameFieldStringValue = "\(baseName).\(fileExtension.rawValue)"
+
+        let normalizedBaseName = sanitizedFilenameBase(baseCandidate, fallback: fallbackBaseName)
+        let uniqueBaseName = uniqueFilenameBase(
+            for: normalizedBaseName,
+            with: fileExtension.rawValue,
+            in: savePanel.directoryURL
+        )
+        savePanel.nameFieldStringValue = "\(uniqueBaseName).\(fileExtension.rawValue)"
         savePanel.isExtensionHidden = false
     }
 
@@ -491,6 +536,124 @@ private extension EditorDocument {
         }
 
         return url.appendingPathExtension(fileExtension)
+    }
+
+    static func firstMarkdownHeadingTitle(in text: String) -> String? {
+        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        for (index, rawLine) in lines.enumerated() {
+            let line = String(rawLine)
+            if line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                continue
+            }
+
+            let fullRange = NSRange(line.startIndex..<line.endIndex, in: line)
+            if
+                let match = atxHeadingRegex?.firstMatch(in: line, options: [], range: fullRange),
+                let titleRange = Range(match.range(at: 1), in: line) {
+                let title = normalizedHeadingTitle(String(line[titleRange]))
+                if !title.isEmpty {
+                    return title
+                }
+            }
+
+            if index + 1 < lines.count {
+                let nextLine = String(lines[index + 1])
+                let nextRange = NSRange(nextLine.startIndex..<nextLine.endIndex, in: nextLine)
+                let isSetextUnderline = setextHeadingUnderlineRegex?.firstMatch(
+                    in: nextLine,
+                    options: [],
+                    range: nextRange
+                ) != nil
+                if isSetextUnderline {
+                    let title = normalizedHeadingTitle(line)
+                    if !title.isEmpty {
+                        return title
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    static func sanitizedFilenameBase(_ raw: String, fallback: String) -> String {
+        let fallbackValue = fallback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Untitled"
+            : fallback
+
+        var scalarView = String.UnicodeScalarView()
+        let spaceScalar = " ".unicodeScalars.first!
+        for scalar in raw.unicodeScalars {
+            if CharacterSet.newlines.contains(scalar) || CharacterSet.controlCharacters.contains(scalar) {
+                scalarView.append(spaceScalar)
+                continue
+            }
+            if invalidFilenameCharacters.contains(scalar) {
+                scalarView.append(spaceScalar)
+                continue
+            }
+            scalarView.append(scalar)
+        }
+
+        var normalized = String(scalarView)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+
+        if normalized.isEmpty {
+            normalized = fallbackValue
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
+        if normalized.isEmpty {
+            normalized = "Untitled"
+        }
+
+        if normalized.count > autoFilenameMaxLength {
+            normalized = String(normalized.prefix(autoFilenameMaxLength))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
+
+        return normalized.isEmpty ? "Untitled" : normalized
+    }
+
+    static func uniqueFilenameBase(for baseName: String, with fileExtension: String, in directoryURL: URL?) -> String {
+        guard let directoryURL else {
+            return baseName
+        }
+
+        let fileManager = FileManager.default
+        var candidate = baseName
+        var index = 2
+
+        func filePath(for name: String) -> String {
+            directoryURL.appendingPathComponent(name).appendingPathExtension(fileExtension).path
+        }
+
+        while fileManager.fileExists(atPath: filePath(for: candidate)) {
+            let suffix = "-\(index)"
+            let allowedLength = max(1, autoFilenameMaxLength - suffix.count)
+            let shortenedBase = String(baseName.prefix(allowedLength))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            candidate = "\(shortenedBase)\(suffix)"
+            index += 1
+        }
+        return candidate
+    }
+
+    static func normalizedHeadingTitle(_ raw: String) -> String {
+        var title = raw
+        if let trailingATXHeadingMarkRegex {
+            let titleNSRange = NSRange(title.startIndex..<title.endIndex, in: title)
+            title = trailingATXHeadingMarkRegex.stringByReplacingMatches(
+                in: title,
+                options: [],
+                range: titleNSRange,
+                withTemplate: ""
+            )
+        }
+        return title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -714,7 +877,8 @@ private extension EditorDocument {
             )) ?? false
         }
 
-        if let editorText = await hostViewController?.editorText {
+        let editorText = await hostViewController?.editorText
+        if let editorText {
             stringValue = editorText
 
             DispatchQueue.global(qos: .utility).async {
@@ -724,12 +888,8 @@ private extension EditorDocument {
             }
         }
 
-        // If the content contains headings, use the first one to override the displayName
-        if fileURL == nil, let heading = await hostViewController?.tableOfContents?.first {
-            suggestedFilename = heading.title
-        } else {
-            suggestedFilename = nil
-        }
+        // 使用文档中的首个 Markdown 标题作为自动命名来源
+        refreshSuggestedFilename(using: editorText)
 
         isOutdated = false
         unblockUserInteraction()

@@ -218,6 +218,12 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         let buttonView: MarkdownTabButtonView
     }
 
+    private enum MarkdownTabCloseDecision {
+        case save
+        case discard
+        case cancel
+    }
+
     // MARK: - UI 组件
 
     /// 左侧区域容器
@@ -1327,6 +1333,11 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         markdownTabs.contains { $0.editor.fileURL == nil && $0.editor.hasUnsavedChanges }
     }
 
+    /// “未保存到磁盘且有改动”的文档数量
+    func unsavedNewMarkdownDocumentCount() -> Int {
+        markdownTabs.filter { $0.editor.fileURL == nil && $0.editor.hasUnsavedChanges }.count
+    }
+
     /// 是否存在“已落盘但有改动未保存”的文档
     func hasUnsavedFileBackedMarkdownDocuments() -> Bool {
         markdownTabs.contains { $0.editor.fileURL != nil && $0.editor.hasUnsavedChanges }
@@ -1342,11 +1353,11 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         saveFileBackedMarkdownTabs(ArraySlice(tabsToSave), completion: completion)
     }
 
-    /// 对“未保存到磁盘且有改动”的文档逐个触发保存提示（不负责退出应用）
-    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping () -> Void) {
+    /// 对“未保存到磁盘且有改动”的文档逐个触发保存提示（返回是否全部保存成功）
+    func promptSaveForUnsavedNewMarkdownDocuments(completion: @escaping (Bool) -> Void) {
         let tabsToPrompt = markdownTabs.filter { $0.editor.fileURL == nil && $0.editor.hasUnsavedChanges }
         guard !tabsToPrompt.isEmpty else {
-            completion()
+            completion(true)
             return
         }
         promptSaveForNewMarkdownTabs(ArraySlice(tabsToPrompt), completion: completion)
@@ -1498,8 +1509,9 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
 
     private func refreshMarkdownTabUnsavedIndicators() {
         guard !markdownTabs.isEmpty else { return }
+        let savedFileDisplayTitles = savedFileTabDisplayTitles()
         for tab in markdownTabs {
-            refreshTabTitle(for: tab)
+            refreshTabTitle(for: tab, savedFileDisplayTitles: savedFileDisplayTitles)
         }
     }
 
@@ -1751,7 +1763,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
 
     private func closeMarkdownTab(withID tabID: UUID) {
         guard let tab = tab(for: tabID) else { return }
-        tab.editor.requestCloseIfNeeded { [weak self] shouldClose in
+        requestCloseForTab(tab) { [weak self] shouldClose in
             guard let self, shouldClose else { return }
             self.removeMarkdownTab(tab)
             if self.markdownTabs.isEmpty {
@@ -1947,11 +1959,21 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         return markdownTabs.first { $0.item === selectedItem }
     }
 
-    private func refreshTabTitle(for tab: MarkdownTab, fallbackTitle: String? = nil) {
+    private func refreshTabTitle(
+        for tab: MarkdownTab,
+        fallbackTitle: String? = nil,
+        savedFileDisplayTitles: [UUID: String]? = nil
+    ) {
         let baseTitle: String = {
-            // 对于未保存的文档，优先使用文档标题（来自第一个标题）
+            // 对于未保存的文档，优先使用文档建议标题
             if tab.editor.fileURL == nil, let suggestedTitle = tab.editor.suggestedTitle, !suggestedTitle.isEmpty {
                 return suggestedTitle
+            }
+            if tab.editor.fileURL != nil {
+                let displayTitles = savedFileDisplayTitles ?? savedFileTabDisplayTitles()
+                if let disambiguatedTitle = displayTitles[tab.id] {
+                    return disambiguatedTitle
+                }
             }
             let resolved = tab.editor.fileURL?.lastPathComponent ?? fallbackTitle ?? tab.item.label
             return resolved.isEmpty ? L10n.markdown.untitled : resolved
@@ -1960,6 +1982,78 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         let finalTitle = decorateMarkdownTabTitle(baseTitle: baseTitle, editor: tab.editor)
         tab.item.label = finalTitle
         tab.buttonView.title = finalTitle
+    }
+
+    private func savedFileTabDisplayTitles() -> [UUID: String] {
+        typealias TabPath = (id: UUID, path: String)
+        var tabsByFileName: [String: [TabPath]] = [:]
+
+        for tab in markdownTabs {
+            guard let fileURL = tab.editor.fileURL else { continue }
+            tabsByFileName[fileURL.lastPathComponent, default: []].append((id: tab.id, path: fileURL.path))
+        }
+
+        var result: [UUID: String] = [:]
+        for (fileName, tabs) in tabsByFileName {
+            guard tabs.count > 1 else { continue }
+            let paths = tabs.map(\.path)
+            let detailByPath = disambiguationDetails(for: paths)
+            for tab in tabs {
+                let fallbackPath = URL(fileURLWithPath: tab.path).deletingLastPathComponent().path
+                let detail = detailByPath[tab.path] ?? (fallbackPath as NSString).abbreviatingWithTildeInPath
+                result[tab.id] = "\(fileName) — \(detail)"
+            }
+        }
+
+        return result
+    }
+
+    private func disambiguationDetails(for duplicatePaths: [String]) -> [String: String] {
+        let directoryComponentsList: [[String]] = duplicatePaths.map { path in
+            let directoryURL = URL(fileURLWithPath: path).deletingLastPathComponent()
+            return directoryURL.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        }
+
+        let maxDepth = directoryComponentsList.map(\.count).max() ?? 0
+        let resolvedDepth: Int = {
+            guard maxDepth > 0 else { return 0 }
+            for depth in 1...maxDepth {
+                var seen = Set<String>()
+                var isUnique = true
+                for components in directoryComponentsList {
+                    let key = components.suffix(depth).joined(separator: "/")
+                    if seen.contains(key) {
+                        isUnique = false
+                        break
+                    }
+                    seen.insert(key)
+                }
+                if isUnique {
+                    return depth
+                }
+            }
+            return maxDepth
+        }()
+
+        var result: [String: String] = [:]
+        for (index, path) in duplicatePaths.enumerated() {
+            let components = directoryComponentsList[index]
+            if resolvedDepth == 0 {
+                let directoryPath = URL(fileURLWithPath: path).deletingLastPathComponent().path
+                result[path] = (directoryPath as NSString).abbreviatingWithTildeInPath
+                continue
+            }
+
+            let suffix = components.suffix(resolvedDepth).joined(separator: "/")
+            if suffix.isEmpty {
+                let directoryPath = URL(fileURLWithPath: path).deletingLastPathComponent().path
+                result[path] = (directoryPath as NSString).abbreviatingWithTildeInPath
+            } else {
+                result[path] = "…/\(suffix)"
+            }
+        }
+
+        return result
     }
 
     private func decorateMarkdownTabTitle(baseTitle: String, editor: MarkdownEditorView) -> String {
@@ -2036,7 +2130,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
             return
         }
 
-        first.editor.requestCloseIfNeeded { [weak self] shouldClose in
+        requestCloseForTab(first) { [weak self] shouldClose in
             guard let self else { return }
             guard shouldClose else {
                 completion(false)
@@ -2046,22 +2140,87 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         }
     }
 
-    private func promptSaveForNewMarkdownTabs(_ tabs: ArraySlice<MarkdownTab>, completion: @escaping () -> Void) {
-        guard let first = tabs.first else {
-            completion()
+    private func requestCloseForTab(_ tab: MarkdownTab, completion: @escaping (Bool) -> Void) {
+        let shouldUseCustomClosePrompt = tab.editor.fileURL == nil && tab.editor.hasUnsavedChanges
+        guard shouldUseCustomClosePrompt else {
+            tab.editor.requestCloseIfNeeded(completion: completion)
             return
         }
 
-        first.editor.requestCloseIfNeeded { [weak self] shouldContinue in
+        presentUnsavedNewMarkdownCloseConfirmation { [weak self] decision in
             guard let self else {
-                completion()
+                completion(false)
+                return
+            }
+
+            switch decision {
+            case .save:
+                let previousURL = tab.editor.fileURL
+                tab.editor.saveAs()
+                self.waitForSaveAsResult(for: tab.id, previousURL: previousURL, warmupAttempts: 12) { savedURL in
+                    guard savedURL != nil else {
+                        completion(false)
+                        return
+                    }
+                    completion(true)
+                }
+            case .discard:
+                completion(true)
+            case .cancel:
+                completion(false)
+            }
+        }
+    }
+
+    private func presentUnsavedNewMarkdownCloseConfirmation(
+        completion: @escaping (MarkdownTabCloseDecision) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = L10n.alert.unsavedMarkdownCloseMessage
+        alert.informativeText = L10n.alert.unsavedMarkdownCloseDetail
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L10n.markdown.save)
+        alert.addButton(withTitle: L10n.alert.dontSave)
+        alert.addButton(withTitle: L10n.common.cancel)
+
+        let resolveDecision: (NSApplication.ModalResponse) -> MarkdownTabCloseDecision = { response in
+            switch response {
+            case .alertFirstButtonReturn:
+                .save
+            case .alertSecondButtonReturn:
+                .discard
+            default:
+                .cancel
+            }
+        }
+
+        if let window {
+            alert.beginSheetModal(for: window) { response in
+                completion(resolveDecision(response))
+            }
+        } else {
+            completion(resolveDecision(alert.runModal()))
+        }
+    }
+
+    private func promptSaveForNewMarkdownTabs(_ tabs: ArraySlice<MarkdownTab>, completion: @escaping (Bool) -> Void) {
+        guard let first = tabs.first else {
+            completion(true)
+            return
+        }
+
+        let previousURL = first.editor.fileURL
+        first.editor.saveAs()
+        waitForSaveAsResult(for: first.id, previousURL: previousURL, warmupAttempts: 12) { [weak self] savedURL in
+            guard let self else {
+                completion(false)
                 return
             }
             self.refreshTabTitle(for: first)
             self.persistOpenedMarkdownFilePaths()
 
-            guard shouldContinue else {
-                completion()
+            guard savedURL != nil else {
+                completion(false)
                 return
             }
             self.promptSaveForNewMarkdownTabs(tabs.dropFirst(), completion: completion)
