@@ -4,9 +4,11 @@
 
 ### 改动
 
-- docs: acknowledge MarkEdit origin in README
-- Update screenshots and table labels in README
-- release: finalize 1.1.0 metadata
+- 自动命名规则升级：支持提取“首个标题（不要求在首行）”，并增加非法文件名字符清洗、长度限制与重名去重。
+- 优化未落盘文档在 `⌘Q` / `⌘W` 场景下的交互，统一为“保存 / 不保存 / 取消”，避免循环弹窗与不合理删除语义。
+- “最近使用”与文档标签页支持同名文件路径区分，使用最短可区分目录后缀，降低误操作。
+- “最近使用”菜单图标改为系统文件/文件夹图标，视觉效果与 Finder 一致。
+- 更新文档与截图说明。
 
 
 ## 1.1.0

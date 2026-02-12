@@ -11,13 +11,15 @@
             <description>
                 <![CDATA[
                 <h2>🚀 ScreenPresenter 1.1.1</h2>
-                <p>本次更新包含以下改动：</p>
+                <p>本次更新重点优化 Markdown 文档命名、保存与关闭流程，并提升最近文档可辨识度。</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>docs: acknowledge MarkEdit origin in README</li>
-                    <li>Update screenshots and table labels in README</li>
-                    <li>release: finalize 1.1.0 metadata</li>
+                    <li>自动命名规则升级：支持提取“首个标题（不要求在首行）”，并增加非法文件名字符清洗、长度限制与重名去重。</li>
+                    <li>优化未落盘文档在 ⌘Q/⌘W 场景下的交互，统一为“保存 / 不保存 / 取消”，避免循环弹窗与不合理删除语义。</li>
+                    <li>“最近使用”与文档标签页支持同名文件路径区分，使用最短可区分目录后缀，降低误操作。</li>
+                    <li>“最近使用”菜单图标改为系统文件/文件夹图标，视觉效果与 Finder 一致。</li>
+                    <li>补充并更新相关文档说明与截图。</li>
                 </ul>
                 ]]>
             </description>
