@@ -66,6 +66,7 @@ Pods/
 *.pem
 *.p12
 *.key
+screenpresenter-sparkle.key
 *.cer
 *.mobileprovision
 *.provisionprofile

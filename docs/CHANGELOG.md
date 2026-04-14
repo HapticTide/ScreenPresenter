@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.2
+
+### 改动
+
+- 修复圆角口径并打通工程构建
+- 修正设备屏幕圆角口径与边框圆角推导
+- docs: rewrite 1.1.1 release notes in user-facing language
+- release: finalize 1.1.1 metadata
+- release: prepare 1.1.1
+
+
 ## 1.1.1
 
 ### 改动
