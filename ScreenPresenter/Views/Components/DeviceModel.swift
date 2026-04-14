@@ -277,61 +277,69 @@ enum DeviceModel: Equatable {
 
 extension DeviceModel {
     /// 屏幕圆角半径比例（相对于屏幕宽度）
-    /// 数据来源: Apple Human Interface Guidelines, screensizes.app
+    /// 数据来源: Telegram DeviceMetrics, Apple Human Interface Guidelines
     ///
-    /// | 设备 | 屏幕圆角 (pt) | 屏幕宽度 (pt) | 比例 |
-    /// |-----|-------------|--------------|------|
-    /// | iPhone 16/15/14 Pro | 55 | 393 | 0.140 |
-    /// | iPhone 16/15 | 55 | 393 | 0.140 |
-    /// | iPhone 14/13/12 | 47.33 | 390 | 0.121 |
-    /// | iPhone 11 Pro | 39 | 375 | 0.104 |
-    /// | iPhone 11/XR | 41.5 | 414 | 0.100 |
-    /// | iPhone X/XS | 39 | 375 | 0.104 |
-    /// | iPhone SE | 0 | 375 | 0 |
+    /// 注意：
+    /// 当前部分 case 合并了同代不同尺寸机型，下面的比例按本项目
+    /// `defaultAspectRatio` 实际采用的代表机型宽度换算，而不是按家族中所有机型共用同一值。
+    ///
+    /// | 当前 case | Telegram 圆角 (pt) | 代表宽度 (pt) | 比例 |
+    /// |----------|------------------|--------------|------|
+    /// | iPhone 16 Pro Max | 62 | 440 | 0.1409 |
+    /// | iPhone Air | 62 | 420 | 0.1476 |
+    /// | iPhone 14/15 Pro Max 家族 case | 55 | 430 | 0.1279 |
+    /// | iPhone 14/13 Pro Max / 12 Pro Max 家族 case | 53 | 428 | 0.1238 |
+    /// | iPhone 13 / 16e | 47 | 390 | 0.1205 |
+    /// | iPhone 12 mini | 44 | 360 | 0.1222 |
+    /// | iPhone 11 / XR / XS Max 家族 case | 41.5 | 414 | 0.1002 |
+    /// | iPhone X / XS | 39 | 375 | 0.1040 |
     var screenCornerRadiusRatio: CGFloat {
         switch self {
-        // iPhone 17 Pro - 预计与 16 Pro 相同
+        // iPhone 17 Pro - 暂按 16 Pro Max 的口径估算
         case .iPhone17Pro:
-            0.140
-        // iPhone 17 - 预计与 16 Pro 相同
+            0.1409
+        // iPhone 17 - 暂沿用当前估算值
         case .iPhone17:
             0.140
-        // iPhone Air - 预计与 16 Pro 相同
+        // iPhone Air - 62pt / 420pt
         case .iPhoneAir:
-            0.140
-        // iPhone 16 Pro - 屏幕圆角 55pt / 393pt
+            0.1476
+        // iPhone 16 Pro - 当前 case 使用 16 Pro Max 宽度，62pt / 440pt
         case .iPhone16Pro:
-            0.140
-        // iPhone 16 - 屏幕圆角 55pt / 393pt
+            0.1409
+        // iPhone 16 - 当前 case 使用 Plus 宽度，按 55pt / 430pt 估算
         case .iPhone16:
-            0.140
-        // iPhone 16e - 屏幕圆角 47.33pt / 390pt (类似 iPhone 14)
+            0.1279
+        // iPhone 16e - 类似 iPhone 14 / 13，47pt / 390pt
         case .iPhone16e:
-            0.121
-        // iPhone 15 Pro - 屏幕圆角 55pt / 393pt
+            0.1205
+        // iPhone 15 Pro - 当前 case 使用 Pro Max 宽度，按 55pt / 430pt 估算
         case .iPhone15Pro:
-            0.140
-        // iPhone 15 - 屏幕圆角 55pt / 393pt
+            0.1279
+        // iPhone 15 - 当前 case 使用 Plus 宽度，按 55pt / 430pt 估算
         case .iPhone15:
-            0.140
-        // iPhone 14 Pro - 屏幕圆角 55pt / 393pt
+            0.1279
+        // iPhone 14 Pro - 当前 case 使用 14 Pro Max 宽度，55pt / 430pt
         case .iPhone14Pro:
-            0.140
-        // iPhone 14 - 屏幕圆角 47.33pt / 390pt
+            0.1279
+        // iPhone 14 - 当前 case 使用 14 Plus 宽度，53pt / 428pt
         case .iPhone14:
-            0.121
-        // iPhone 13 系列 - 屏幕圆角 47.33pt / 390pt
-        case .iPhone13, .iPhone13Pro:
-            0.121
-        // iPhone 12 系列 - 屏幕圆角 47.33pt / 390pt
+            0.1238
+        // iPhone 13 - 47pt / 390pt
+        case .iPhone13:
+            0.1205
+        // iPhone 13 Pro / 13 Pro Max - 当前 case 使用 Pro Max 宽度，53pt / 428pt
+        case .iPhone13Pro:
+            0.1238
+        // iPhone 12 / 12 Pro Max - 当前 case 使用 Pro Max 宽度，53pt / 428pt
         case .iPhone12:
-            0.121
-        // iPhone 11 系列 - 屏幕圆角 39-41.5pt
+            0.1238
+        // iPhone 11 / 11 Pro Max - 当前 case 使用 414pt 宽度，按 41.5pt / 414pt
         case .iPhone11:
-            0.100
-        // iPhone X/XS/XR - 屏幕圆角 39pt / 375pt
+            0.1002
+        // iPhone X/XS/XR - 当前 case 使用 414pt 家族宽度，按 41.5pt / 414pt
         case .iPhoneX:
-            0.104
+            0.1002
         // iPhone SE / Legacy - 无屏幕圆角
         case .iPhoneSE, .iPhoneLegacy:
             0.0
@@ -972,7 +980,8 @@ extension DeviceModel {
         case .iPhone14Pro:
             NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1.0)
         // iPhone 标准版 - 铝金属
-        case .iPhone17, .iPhone16, .iPhone16e, .iPhone15, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12, .iPhone11, .iPhoneX:
+        case .iPhone17, .iPhone16, .iPhone16e, .iPhone15, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12, .iPhone11,
+             .iPhoneX:
             NSColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0)
         // iPhone SE / Legacy
         case .iPhoneSE, .iPhoneLegacy:

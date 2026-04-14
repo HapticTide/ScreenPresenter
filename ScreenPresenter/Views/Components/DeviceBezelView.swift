@@ -201,7 +201,7 @@ final class DeviceBezelView: NSView {
         let r = screenAspectRatio
         let b = totalBezelRatio
         let e = extraBezelRatio
-        
+
         if isLandscape {
             // 横屏：边框宽度基于设备高度（物理短边）
             // 屏幕宽度 = screenHeight * screenAspectRatio
@@ -253,22 +253,6 @@ final class DeviceBezelView: NSView {
         let metalFrameWidth = physicalShortSide * metalFrameRatio
         let screenBezelWidth = physicalShortSide * screenBezelRatio
 
-        // 圆角计算（从外向内，确保协调的同心圆角关系）：
-        // 方案：基于设备物理短边计算外圆角，然后向内推导
-        // 这样可以确保边框在角落处的视觉宽度与边缘一致
-        
-        // 1. 金属边框外圆角 - 基于设备物理短边
-        let metalOuterCornerRadius = physicalShortSide * deviceModel.screenCornerRadiusRatio
-        
-        // 2. 金属边框内圆角 = 外圆角 - 金属边框宽度（同心圆关系）
-        let metalInnerCornerRadius = max(0, metalOuterCornerRadius - metalFrameWidth)
-        
-        // 3. 屏幕黑边框外圆角 = 金属边框内圆角（两层紧密贴合）
-        let screenBezelOuterCornerRadius = metalInnerCornerRadius
-        
-        // 4. 屏幕圆角（最内层）= 屏幕黑边框外圆角 - 黑边框宽度
-        let screenCornerRadius = max(0, screenBezelOuterCornerRadius - screenBezelWidth)
-
         // 计算各层区域
         // 金属边框内边界（也是屏幕黑色边框外边界）
         var metalInnerRect = deviceRect.insetBy(dx: metalFrameWidth, dy: metalFrameWidth)
@@ -301,6 +285,17 @@ final class DeviceBezelView: NSView {
             width: round(screenRect.width * scale) / scale,
             height: round(screenRect.height * scale) / scale
         )
+
+        // 圆角计算：
+        // - 外框圆角以设备外壳参数为准
+        // - 屏幕圆角直接按 screenRect 的实际宽度计算
+        // - 若外框圆角过小，自动抬高到能完整包住内层的最小值
+        let configuredMetalOuterCornerRadius = physicalShortSide * deviceModel.bezelCornerRadiusRatio
+        let screenCornerRadius = screenRect.width * deviceModel.screenCornerRadiusRatio
+        let minimumMetalOuterCornerRadius = screenCornerRadius + screenBezelWidth + metalFrameWidth
+        let metalOuterCornerRadius = max(configuredMetalOuterCornerRadius, minimumMetalOuterCornerRadius)
+        let metalInnerCornerRadius = max(0, metalOuterCornerRadius - metalFrameWidth)
+        let screenBezelOuterCornerRadius = metalInnerCornerRadius
 
         // 使用嵌套 CALayer 实现边框（所有圆角都使用 .continuous）
 
@@ -341,10 +336,10 @@ final class DeviceBezelView: NSView {
     /// 这确保 screenContentView 的子视图（如 renderView）能跟随 screenContentView 的 bounds 变化
     private func updateLayersAndSubviews() {
         updateLayers()
-        
+
         // 同步 screenContentView 所有子视图的 frame
         // 子视图应该填满整个 screenContentView
-        screenContentView.subviews.forEach { subview in
+        for subview in screenContentView.subviews {
             subview.frame = screenContentView.bounds
         }
     }
