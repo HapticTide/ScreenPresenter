@@ -36,7 +36,7 @@ public enum EditorIndentBehavior: String, Codable {
 }
 
 /// "CGRect-fashion" rect.
-public struct WebRect: Codable {
+public struct WebRect: Codable, Sendable {
     public var x: Double
     public var y: Double
     public var width: Double

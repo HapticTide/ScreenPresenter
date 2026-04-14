@@ -55,16 +55,20 @@ public final class WebBridgeAPI {
         )
 
         return try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.api.getMenuItemState", message: message) { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.api.getMenuItemState", message: message) {
+                (result: Result<MenuItemState, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
     }
 }
 
-public struct MenuItemState: Codable {
+public struct MenuItemState: Codable, Sendable {
     /// Whether enabled; defaults to true.
     public var isEnabled: Bool?
     /// Whether selected; defaults to false.

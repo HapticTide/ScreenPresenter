@@ -20,9 +20,13 @@ public final class WebBridgeTableOfContents {
 
     public func getTableOfContents() async throws -> [HeadingInfo] {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.toc.getTableOfContents") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.toc.getTableOfContents") {
+                (result: Result<[HeadingInfo], WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -52,7 +56,7 @@ public final class WebBridgeTableOfContents {
     }
 }
 
-public struct HeadingInfo: Codable {
+public struct HeadingInfo: Codable, Sendable {
     public var title: String
     public var level: Int
     public var from: Int

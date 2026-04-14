@@ -24,9 +24,13 @@ public final class WebBridgeSelection {
 
     public func getText() async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.selection.getText") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.selection.getText") {
+                (result: Result<String, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -42,9 +46,13 @@ public final class WebBridgeSelection {
         )
 
         return try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.selection.getRect", message: message) { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.selection.getRect", message: message) {
+                (result: Result<WebRect?, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }

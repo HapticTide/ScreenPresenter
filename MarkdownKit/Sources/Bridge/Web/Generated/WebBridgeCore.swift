@@ -36,9 +36,13 @@ public final class WebBridgeCore {
 
     public func getEditorState() async throws -> WebBridgeCoreGetEditorStateReturnType {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.core.getEditorState") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.core.getEditorState") {
+                (result: Result<WebBridgeCoreGetEditorStateReturnType, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -46,9 +50,13 @@ public final class WebBridgeCore {
 
     public func getEditorText() async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.core.getEditorText") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.core.getEditorText") {
+                (result: Result<String, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -56,9 +64,13 @@ public final class WebBridgeCore {
 
     public func getReadableContentPair() async throws -> ReadableContentPair {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.core.getReadableContentPair") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.core.getReadableContentPair") {
+                (result: Result<ReadableContentPair, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -138,7 +150,7 @@ public final class WebBridgeCore {
     }
 }
 
-public struct WebBridgeCoreGetEditorStateReturnType: Codable {
+public struct WebBridgeCoreGetEditorStateReturnType: Codable, Sendable {
     public var hasFocus: Bool
     public var hasSelection: Bool
 
@@ -148,7 +160,7 @@ public struct WebBridgeCoreGetEditorStateReturnType: Codable {
     }
 }
 
-public struct ReadableContentPair: Codable {
+public struct ReadableContentPair: Codable, Sendable {
     public var fullText: ReadableContent
     public var selection: ReadableContent?
 
@@ -158,7 +170,7 @@ public struct ReadableContentPair: Codable {
     }
 }
 
-public struct ReadableContent: Codable {
+public struct ReadableContent: Codable, Sendable {
     public var sourceText: String
     public var trimmedText: String
     public var paragraphCount: Int
@@ -172,7 +184,7 @@ public struct ReadableContent: Codable {
     }
 }
 
-public enum ReplaceGranularity: String, Codable {
+public enum ReplaceGranularity: String, Codable, Sendable {
     case wholeDocument
     case selection
 }

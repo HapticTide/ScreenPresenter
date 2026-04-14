@@ -46,9 +46,13 @@ public final class WebBridgeWritingTools {
         )
 
         return try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.writingTools.getSelectionRect", message: message) { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.writingTools.getSelectionRect", message: message) {
+                (result: Result<WebRect?, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }

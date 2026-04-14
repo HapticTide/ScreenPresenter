@@ -20,9 +20,13 @@ public final class WebBridgeLineEndings {
 
     public func getLineEndings() async throws -> LineEndings {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.lineEndings.getLineEndings") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.lineEndings.getLineEndings") {
+                (result: Result<LineEndings, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -44,7 +48,7 @@ public final class WebBridgeLineEndings {
     }
 }
 
-public enum LineEndings: Int, Codable {
+public enum LineEndings: Int, Codable, Sendable {
     /// Unspecified, let CodeMirror do the normalization magic.
     case unspecified = 0
     /// Line Feed, used on macOS and Unix systems.

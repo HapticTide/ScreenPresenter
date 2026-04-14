@@ -74,9 +74,13 @@ public final class WebBridgeSearch {
         )
 
         return try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.search.findNext", message: message) { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.search.findNext", message: message) {
+                (result: Result<Bool, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -92,9 +96,13 @@ public final class WebBridgeSearch {
         )
 
         return try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.search.findPrevious", message: message) { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.search.findPrevious", message: message) {
+                (result: Result<Bool, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -114,9 +122,13 @@ public final class WebBridgeSearch {
 
     public func selectNextOccurrence() async throws -> Bool {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.search.selectNextOccurrence") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.search.selectNextOccurrence") {
+                (result: Result<Bool, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -124,9 +136,13 @@ public final class WebBridgeSearch {
 
     public func getCounterInfo() async throws -> SearchCounterInfo {
         try await withCheckedThrowingContinuation { continuation in
-            webView?.invoke(path: "webModules.search.getCounterInfo") { result in
-                Task { @MainActor in
-                    continuation.resume(with: result)
+            webView?.invoke(path: "webModules.search.getCounterInfo") {
+                (result: Result<SearchCounterInfo, WKWebView.InvokeError>) in
+                switch result {
+                case let .success(value):
+                    continuation.resume(returning: value)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
                 }
             }
         }
@@ -172,7 +188,7 @@ public enum SearchOperation: String, Codable {
 }
 
 /// Info to show text like "1 of 3".
-public struct SearchCounterInfo: Codable {
+public struct SearchCounterInfo: Codable, Sendable {
     /// Total number of matched items
     public var numberOfItems: Int
     /// Index for the selected item, zero-based
