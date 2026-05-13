@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+
+### 改动
+
+- 兼容未安装 xcpretty 的发布构建
+- 完善开源项目配置和文档
+- 适配: 支持 scrcpy 4.0 流元数据协议
+- 降低最低兼容版本到 macOS 13
+- release: finalize 1.1.2 metadata
+
+
 ## 1.1.2
 
 ### 改动

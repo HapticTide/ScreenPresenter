@@ -7,26 +7,26 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.1.2</title>
+            <title>Version 1.2.0</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.1.2</h2>
+                <h2>🚀 ScreenPresenter 1.2.0</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>修复圆角口径并打通工程构建</li>
-                    <li>修正设备屏幕圆角口径与边框圆角推导</li>
-                    <li>docs: rewrite 1.1.1 release notes in user-facing language</li>
-                    <li>release: finalize 1.1.1 metadata</li>
-                    <li>release: prepare 1.1.1</li>
+                    <li>兼容未安装 xcpretty 的发布构建</li>
+                    <li>完善开源项目配置和文档</li>
+                    <li>适配: 支持 scrcpy 4.0 流元数据协议</li>
+                    <li>降低最低兼容版本到 macOS 13</li>
+                    <li>release: finalize 1.1.2 metadata</li>
                 </ul>
                 ]]>
             </description>
             <pubDate>Wed, 15 Apr 2026 09:32:08 +0800</pubDate>
             
             <sparkle:version>202604150911</sparkle:version>
-            <sparkle:shortVersionString>1.1.2</sparkle:shortVersionString>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
