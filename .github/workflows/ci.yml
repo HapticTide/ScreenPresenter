@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build macOS App
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Validate bundled tools
+        run: |
+          test -f ScreenPresenter/Resources/Tools/platform-tools/adb
+          test -f ScreenPresenter/Resources/Tools/scrcpy-server
+          file ScreenPresenter/Resources/Tools/scrcpy-server
+          unzip -tq ScreenPresenter/Resources/Tools/scrcpy-server
+
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ScreenPresenter.xcodeproj \
+            -scheme ScreenPresenter
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild clean build \
+            -project ScreenPresenter.xcodeproj \
+            -scheme ScreenPresenter \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO

@@ -1,5 +1,10 @@
 # ScreenPresenter
 
+[![CI](https://github.com/HapticTide/ScreenPresenter/actions/workflows/ci.yml/badge.svg)](https://github.com/HapticTide/ScreenPresenter/actions/workflows/ci.yml)
+[![Release](https://github.com/HapticTide/ScreenPresenter/actions/workflows/release.yml/badge.svg)](https://github.com/HapticTide/ScreenPresenter/actions/workflows/release.yml)
+[![License](https://img.shields.io/github/license/HapticTide/ScreenPresenter)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-13.0%2B-blue)](#系统要求)
+
 ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iOS 与 Android 设备屏幕，并提供高还原度的设备边框渲染与内嵌 Markdown 编辑器。
 
 ## 截图
@@ -35,6 +40,26 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 - macOS 13.0+
 - Xcode 15+（开发构建）
 - Apple Silicon / Intel Mac
+
+## 安装
+
+从 [GitHub Releases](https://github.com/HapticTide/ScreenPresenter/releases) 下载最新版本，解压 ZIP 或打开 DMG 后，将 `ScreenPresenter.app` 拖入 `/Applications`。
+
+### 打开未签名构建
+
+GitHub Actions 自动构建的开源产物未进行 Developer ID 签名和公证。首次打开时，如果 macOS 提示“无法验证开发者”或阻止启动，请确认应用来源可信后执行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ScreenPresenter.app
+open /Applications/ScreenPresenter.app
+```
+
+如果你把 App 放在其他目录，请把命令中的路径替换为实际路径，例如：
+
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/ScreenPresenter.app
+open ~/Downloads/ScreenPresenter.app
+```
 
 ## 快速开始
 
@@ -93,15 +118,37 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 - 更新源：`https://raw.githubusercontent.com/HapticTide/ScreenPresenter/main/appcast.xml`
 - 安装包来源：GitHub Releases（公开仓库）
 
+说明：GitHub Actions 的自动 Release 产物用于开源分发和验证，默认不更新 Sparkle appcast。Sparkle 正式更新发布仍由维护者使用本地发布脚本完成，以便写入 EdDSA 签名和下载地址。
+
 ## 构建
 
 ```bash
-xcodebuild -project ScreenPresenter.xcodeproj -scheme ScreenPresenter -configuration Debug build
+xcodebuild -project ScreenPresenter.xcodeproj \
+  -scheme ScreenPresenter \
+  -configuration Debug \
+  -destination 'generic/platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 ```
+
+CI 使用同样的无签名构建路径，见 `.github/workflows/ci.yml`。
 
 ## 发布
 
-推荐使用一键脚本：
+### GitHub Actions 自动 Release
+
+推送 `X.Y.Z` tag 后会触发 `.github/workflows/release.yml`，自动构建 unsigned ZIP/DMG，并创建 GitHub Release：
+
+```bash
+git tag 1.2.0
+git push origin 1.2.0
+```
+
+也可以在 GitHub Actions 页面手动运行 Release workflow，并输入版本号。
+
+### Sparkle 正式发布
+
+需要更新 `appcast.xml` 时，维护者在本地使用一键脚本：
 
 ```bash
 # 交互式
@@ -114,6 +161,10 @@ xcodebuild -project ScreenPresenter.xcodeproj -scheme ScreenPresenter -configura
 发布脚本会串联处理：构建、签名、更新 appcast、创建 Release、回填下载地址。
 
 Agent 发布流程说明见：`skills/screenpresenter-release/SKILL.md`
+
+## 参与贡献
+
+请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。PR 会触发 GitHub Actions 构建校验；当前主工程 scheme 未配置 test action，因此 CI 以 macOS app 编译为主。
 
 ## 变更记录
 
