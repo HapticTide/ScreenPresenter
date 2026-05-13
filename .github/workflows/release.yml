@@ -69,6 +69,9 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
       - name: Build unsigned release app
         id: build
         run: |
@@ -84,7 +87,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | xcbeautify
 
           app_path="$(find "$PWD/build/DerivedData/Build/Products/Release" -name "${APP_NAME}.app" -type d -print -quit)"
           if [ -z "$app_path" ]; then

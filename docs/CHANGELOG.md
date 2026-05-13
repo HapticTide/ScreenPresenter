@@ -4,11 +4,13 @@
 
 ### 改动
 
-- 兼容未安装 xcpretty 的发布构建
-- 完善开源项目配置和文档
-- 适配: 支持 scrcpy 4.0 流元数据协议
-- 降低最低兼容版本到 macOS 13
-- release: finalize 1.1.2 metadata
+- 新增 GitHub CI、自动 Release、Issue/PR 模板、Dependabot 与贡献文档
+- 发布构建输出统一优先使用 `xcbeautify`
+- 修复 GitHub Actions runner 使用 Xcode 16.4 时的 SDK 兼容构建问题
+- README 聚焦用户与贡献者内容，维护者发布流程移至 `docs/RELEASE.md`
+- GitHub Linguist 语言统计排除内嵌 HTML 资源
+- 适配 scrcpy 4.0.0 server 流元数据协议
+- 最低系统版本调整为 macOS 13.0
 
 
 ## 1.1.2
@@ -63,7 +65,7 @@
 - **自动更新与发布链路迁移到公开仓库**
   - Sparkle 更新源统一使用仓库内 `appcast.xml`（`raw.githubusercontent.com`）
   - 发布资产统一使用 GitHub Releases 公网下载地址
-  - 增加一键发布脚本 `release_oneclick.sh` 与发布 skill `skills/screenpresenter-release/SKILL.md`
+  - 增加一键发布脚本 `release_oneclick.sh`
 
 ### 修复
 

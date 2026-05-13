@@ -147,13 +147,6 @@ if command -v xcbeautify &> /dev/null; then
         exit 1
     }
     set +o pipefail
-elif command -v xcpretty &> /dev/null; then
-    set -o pipefail
-    "${BUILD_CMD[@]}" 2>&1 | xcpretty || {
-        log_error "构建失败"
-        exit 1
-    }
-    set +o pipefail
 else
     log_warning "未安装 xcbeautify，使用原始 xcodebuild 输出"
     "${BUILD_CMD[@]}" || {

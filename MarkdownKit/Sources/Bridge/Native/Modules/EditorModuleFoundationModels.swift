@@ -5,7 +5,9 @@
 //
 
 import Foundation
-import FoundationModels
+#if canImport(FoundationModels)
+    import FoundationModels
+#endif
 import MarkdownCore
 
 @MainActor
@@ -29,23 +31,31 @@ public final class EditorModuleFoundationModels: NativeModuleFoundationModels {
     }
 
     public func createSession(instructions: String?) async -> String? {
-        guard #available(macOS 26.0, *) else {
+        #if canImport(FoundationModels)
+            guard #available(macOS 26.0, *) else {
+                return nil
+            }
+
+            let identifier = UUID().uuidString
+            let session = LanguageModelSession(instructions: instructions)
+
+            sessionPool[identifier] = session
+            return identifier
+        #else
             return nil
-        }
-
-        let identifier = UUID().uuidString
-        let session = LanguageModelSession(instructions: instructions)
-
-        sessionPool[identifier] = session
-        return identifier
+        #endif
     }
 
     public func isResponding(sessionID: String?) async -> Bool {
-        guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
-            return false
-        }
+        #if canImport(FoundationModels)
+            guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
+                return false
+            }
 
-        return session.isResponding
+            return session.isResponding
+        #else
+            return false
+        #endif
     }
 
     public func respondTo(
@@ -61,20 +71,24 @@ public final class EditorModuleFoundationModels: NativeModuleFoundationModels {
             ).jsonEncoded
         }
 
-        guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
+        #if canImport(FoundationModels)
+            guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
+                return encode(nil, "Model Unavailable", true)
+            }
+
+            do {
+                let response = try await session.respond(
+                    to: prompt,
+                    options: GenerationOptions(options)
+                )
+
+                return encode(response.content, nil, true)
+            } catch {
+                return encode(nil, error.localizedDescription, true)
+            }
+        #else
             return encode(nil, "Model Unavailable", true)
-        }
-
-        do {
-            let response = try await session.respond(
-                to: prompt,
-                options: GenerationOptions(options)
-            )
-
-            return encode(response.content, nil, true)
-        } catch {
-            return encode(nil, error.localizedDescription, true)
-        }
+        #endif
     }
 
     public func streamResponseTo(
@@ -103,87 +117,102 @@ public final class EditorModuleFoundationModels: NativeModuleFoundationModels {
             }
         }
 
-        guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
-            return didReceive(nil, "Model Unavailable", true)
-        }
-
-        Task {
-            do {
-                let stream = session.streamResponse(
-                    to: prompt,
-                    options: GenerationOptions(options)
-                )
-
-                for try await snapshot in stream {
-                    didReceive(snapshot.content, nil, false)
-                }
-
-                let response = try await stream.collect()
-                didReceive(response.content, nil, true)
-            } catch {
-                didReceive(nil, error.localizedDescription, true)
+        #if canImport(FoundationModels)
+            guard #available(macOS 26.0, *), let session = session(with: sessionID) else {
+                return didReceive(nil, "Model Unavailable", true)
             }
-        }
+
+            Task {
+                do {
+                    let stream = session.streamResponse(
+                        to: prompt,
+                        options: GenerationOptions(options)
+                    )
+
+                    for try await snapshot in stream {
+                        didReceive(snapshot.content, nil, false)
+                    }
+
+                    let response = try await stream.collect()
+                    didReceive(response.content, nil, true)
+                } catch {
+                    didReceive(nil, error.localizedDescription, true)
+                }
+            }
+        #else
+            didReceive(nil, "Model Unavailable", true)
+        #endif
     }
 
     // MARK: - Private
 
     private var defaultModelAvailability: LanguageModelAvailability {
-        guard #available(macOS 26.0, *) else {
-            return LanguageModelAvailability(isAvailable: false, unavailableReason: "Unsupported OS Version")
-        }
+        #if canImport(FoundationModels)
+            guard #available(macOS 26.0, *) else {
+                return LanguageModelAvailability(isAvailable: false, unavailableReason: "Unsupported OS Version")
+            }
 
-        switch SystemLanguageModel.default.availability {
-        case .available:
-            return LanguageModelAvailability(isAvailable: true, unavailableReason: nil)
-        case .unavailable(.deviceNotEligible):
-            return LanguageModelAvailability(isAvailable: false, unavailableReason: "Device Not Eligible")
-        case .unavailable(.appleIntelligenceNotEnabled):
-            return LanguageModelAvailability(isAvailable: false, unavailableReason: "Apple Intelligence Not Enabled")
-        case .unavailable(.modelNotReady):
-            return LanguageModelAvailability(isAvailable: false, unavailableReason: "Model Not Ready")
-        @unknown default:
-            return LanguageModelAvailability(isAvailable: false, unavailableReason: "Unknown")
-        }
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                return LanguageModelAvailability(isAvailable: true, unavailableReason: nil)
+            case .unavailable(.deviceNotEligible):
+                return LanguageModelAvailability(isAvailable: false, unavailableReason: "Device Not Eligible")
+            case .unavailable(.appleIntelligenceNotEnabled):
+                return LanguageModelAvailability(
+                    isAvailable: false,
+                    unavailableReason: "Apple Intelligence Not Enabled"
+                )
+            case .unavailable(.modelNotReady):
+                return LanguageModelAvailability(isAvailable: false, unavailableReason: "Model Not Ready")
+            @unknown default:
+                return LanguageModelAvailability(isAvailable: false, unavailableReason: "Unknown")
+            }
+        #else
+            return LanguageModelAvailability(isAvailable: false, unavailableReason: "FoundationModels Unavailable")
+        #endif
     }
 
     // [macOS 26] Change the value type to LanguageModelSession
     private var sessionPool = [String: AnyObject]()
 
-    @available(macOS 26.0, *)
-    private func session(with sessionID: String?) -> LanguageModelSession? {
-        guard let sessionID, let session = (sessionPool[sessionID] as? LanguageModelSession) else {
-            return nil
-        }
+    #if canImport(FoundationModels)
+        @available(macOS 26.0, *)
+        private func session(with sessionID: String?) -> LanguageModelSession? {
+            guard let sessionID, let session = (sessionPool[sessionID] as? LanguageModelSession) else {
+                return nil
+            }
 
-        return session
-    }
+            return session
+        }
+    #endif
 }
 
 // MARK: - Private
 
-@available(macOS 26.0, *)
-private extension GenerationOptions {
-    init(_ options: LanguageModelGenerationOptions?) {
-        self.init(
-            sampling: SamplingMode(options?.sampling),
-            temperature: options?.temperature,
-            maximumResponseTokens: options?.maximumResponseTokens
-        )
-    }
-}
-
-@available(macOS 26.0, *)
-private extension GenerationOptions.SamplingMode {
-    init?(_ sampling: LanguageModelSampling?) {
-        if sampling?.greedy == true {
-            self = .greedy
-        } else if let top_k = sampling?.top_k {
-            self = .random(top: top_k, seed: sampling?.seed)
-        } else if let top_p = sampling?.top_p {
-            self = .random(probabilityThreshold: top_p, seed: sampling?.seed)
-        } else {
-            return nil
+#if canImport(FoundationModels)
+    @available(macOS 26.0, *)
+    private extension GenerationOptions {
+        init(_ options: LanguageModelGenerationOptions?) {
+            self.init(
+                sampling: SamplingMode(options?.sampling),
+                temperature: options?.temperature,
+                maximumResponseTokens: options?.maximumResponseTokens
+            )
         }
     }
-}
+
+    @available(macOS 26.0, *)
+    private extension GenerationOptions.SamplingMode {
+        init?(_ sampling: LanguageModelSampling?) {
+            if sampling?.greedy == true {
+                self = .greedy
+            } else if let top_k = sampling?.top_k {
+                self = .random(top: top_k, seed: sampling?.seed)
+            } else if let top_p = sampling?.top_p {
+                self = .random(probabilityThreshold: top_p, seed: sampling?.seed)
+            } else {
+                return nil
+            }
+        }
+    }
+#endif

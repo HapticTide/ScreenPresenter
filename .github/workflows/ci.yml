@@ -29,6 +29,9 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
       - name: Validate bundled tools
         run: |
           test -f ScreenPresenter/Resources/Tools/platform-tools/adb
@@ -50,4 +53,6 @@ jobs:
             -scheme ScreenPresenter \
             -configuration Debug \
             -destination 'generic/platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | xcbeautify

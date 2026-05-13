@@ -516,11 +516,13 @@ build_app() {
         ENABLE_HARDENED_RUNTIME=YES \
         ONLY_ACTIVE_ARCH=NO"
     
-    # 检查 xcpretty 是否可用，如果可用则使用它美化输出
-    if command -v xcpretty &> /dev/null; then
-        eval "$BUILD_CMD" | xcpretty --color
+    # 检查 xcbeautify 是否可用，如果可用则使用它美化输出
+    if command -v xcbeautify &> /dev/null; then
+        set -o pipefail
+        eval "$BUILD_CMD" 2>&1 | xcbeautify
+        set +o pipefail
     else
-        log_info "提示: 安装 xcpretty (gem install xcpretty) 可获得更简洁的构建输出"
+        log_info "提示: 安装 xcbeautify (brew install xcbeautify) 可获得更简洁的构建输出"
         eval "$BUILD_CMD"
     fi
     
@@ -818,4 +820,3 @@ main() {
 
 # 运行主函数
 main "$@"
-
