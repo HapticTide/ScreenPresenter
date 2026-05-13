@@ -130,17 +130,30 @@ log_info "版本号: $VERSION, Build: $BUILD_NUMBER"
 
 # 使用 xcodebuild build 而不是 archive，让 Xcode 自动签名
 # 不再使用 CODE_SIGN_IDENTITY="-" 强制 ad-hoc 签名
-xcodebuild clean build \
-    -project "$PROJECT_DIR/$APP_NAME.xcodeproj" \
-    -scheme "$APP_NAME" \
-    -configuration Release \
-    -derivedDataPath "$BUILD_DIR/DerivedData" \
-    ENABLE_HARDENED_RUNTIME=YES \
-    ONLY_ACTIVE_ARCH=NO \
-    2>&1 | xcpretty || {
+BUILD_CMD=(
+    xcodebuild clean build
+    -project "$PROJECT_DIR/$APP_NAME.xcodeproj"
+    -scheme "$APP_NAME"
+    -configuration Release
+    -derivedDataPath "$BUILD_DIR/DerivedData"
+    ENABLE_HARDENED_RUNTIME=YES
+    ONLY_ACTIVE_ARCH=NO
+)
+
+if command -v xcpretty &> /dev/null; then
+    set -o pipefail
+    "${BUILD_CMD[@]}" 2>&1 | xcpretty || {
         log_error "构建失败"
         exit 1
     }
+    set +o pipefail
+else
+    log_warning "未安装 xcpretty，使用原始 xcodebuild 输出"
+    "${BUILD_CMD[@]}" || {
+        log_error "构建失败"
+        exit 1
+    }
+fi
 
 log_success "构建完成"
 
