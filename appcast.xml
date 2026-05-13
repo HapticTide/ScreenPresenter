@@ -25,17 +25,17 @@
                 </ul>
                 ]]>
             </description>
-            <pubDate>Wed, 13 May 2026 13:07:48 +0800</pubDate>
+            <pubDate>Wed, 13 May 2026 14:08:15 +0800</pubDate>
             
-            <sparkle:version>202605131306</sparkle:version>
+            <sparkle:version>202605131407</sparkle:version>
             <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
                 url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.0/ScreenPresenter.zip"
-                length="15131087"
+                length="15206425"
                 type="application/octet-stream"
-                sparkle:edSignature="P6zQbW0ssYXBLAgVeJTvVZ7WK94SI6K6V+PVoHtyvcCR2ZkyJjAQu59IkSST6RdaUrZuAsAdaVyS3YnND+PzBg=="
+                sparkle:edSignature="8xpAhqkuLt+dK+gegW8mGbCcN8ZFgSQ5Y8i0l11dU4oIHM2M+ButRAZNjhU5O25hSkvTT8AEqQzGuPelGGcdDQ=="
             />
         </item>
     </channel>
