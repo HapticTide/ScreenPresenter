@@ -49,7 +49,7 @@ struct EditorSaveOptionsView: View {
                             Text($0.rawValue).tag($0)
                         }
                     }
-                    .onChange(of: filenameExtension) {
+                    .onChange(of: filenameExtension) { _ in
                         onValueChange(.fileExtension(value: filenameExtension))
                     }
                     .formMenuPicker(minWidth: 120)
@@ -65,7 +65,7 @@ struct EditorSaveOptionsView: View {
                             }
                         }
                     }
-                    .onChange(of: textEncoding) {
+                    .onChange(of: textEncoding) { _ in
                         onValueChange(.textEncoding(value: textEncoding))
                     }
                     .formMenuPicker(minWidth: 120)
@@ -75,7 +75,7 @@ struct EditorSaveOptionsView: View {
                     Toggle(isOn: $showHiddenFiles) {
                         Text(Localized.Document.showHiddenFiles)
                     }
-                    .onChange(of: showHiddenFiles) {
+                    .onChange(of: showHiddenFiles) { _ in
                         AppPreferences.General.showHiddenFiles = showHiddenFiles
                         onValueChange(.showHiddenFiles(value: showHiddenFiles))
                     }

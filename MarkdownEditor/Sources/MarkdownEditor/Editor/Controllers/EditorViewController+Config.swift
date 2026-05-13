@@ -110,7 +110,9 @@ extension EditorViewController {
     }
 
     func setInlinePredictions(enabled: Bool) {
-        webView.configuration.allowsInlinePredictions = NSSpellChecker.InlineCompletion.webKitEnabled
+        if #available(macOS 14.0, *) {
+            webView.configuration.allowsInlinePredictions = NSSpellChecker.InlineCompletion.webKitEnabled
+        }
     }
 
     func setSuggestWhileTyping(enabled: Bool) {

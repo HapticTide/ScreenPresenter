@@ -32,7 +32,7 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 
 ## 系统要求
 
-- macOS 14.0+
+- macOS 13.0+
 - Xcode 15+（开发构建）
 - Apple Silicon / Intel Mac
 

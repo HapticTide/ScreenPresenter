@@ -22,7 +22,7 @@ struct WindowSettingsView: View {
                     Text(Localized.Settings.compactMode).tag(ToolbarMode.compact)
                     Text(Localized.Settings.hiddenMode).tag(ToolbarMode.hidden)
                 }
-                .onChange(of: toolbarMode) {
+                .onChange(of: toolbarMode) { _ in
                     AppPreferences.Window.toolbarMode = toolbarMode
                 }
                 .formMenuPicker()
@@ -32,7 +32,7 @@ struct WindowSettingsView: View {
                     Text(Localized.Settings.preferred).tag(NSWindow.TabbingMode.preferred)
                     Text(Localized.Settings.disallowed).tag(NSWindow.TabbingMode.disallowed)
                 }
-                .onChange(of: tabbingMode) {
+                .onChange(of: tabbingMode) { _ in
                     AppPreferences.Window.tabbingMode = tabbingMode
                 }
                 .formMenuPicker()
@@ -40,7 +40,7 @@ struct WindowSettingsView: View {
 
             Section {
                 Toggle(Localized.Settings.reduceTransparencyDescription, isOn: $reduceTransparency)
-                    .onChange(of: reduceTransparency) {
+                    .onChange(of: reduceTransparency) { _ in
                         AppPreferences.Window.reduceTransparency = reduceTransparency
                     }
                     .formLabel(Localized.Settings.reduceTransparencyLabel)

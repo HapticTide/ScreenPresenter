@@ -59,6 +59,27 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     private var stateRefreshTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
+    private var externalDeviceType: AVCaptureDevice.DeviceType {
+        if #available(macOS 14.0, *) {
+            return .external
+        }
+        return .externalUnknown
+    }
+
+    private var diagnosticVideoDeviceTypes: [AVCaptureDevice.DeviceType] {
+        var deviceTypes: [AVCaptureDevice.DeviceType] = [
+            .builtInWideAngleCamera,
+            .deskViewCamera,
+            externalDeviceType,
+        ]
+
+        if #available(macOS 14.0, *) {
+            deviceTypes.append(.continuityCamera)
+        }
+
+        return deviceTypes
+    }
+
     // MARK: - 初始化
 
     override init() {
@@ -128,7 +149,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         // 创建发现会话，监听外部 muxed 设备（USB 屏幕镜像）
         // 注意：USB 屏幕镜像设备使用 .muxed 媒体类型，而不是 .video
         discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.external],
+            deviceTypes: [externalDeviceType],
             mediaType: .muxed,
             position: .unspecified
         )
@@ -158,7 +179,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
 
         // 1. 检查 video 媒体类型的外部设备
         let videoExternalDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.external],
+            deviceTypes: [externalDeviceType],
             mediaType: .video,
             position: .unspecified
         ).devices
@@ -166,7 +187,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
 
         // 2. 检查 muxed 媒体类型的外部设备（USB 屏幕镜像特征）
         let muxedExternalDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.external],
+            deviceTypes: [externalDeviceType],
             mediaType: .muxed,
             position: .unspecified
         ).devices
@@ -174,7 +195,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
 
         // 3. 列出所有视频设备（不限类型）
         let allVideoDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera, .deskViewCamera],
+            deviceTypes: diagnosticVideoDeviceTypes,
             mediaType: .video,
             position: .unspecified
         ).devices
@@ -238,7 +259,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         guard let session = discoverySession else {
             // 如果没有会话，创建临时查询（使用 muxed 媒体类型）
             let tempSession = AVCaptureDevice.DiscoverySession(
-                deviceTypes: [.external],
+                deviceTypes: [externalDeviceType],
                 mediaType: .muxed,
                 position: .unspecified
             )
@@ -282,7 +303,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     private func updateDeviceList(from captureDevices: [AVCaptureDevice]) {
         // 筛选出 iOS 屏幕镜像设备
         let iosCaptureDevices = captureDevices.filter { device in
-            guard device.deviceType == .external else { return false }
+            guard device.deviceType == externalDeviceType else { return false }
             let modelID = device.modelID
             let isIOSDevice = modelID.hasPrefix("iPhone") ||
                 modelID.hasPrefix("iPad") ||

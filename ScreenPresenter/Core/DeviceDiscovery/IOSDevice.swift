@@ -250,6 +250,11 @@ struct IOSDevice: Identifiable, Hashable {
     /// 注意：此时 id 使用 AVFoundation uniqueID，需要后续通过 enriched() 更新为真实 UDID
     static func from(captureDevice: AVCaptureDevice) -> IOSDevice? {
         let deviceType = captureDevice.deviceType
+        let externalDeviceType: AVCaptureDevice.DeviceType = if #available(macOS 14.0, *) {
+            .external
+        } else {
+            .externalUnknown
+        }
         let rawName = captureDevice.localizedName
         let modelID = captureDevice.modelID
 
@@ -257,7 +262,7 @@ struct IOSDevice: Identifiable, Hashable {
         AppLogger.device.debug("检测到捕获设备: \(rawName), 类型: \(deviceType.rawValue), 型号: \(modelID)")
 
         // 必须是外部设备类型
-        guard deviceType == .external else {
+        guard deviceType == externalDeviceType else {
             AppLogger.device.debug("跳过非外部设备: \(rawName), 类型: \(deviceType.rawValue)")
             return nil
         }
@@ -634,6 +639,11 @@ struct IOSDevice: Identifiable, Hashable {
 // MARK: - DeviceInfo 协议扩展
 
 extension IOSDevice: DeviceInfo {
-    var model: String? { modelID }
-    var platform: DevicePlatform { .ios }
+    var model: String? {
+        modelID
+    }
+
+    var platform: DevicePlatform {
+        .ios
+    }
 }

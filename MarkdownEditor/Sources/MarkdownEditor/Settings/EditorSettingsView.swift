@@ -41,7 +41,7 @@ struct EditorSettingsView: View {
                     Picker(Localized.Settings.lightTheme, selection: $lightTheme) {
                         createThemePicker()
                     }
-                    .onChange(of: lightTheme) {
+                    .onChange(of: lightTheme) { _ in
                         AppPreferences.Editor.lightTheme = lightTheme
                     }
                     .formMenuPicker()
@@ -49,7 +49,7 @@ struct EditorSettingsView: View {
                     Picker(Localized.Settings.darkTheme, selection: $darkTheme) {
                         createThemePicker()
                     }
-                    .onChange(of: darkTheme) {
+                    .onChange(of: darkTheme) { _ in
                         AppPreferences.Editor.darkTheme = darkTheme
                     }
                     .formMenuPicker()
@@ -60,21 +60,21 @@ struct EditorSettingsView: View {
                         Toggle(isOn: $showLineNumbers) {
                             Text(Localized.Settings.lineNumbers)
                         }
-                        .onChange(of: showLineNumbers) {
+                        .onChange(of: showLineNumbers) { _ in
                             AppPreferences.Editor.showLineNumbers = showLineNumbers
                         }
 
                         Toggle(isOn: $showActiveLineIndicator) {
                             Text(Localized.Settings.activeLineIndicator)
                         }
-                        .onChange(of: showActiveLineIndicator) {
+                        .onChange(of: showActiveLineIndicator) { _ in
                             AppPreferences.Editor.showActiveLineIndicator = showActiveLineIndicator
                         }
 
                         Toggle(isOn: $showSelectionStatus) {
                             Text(Localized.Settings.selectionStatus)
                         }
-                        .onChange(of: showSelectionStatus) {
+                        .onChange(of: showSelectionStatus) { _ in
                             AppPreferences.Editor.showSelectionStatus = showSelectionStatus
                         }
                     }
@@ -86,7 +86,7 @@ struct EditorSettingsView: View {
                         Text(Localized.Settings.trailing).tag(EditorInvisiblesBehavior.trailing)
                         Text(Localized.Settings.always).tag(EditorInvisiblesBehavior.always)
                     }
-                    .onChange(of: invisiblesBehavior) {
+                    .onChange(of: invisiblesBehavior) { _ in
                         AppPreferences.Editor.invisiblesBehavior = invisiblesBehavior
                     }
                     .formMenuPicker()
@@ -97,14 +97,14 @@ struct EditorSettingsView: View {
                         Toggle(isOn: $typewriterMode) {
                             Text(Localized.Settings.typewriterModeTitle)
                         }
-                        .onChange(of: typewriterMode) {
+                        .onChange(of: typewriterMode) { _ in
                             AppPreferences.Editor.typewriterMode = typewriterMode
                         }
 
                         Toggle(isOn: $focusMode) {
                             Text(Localized.Settings.focusModeTitle)
                         }
-                        .onChange(of: focusMode) {
+                        .onChange(of: focusMode) { _ in
                             AppPreferences.Editor.focusMode = focusMode
                         }
                     }
@@ -113,7 +113,7 @@ struct EditorSettingsView: View {
                     Toggle(isOn: $lineWrapping) {
                         Text(Localized.Settings.lineWrappingDescription)
                     }
-                    .onChange(of: lineWrapping) {
+                    .onChange(of: lineWrapping) { _ in
                         AppPreferences.Editor.lineWrapping = lineWrapping
                     }
                     .formLabel(Localized.Settings.lineWrappingLabel)
@@ -124,7 +124,7 @@ struct EditorSettingsView: View {
                         Text(Localized.Settings.normalHeight).tag(LineHeight.normal)
                         Text(Localized.Settings.relaxedHeight).tag(LineHeight.relaxed)
                     }
-                    .onChange(of: lineHeight) {
+                    .onChange(of: lineHeight) { _ in
                         AppPreferences.Editor.lineHeight = lineHeight
                     }
                     .formHorizontalRadio()
@@ -138,7 +138,7 @@ struct EditorSettingsView: View {
                         Text(Localized.Settings.insertsFourSpaces).tag(TabKeyBehavior.insertFourSpaces)
                         Text(Localized.Settings.indentsMore).tag(TabKeyBehavior.indentMore)
                     }
-                    .onChange(of: tabKeyBehavior) {
+                    .onChange(of: tabKeyBehavior) { _ in
                         AppPreferences.Editor.tabKeyBehavior = tabKeyBehavior
                     }
                     .formMenuPicker()
@@ -149,7 +149,7 @@ struct EditorSettingsView: View {
                         Text(Localized.Settings.oneTab).tag(IndentUnit.oneTab)
                         Text(Localized.Settings.twoTabs).tag(IndentUnit.twoTabs)
                     }
-                    .onChange(of: indentUnit) {
+                    .onChange(of: indentUnit) { _ in
                         AppPreferences.Editor.indentUnit = indentUnit
                     }
                     .formMenuPicker()
@@ -162,7 +162,6 @@ struct EditorSettingsView: View {
 // MARK: - Private
 
 private extension EditorSettingsView {
-    
     var fontPickerConfiguration: FontPickerConfiguration {
         FontPickerConfiguration(
             modernStyle: AppDesign.modernStyle,
@@ -189,7 +188,6 @@ private extension EditorSettingsView {
         )
     }
 
-    @ViewBuilder
     func createThemePicker() -> some View {
         ForEach(AppTheme.allCases, id: \.self) {
             Text($0.description).tag($0.editorTheme)

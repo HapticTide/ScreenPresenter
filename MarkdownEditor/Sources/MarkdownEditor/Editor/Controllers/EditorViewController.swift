@@ -189,7 +189,9 @@ final class EditorViewController: NSViewController {
         let config: WKWebViewConfiguration = .newConfig(disableCors: AppRuntimeConfig.disableCorsRestrictions)
         config.userContentController = controller
         config.applicationNameForUserAgent = "\(ProcessInfo.processInfo.userAgent) \(Bundle.main.userAgent)"
-        config.allowsInlinePredictions = NSSpellChecker.InlineCompletion.webKitEnabled
+        if #available(macOS 14.0, *) {
+            config.allowsInlinePredictions = NSSpellChecker.InlineCompletion.webKitEnabled
+        }
 
         let chunkLoader = EditorChunkLoader()
         let imageLoader = EditorImageLoader { [weak self] in
@@ -205,7 +207,9 @@ final class EditorViewController: NSViewController {
         configureWritingToolsBehavior(config)
 
         let webView = EditorWebView(frame: .zero, configuration: config)
-        webView.isInspectable = true
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = true
+        }
         webView.allowsMagnification = true
         webView.uiDelegate = self
         webView.actionDelegate = self

@@ -8,7 +8,7 @@ import AppKit
 import SwiftUI
 
 struct TextCompletionView: View {
-    private var state: TextCompletionState
+    @ObservedObject private var state: TextCompletionState
     private let modernStyle: Bool
     private let localizable: TextCompletionLocalizable
     private let commitCompletion: () -> Void
@@ -28,7 +28,7 @@ struct TextCompletionView: View {
         commitCompletion: @escaping () -> Void
     ) {
         self.modernStyle = modernStyle
-        self.state = state
+        _state = ObservedObject(wrappedValue: state)
         self.localizable = localizable
         self.commitCompletion = commitCompletion
     }
@@ -93,7 +93,7 @@ struct TextCompletionView: View {
                             )
                         }
                     }
-                }.onChange(of: state.selectedIndex) {
+                }.onChange(of: state.selectedIndex) { _ in
                     scrollView.scrollTo(state.selectedIndex)
                 }
             }

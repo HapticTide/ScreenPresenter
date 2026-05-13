@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "MarkdownPreview",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v13)],
     products: [
         .library(name: "MarkdownPreview", targets: ["MarkdownPreview"]),
     ],
