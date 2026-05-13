@@ -6,8 +6,14 @@
 
 import Foundation
 
+/// Result wrapper crossing the WebKit script-message bridge.
+public enum NativeMethodResult: @unchecked Sendable {
+    case success(Any?)
+    case failure(Error)
+}
+
 /// Native method that will be invoked by JavaScript.
-public typealias NativeMethod = (_ parameters: Data) async -> Result<Any?, Error>?
+public typealias NativeMethod = @Sendable (_ parameters: Data) async -> NativeMethodResult?
 
 @MainActor
 public protocol NativeBridge: AnyObject {

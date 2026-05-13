@@ -37,7 +37,7 @@ final class NativeBridgeTranslation: NativeBridge {
         self.module = module
     }
 
-    private func translate(parameters: Data) async -> Result<Any?, Error>? {
+    private func translate(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var text: String
             var from: String?

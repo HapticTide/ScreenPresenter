@@ -93,7 +93,7 @@ final class NativeBridgeAPI: NativeBridge {
         self.module = module
     }
 
-    private func openFile(parameters: Data) async -> Result<Any?, Error>? {
+    private func openFile(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String
         }
@@ -110,7 +110,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func createFile(parameters: Data) async -> Result<Any?, Error>? {
+    private func createFile(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var options: CreateFileOptions
         }
@@ -127,7 +127,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func deleteFile(parameters: Data) async -> Result<Any?, Error>? {
+    private func deleteFile(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String
         }
@@ -144,7 +144,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func listFiles(parameters: Data) async -> Result<Any?, Error>? {
+    private func listFiles(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String
         }
@@ -161,7 +161,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func getFileContent(parameters: Data) async -> Result<Any?, Error>? {
+    private func getFileContent(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String?
         }
@@ -178,7 +178,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func getFileObject(parameters: Data) async -> Result<Any?, Error>? {
+    private func getFileObject(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String?
         }
@@ -195,7 +195,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func getFileInfo(parameters: Data) async -> Result<Any?, Error>? {
+    private func getFileInfo(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var path: String?
         }
@@ -212,17 +212,17 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func getPasteboardItems(parameters: Data) async -> Result<Any?, Error>? {
+    private func getPasteboardItems(parameters: Data) async -> NativeMethodResult? {
         let result = await module.getPasteboardItems()
         return .success(result)
     }
 
-    private func getPasteboardString(parameters: Data) async -> Result<Any?, Error>? {
+    private func getPasteboardString(parameters: Data) async -> NativeMethodResult? {
         let result = await module.getPasteboardString()
         return .success(result)
     }
 
-    private func addMainMenuItems(parameters: Data) async -> Result<Any?, Error>? {
+    private func addMainMenuItems(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var items: [WebMenuItem]
         }
@@ -239,7 +239,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(nil)
     }
 
-    private func showContextMenu(parameters: Data) async -> Result<Any?, Error>? {
+    private func showContextMenu(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var items: [WebMenuItem]
             var location: WebPoint
@@ -257,7 +257,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(nil)
     }
 
-    private func showAlert(parameters: Data) async -> Result<Any?, Error>? {
+    private func showAlert(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var title: String?
             var message: String?
@@ -276,7 +276,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func showTextBox(parameters: Data) async -> Result<Any?, Error>? {
+    private func showTextBox(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var title: String?
             var placeholder: String?
@@ -299,7 +299,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func showSavePanel(parameters: Data) async -> Result<Any?, Error>? {
+    private func showSavePanel(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var options: SavePanelOptions
         }
@@ -316,7 +316,7 @@ final class NativeBridgeAPI: NativeBridge {
         return .success(result)
     }
 
-    private func runService(parameters: Data) async -> Result<Any?, Error>? {
+    private func runService(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var name: String
             var input: String?

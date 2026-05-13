@@ -58,12 +58,12 @@ final class NativeBridgeFoundationModels: NativeBridge {
         self.module = module
     }
 
-    private func availability(parameters: Data) async -> Result<Any?, Error>? {
+    private func availability(parameters: Data) async -> NativeMethodResult? {
         let result = await module.availability()
         return .success(result)
     }
 
-    private func createSession(parameters: Data) async -> Result<Any?, Error>? {
+    private func createSession(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var instructions: String?
         }
@@ -80,7 +80,7 @@ final class NativeBridgeFoundationModels: NativeBridge {
         return .success(result)
     }
 
-    private func isResponding(parameters: Data) async -> Result<Any?, Error>? {
+    private func isResponding(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var sessionID: String?
         }
@@ -97,7 +97,7 @@ final class NativeBridgeFoundationModels: NativeBridge {
         return .success(result)
     }
 
-    private func respondTo(parameters: Data) async -> Result<Any?, Error>? {
+    private func respondTo(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var sessionID: String?
             var prompt: String
@@ -120,7 +120,7 @@ final class NativeBridgeFoundationModels: NativeBridge {
         return .success(result)
     }
 
-    private func streamResponseTo(parameters: Data) async -> Result<Any?, Error>? {
+    private func streamResponseTo(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var sessionID: String?
             var streamID: String

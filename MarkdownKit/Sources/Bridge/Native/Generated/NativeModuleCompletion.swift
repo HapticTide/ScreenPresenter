@@ -61,7 +61,7 @@ final class NativeBridgeCompletion: NativeBridge {
         self.module = module
     }
 
-    private func requestCompletions(parameters: Data) async -> Result<Any?, Error>? {
+    private func requestCompletions(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var anchor: TextTokenizeAnchor
             var fullText: String?
@@ -79,7 +79,7 @@ final class NativeBridgeCompletion: NativeBridge {
         return .success(nil)
     }
 
-    private func commitCompletion(parameters: Data) async -> Result<Any?, Error>? {
+    private func commitCompletion(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var insert: String?
         }
@@ -96,27 +96,27 @@ final class NativeBridgeCompletion: NativeBridge {
         return .success(nil)
     }
 
-    private func cancelCompletion(parameters: Data) async -> Result<Any?, Error>? {
+    private func cancelCompletion(parameters: Data) async -> NativeMethodResult? {
         module.cancelCompletion()
         return .success(nil)
     }
 
-    private func selectPrevious(parameters: Data) async -> Result<Any?, Error>? {
+    private func selectPrevious(parameters: Data) async -> NativeMethodResult? {
         module.selectPrevious()
         return .success(nil)
     }
 
-    private func selectNext(parameters: Data) async -> Result<Any?, Error>? {
+    private func selectNext(parameters: Data) async -> NativeMethodResult? {
         module.selectNext()
         return .success(nil)
     }
 
-    private func selectTop(parameters: Data) async -> Result<Any?, Error>? {
+    private func selectTop(parameters: Data) async -> NativeMethodResult? {
         module.selectTop()
         return .success(nil)
     }
 
-    private func selectBottom(parameters: Data) async -> Result<Any?, Error>? {
+    private func selectBottom(parameters: Data) async -> NativeMethodResult? {
         module.selectBottom()
         return .success(nil)
     }

@@ -45,7 +45,7 @@ final class NativeBridgeTokenizer: NativeBridge {
         self.module = module
     }
 
-    private func tokenize(parameters: Data) async -> Result<Any?, Error>? {
+    private func tokenize(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var anchor: TextTokenizeAnchor
         }
@@ -62,7 +62,7 @@ final class NativeBridgeTokenizer: NativeBridge {
         return .success(result)
     }
 
-    private func moveWordBackward(parameters: Data) async -> Result<Any?, Error>? {
+    private func moveWordBackward(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var anchor: TextTokenizeAnchor
         }
@@ -79,7 +79,7 @@ final class NativeBridgeTokenizer: NativeBridge {
         return .success(result)
     }
 
-    private func moveWordForward(parameters: Data) async -> Result<Any?, Error>? {
+    private func moveWordForward(parameters: Data) async -> NativeMethodResult? {
         struct Message: Decodable {
             var anchor: TextTokenizeAnchor
         }
