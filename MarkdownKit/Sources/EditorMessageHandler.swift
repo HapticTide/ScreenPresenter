@@ -9,6 +9,7 @@ import WebKit
 /**
  Receive messages sent from the web, execute functions and get back to the web.
  */
+@MainActor
 public final class EditorMessageHandler: NSObject, Sendable, WKScriptMessageHandlerWithReply {
     private let modules: NativeModules
 
