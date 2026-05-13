@@ -113,12 +113,10 @@ open ~/Downloads/ScreenPresenter.app
 
 ## 自动更新
 
-项目使用 Sparkle 自动更新：
+项目使用 Sparkle 自动更新。
 
 - 更新源：`https://raw.githubusercontent.com/HapticTide/ScreenPresenter/main/appcast.xml`
 - 安装包来源：GitHub Releases（公开仓库）
-
-说明：GitHub Actions 的自动 Release 产物用于开源分发和验证，默认不更新 Sparkle appcast。Sparkle 正式更新发布仍由维护者使用本地发布脚本完成，以便写入 EdDSA 签名和下载地址。
 
 ## 构建
 
@@ -133,38 +131,11 @@ xcodebuild -project ScreenPresenter.xcodeproj \
 
 CI 使用同样的无签名构建路径，见 `.github/workflows/ci.yml`。
 
-## 发布
-
-### GitHub Actions 自动 Release
-
-推送 `X.Y.Z` tag 后会触发 `.github/workflows/release.yml`，自动构建 unsigned ZIP/DMG，并创建 GitHub Release：
-
-```bash
-git tag 1.2.0
-git push origin 1.2.0
-```
-
-也可以在 GitHub Actions 页面手动运行 Release workflow，并输入版本号。
-
-### Sparkle 正式发布
-
-需要更新 `appcast.xml` 时，维护者在本地使用一键脚本：
-
-```bash
-# 交互式
-./release_oneclick.sh
-
-# 非交互
-./release_oneclick.sh 1.1.0 --yes
-```
-
-发布脚本会串联处理：构建、签名、更新 appcast、创建 Release、回填下载地址。
-
-Agent 发布流程说明见：`skills/screenpresenter-release/SKILL.md`
-
 ## 参与贡献
 
 请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。PR 会触发 GitHub Actions 构建校验；当前主工程 scheme 未配置 test action，因此 CI 以 macOS app 编译为主。
+
+维护者发布流程见 [docs/RELEASE.md](docs/RELEASE.md)。
 
 ## 变更记录
 
