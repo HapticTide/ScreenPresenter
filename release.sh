@@ -40,6 +40,23 @@ log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 log_error() { echo -e "${RED}❌ $1${NC}"; }
 log_step() { echo -e "${CYAN}▶️  $1${NC}"; }
 
+prepare_generated_sources() {
+    local secrets_path="$PROJECT_DIR/$APP_NAME/Core/Utilities/Secrets.swift"
+    local secrets_template_path="$PROJECT_DIR/$APP_NAME/Core/Utilities/Secrets.swift.template"
+
+    if [ -f "$secrets_path" ]; then
+        return
+    fi
+
+    if [ ! -f "$secrets_template_path" ]; then
+        log_error "缺少 Secrets.swift.template，无法生成 Secrets.swift"
+        exit 1
+    fi
+
+    cp "$secrets_template_path" "$secrets_path"
+    log_info "已从模板生成 Secrets.swift"
+}
+
 # 检查参数
 if [ -z "$1" ]; then
     log_error "请提供版本号"
@@ -117,6 +134,7 @@ log_step "构建 Release 版本..."
 
 # 更新 Xcode 项目中的版本号
 cd "$PROJECT_DIR"
+prepare_generated_sources
 
 # 计算 Build 号（当前时间格式: YYYYMMDDHHMM）
 BUILD_NUMBER=$(date +%Y%m%d%H%M)

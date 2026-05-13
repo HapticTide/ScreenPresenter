@@ -74,6 +74,23 @@ DMG_NAME="$PROJECT_NAME"
 NOTARIZE_PROFILE="${NOTARIZE_PROFILE:-}"
 # ============================================================================
 
+prepare_generated_sources() {
+    local secrets_path="$PROJECT_DIR/$PROJECT_NAME/Core/Utilities/Secrets.swift"
+    local secrets_template_path="$PROJECT_DIR/$PROJECT_NAME/Core/Utilities/Secrets.swift.template"
+
+    if [ -f "$secrets_path" ]; then
+        return
+    fi
+
+    if [ ! -f "$secrets_template_path" ]; then
+        log_error "缺少 Secrets.swift.template，无法生成 Secrets.swift"
+        exit 1
+    fi
+
+    cp "$secrets_template_path" "$secrets_path"
+    log_info "已从模板生成 Secrets.swift"
+}
+
 # 从 Info.plist 获取版本号
 # 优先从构建产物中读取，确保版本号与 Xcode 项目设置一致
 get_version() {
@@ -498,6 +515,7 @@ verify_notarization() {
 # 构建应用
 build_app() {
     log_info "开始构建 $PROJECT_NAME (Release)..."
+    prepare_generated_sources
     
     # 创建构建目录
     mkdir -p "$BUILD_DIR"

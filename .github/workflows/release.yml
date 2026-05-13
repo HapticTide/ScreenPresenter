@@ -72,6 +72,12 @@ jobs:
       - name: Install xcbeautify
         run: command -v xcbeautify >/dev/null || brew install xcbeautify
 
+      - name: Prepare generated sources
+        run: |
+          if [ ! -f ScreenPresenter/Core/Utilities/Secrets.swift ]; then
+            cp ScreenPresenter/Core/Utilities/Secrets.swift.template ScreenPresenter/Core/Utilities/Secrets.swift
+          fi
+
       - name: Build unsigned release app
         id: build
         run: |
