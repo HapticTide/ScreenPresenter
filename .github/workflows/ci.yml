@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Show toolchain
         run: |
@@ -30,7 +30,7 @@ jobs:
           swift --version
 
       - name: Install xcbeautify
-        run: brew install xcbeautify
+        run: command -v xcbeautify >/dev/null || brew install xcbeautify
 
       - name: Validate bundled tools
         run: |

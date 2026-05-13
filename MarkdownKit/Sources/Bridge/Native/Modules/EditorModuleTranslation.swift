@@ -7,7 +7,7 @@
 import Foundation
 import MarkdownCore
 import NaturalLanguage
-#if canImport(Translation)
+#if compiler(>=6.2) && canImport(Translation)
     import Translation
 #endif
 
@@ -15,7 +15,7 @@ public final class EditorModuleTranslation: NativeModuleTranslation {
     public init() {}
 
     public func translate(text: String, from: String?, to: String?) async -> String {
-        #if canImport(Translation)
+        #if compiler(>=6.2) && canImport(Translation)
             guard #available(macOS 26.0, *) else {
                 return TranslationResponse(error: "Unsupported OS Version").jsonEncoded
             }
@@ -47,7 +47,7 @@ private struct TranslationResponse: Encodable {
     }
 }
 
-#if canImport(Translation)
+#if compiler(>=6.2) && canImport(Translation)
     @available(macOS 26.0, *)
     private extension TranslationSession {
         convenience init(from: String, to: String?) {
