@@ -1,0 +1,2 @@
+# 这些 HTML 是内嵌编辑器/预览器资源，不计入 GitHub Linguist 语言统计。
+*.html linguist-vendored
