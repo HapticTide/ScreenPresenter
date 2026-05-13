@@ -17,6 +17,7 @@ public final class EditorMessageHandler: NSObject, Sendable, WKScriptMessageHand
         self.modules = modules
     }
 
+    @MainActor
     public func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
