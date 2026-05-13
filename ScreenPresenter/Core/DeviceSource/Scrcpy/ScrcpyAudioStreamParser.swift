@@ -25,28 +25,28 @@ final class ScrcpyAudioStreamParser {
     /// 数据包头大小
     private static let packetHeaderSize = 12
 
-    /// 配置包标志位（PTS 最高位）
-    private static let packetFlagConfig: UInt64 = 1 << 63
+    /// 配置包标志位
+    private static let packetFlagConfig: UInt64 = 1 << 62
 
     /// 关键帧标志位
-    private static let packetFlagKeyFrame: UInt64 = 1 << 62
+    private static let packetFlagKeyFrame: UInt64 = 1 << 61
 
     /// PTS 掩码（去掉标志位）
-    private static let ptsMask: UInt64 = (1 << 62) - 1
+    private static let ptsMask: UInt64 = (1 << 61) - 1
 
     // MARK: - Codec ID 定义
 
     /// Opus 编解码器 ID
-    static let codecIdOpus: UInt32 = 0x6F707573 // "opus" in ASCII
+    static let codecIdOpus: UInt32 = 0x6f70_7573 // "opus" in ASCII
 
     /// AAC 编解码器 ID
-    static let codecIdAAC: UInt32 = 0x00616163 // "aac" in ASCII
+    static let codecIdAAC: UInt32 = 0x0061_6163 // "aac" in ASCII
 
     /// FLAC 编解码器 ID
-    static let codecIdFLAC: UInt32 = 0x666C6163 // "flac" in ASCII
+    static let codecIdFLAC: UInt32 = 0x666c_6163 // "flac" in ASCII
 
     /// RAW PCM 编解码器 ID
-    static let codecIdRAW: UInt32 = 0x00726177 // "raw" in ASCII
+    static let codecIdRAW: UInt32 = 0x0072_6177 // "raw" in ASCII
 
     // MARK: - 属性
 
@@ -131,7 +131,7 @@ final class ScrcpyAudioStreamParser {
         let byte6 = UInt64(data[startIndex + offset + 6])
         let byte7 = UInt64(data[startIndex + offset + 7])
         return (byte0 << 56) | (byte1 << 48) | (byte2 << 40) | (byte3 << 32)
-             | (byte4 << 24) | (byte5 << 16) | (byte6 << 8)  | byte7
+            | (byte4 << 24) | (byte5 << 16) | (byte6 << 8) | byte7
     }
 
     /// 解析 codec_id
@@ -144,18 +144,17 @@ final class ScrcpyAudioStreamParser {
         buffer.removeFirst(4)
         codecIdParsed = true
 
-        let codecName: String
-        switch id {
+        let codecName = switch id {
         case Self.codecIdOpus:
-            codecName = "opus"
+            "opus"
         case Self.codecIdAAC:
-            codecName = "aac"
+            "aac"
         case Self.codecIdFLAC:
-            codecName = "flac"
+            "flac"
         case Self.codecIdRAW:
-            codecName = "raw"
+            "raw"
         default:
-            codecName = String(format: "0x%08x", id)
+            String(format: "0x%08x", id)
         }
         AppLogger.capture.info("[AudioStreamParser] 音频编解码器: \(codecName)")
         onCodecIdParsed?(id)
@@ -168,8 +167,9 @@ final class ScrcpyAudioStreamParser {
         guard buffer.count >= Self.packetHeaderSize else { return false }
 
         // 使用安全的字节读取方式读取 PTS 和 packet_size
-        guard let ptsAndFlags = readUInt64BigEndian(from: buffer, at: 0),
-              let packetSize = readUInt32BigEndian(from: buffer, at: 8) else {
+        guard
+            let ptsAndFlags = readUInt64BigEndian(from: buffer, at: 0),
+            let packetSize = readUInt32BigEndian(from: buffer, at: 8) else {
             return false
         }
 
@@ -181,14 +181,18 @@ final class ScrcpyAudioStreamParser {
         let startIndex = buffer.startIndex
         let dataStart = startIndex + Self.packetHeaderSize
         let dataEnd = startIndex + totalSize
-        
-        guard dataStart >= buffer.startIndex,
-              dataEnd <= buffer.endIndex else {
-            AppLogger.capture.error("[AudioStreamParser] 提取数据越界: startIndex=\(startIndex), dataStart=\(dataStart), dataEnd=\(dataEnd), bufferEnd=\(buffer.endIndex)")
+
+        guard
+            dataStart >= buffer.startIndex,
+            dataEnd <= buffer.endIndex else {
+            AppLogger.capture
+                .error(
+                    "[AudioStreamParser] 提取数据越界: startIndex=\(startIndex), dataStart=\(dataStart), dataEnd=\(dataEnd), bufferEnd=\(buffer.endIndex)"
+                )
             return false
         }
-        
-        let packetData = buffer.subdata(in: dataStart ..< dataEnd)
+
+        let packetData = buffer.subdata(in: dataStart..<dataEnd)
         buffer.removeFirst(totalSize)
 
         // 解析标志位
@@ -197,7 +201,7 @@ final class ScrcpyAudioStreamParser {
         let pts = ptsAndFlags & Self.ptsMask
 
         // 如果是 Config Packet，调用专门的回调
-        if isConfig, let codecId = codecId {
+        if isConfig, let codecId {
             onConfigPacket?(packetData, codecId)
         }
 

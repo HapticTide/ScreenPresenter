@@ -68,7 +68,7 @@ final class ScrcpyServerLauncher {
         adbService: AndroidADBService,
         serverLocalPath: String,
         port: Int,
-        scrcpyVersion: String = "3.3.4"
+        scrcpyVersion: String = "4.0"
     ) {
         self.adbService = adbService
         self.serverLocalPath = serverLocalPath
@@ -136,7 +136,7 @@ final class ScrcpyServerLauncher {
             if major < 2 {
                 AppLogger.process.warning("[ScrcpyLauncher] ⚠️ 协议版本可能不兼容 - 客户端版本: \(clientVersion)，建议使用 2.0 或更高版本")
             } else if major >= 3 {
-                AppLogger.process.info("[ScrcpyLauncher] ✅ 协议版本兼容 (scrcpy 3.x)")
+                AppLogger.process.info("[ScrcpyLauncher] ✅ 协议版本兼容 (scrcpy \(major).x)")
             } else {
                 AppLogger.process.info("[ScrcpyLauncher] ✅ 协议版本兼容 (scrcpy 2.x)")
             }
@@ -273,7 +273,7 @@ final class ScrcpyServerLauncher {
             "send_device_meta=true",
             "send_frame_meta=true",
             "send_dummy_byte=true",
-            "send_codec_meta=true",
+            "send_stream_meta=true",
             "raw_stream=false",
         ]
 

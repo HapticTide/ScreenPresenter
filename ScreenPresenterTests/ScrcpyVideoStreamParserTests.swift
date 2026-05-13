@@ -262,9 +262,9 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
     }
 
     func testFrameHeaderParsingConfigPacket() {
-        // 配置包：PTS 最高位为 1
+        // 配置包：PTS bit62 为 1
         var data = Data()
-        var pts: UInt64 = (1 << 63) | 0 // 最高位为 1
+        var pts: UInt64 = (1 << 62) | 0
         var size: UInt32 = 128
         data.append(contentsOf: withUnsafeBytes(of: pts.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: size.bigEndian) { Array($0) })
@@ -274,6 +274,62 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
         XCTAssertNotNil(header)
         XCTAssertTrue(header?.isConfigPacket ?? false, "应该识别为配置包")
         XCTAssertEqual(header?.actualPTS, 0, "实际 PTS 应该是 0")
+    }
+
+    func testVideoSessionMetaParsing() {
+        var data = Data()
+        var flags: UInt32 = 0x8000_0000
+        var width: UInt32 = 1080
+        var height: UInt32 = 1920
+        data.append(contentsOf: withUnsafeBytes(of: flags.bigEndian) { Array($0) })
+        data.append(contentsOf: withUnsafeBytes(of: width.bigEndian) { Array($0) })
+        data.append(contentsOf: withUnsafeBytes(of: height.bigEndian) { Array($0) })
+
+        let meta = ScrcpyVideoSessionMeta.parse(from: data)
+        let header = ScrcpyFrameHeader.parse(from: data)
+
+        XCTAssertNotNil(meta)
+        XCTAssertEqual(meta?.width, 1080)
+        XCTAssertEqual(meta?.height, 1920)
+        XCTAssertTrue(header?.isSessionMeta ?? false, "应该识别为 session meta")
+    }
+
+    func testScrcpy4ProtocolParsingWithSessionMeta() {
+        let parser = ScrcpyVideoStreamParser(codecType: kCMVideoCodecType_H264, useRawStream: false)
+
+        var data = Data([0x00])
+
+        var deviceNameBytes = "Pixel 8".utf8.map(\.self)
+        deviceNameBytes.append(contentsOf: [UInt8](repeating: 0, count: 64 - deviceNameBytes.count))
+        data.append(contentsOf: deviceNameBytes)
+
+        var codecId: UInt32 = 0x6832_3634
+        data.append(contentsOf: withUnsafeBytes(of: codecId.bigEndian) { Array($0) })
+
+        var sessionFlags: UInt32 = 0x8000_0000
+        var sessionWidth: UInt32 = 1080
+        var sessionHeight: UInt32 = 1920
+        data.append(contentsOf: withUnsafeBytes(of: sessionFlags.bigEndian) { Array($0) })
+        data.append(contentsOf: withUnsafeBytes(of: sessionWidth.bigEndian) { Array($0) })
+        data.append(contentsOf: withUnsafeBytes(of: sessionHeight.bigEndian) { Array($0) })
+
+        let frameData = Data([
+            0x00, 0x00, 0x00, 0x01,
+            0x65, 0x88, 0x84, 0x00,
+        ])
+        var pts: UInt64 = (1 << 61) | 1000
+        var packetSize = UInt32(frameData.count)
+        data.append(contentsOf: withUnsafeBytes(of: pts.bigEndian) { Array($0) })
+        data.append(contentsOf: withUnsafeBytes(of: packetSize.bigEndian) { Array($0) })
+        data.append(frameData)
+
+        let nalUnits = parser.append(data)
+
+        XCTAssertEqual(parser.codecMeta?.codecName, "h264")
+        XCTAssertEqual(parser.sessionMeta?.width, 1080)
+        XCTAssertEqual(parser.sessionMeta?.height, 1920)
+        XCTAssertEqual(nalUnits.count, 1)
+        XCTAssertTrue(nalUnits[0].isEffectiveKeyFrame)
     }
 }
 

@@ -20,10 +20,7 @@ import AVFoundation
 final class PreferencesWindowController: NSWindowController {
     // MARK: - 单例
 
-    static let shared: PreferencesWindowController = {
-        let controller = PreferencesWindowController()
-        return controller
-    }()
+    static let shared: PreferencesWindowController = .init()
 
     // MARK: - 初始化
 
@@ -65,7 +62,9 @@ final class PreferencesWindowController: NSWindowController {
 // MARK: - Flipped View（坐标系从上向下）
 
 private class FlippedView: NSView {
-    override var isFlipped: Bool { true }
+    override var isFlipped: Bool {
+        true
+    }
 }
 
 private final class FlexibleSpacerView: NSView {
@@ -109,7 +108,9 @@ private final class PaddingView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override var isFlipped: Bool { true }
+    override var isFlipped: Bool {
+        true
+    }
 
     func requiredSize(for width: CGFloat) -> CGSize {
         let contentWidth = max(0, width - insets.left - insets.right)
@@ -184,7 +185,9 @@ private final class StackContainerView: NSView {
     private(set) var arrangedSubviews: [NSView] = []
     private var flexibleViews: Set<ObjectIdentifier> = []
 
-    override var isFlipped: Bool { true }
+    override var isFlipped: Bool {
+        true
+    }
 
     func addArrangedSubview(_ view: NSView) {
         arrangedSubviews.append(view)
@@ -480,7 +483,9 @@ private final class LabeledRowView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override var isFlipped: Bool { true }
+    override var isFlipped: Bool {
+        true
+    }
 
     func requiredSize(for width: CGFloat) -> CGSize {
         let availableWidth = max(0, width)
@@ -1689,7 +1694,7 @@ final class PreferencesViewController: NSViewController {
                     )
                     statusIcon.contentTintColor = .systemGreen
                     // 显示版本号
-                    statusLabel.stringValue = L10n.prefs.toolchain.bundled("3.3.4")
+                    statusLabel.stringValue = L10n.prefs.toolchain.bundled("4.0")
                     statusLabel.textColor = .systemGreen
                 } else {
                     statusIcon.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)

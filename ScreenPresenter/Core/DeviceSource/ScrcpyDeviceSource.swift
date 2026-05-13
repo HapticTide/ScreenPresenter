@@ -109,7 +109,7 @@ struct ScrcpyConfiguration {
         args.append("--video-codec=\(videoCodec.rawValue)")
 
         // 关键：不显示窗口，输出原始流
-        // 注意: scrcpy 3.x 已移除 --no-display，使用 --no-playback 替代
+        // 注意: scrcpy 3.0 起已移除 --no-display，使用 --no-playback 替代
         args.append("--no-playback")
 
         // 音频配置
@@ -941,7 +941,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     // MARK: - 常量
 
     /// 内置 scrcpy-server 版本号
-    private static let bundledScrcpyServerVersion = "3.3.4"
+    private static let bundledScrcpyServerVersion = "4.0"
 
     /// 获取 scrcpy 版本
     /// 直接返回内置 scrcpy-server 的版本号

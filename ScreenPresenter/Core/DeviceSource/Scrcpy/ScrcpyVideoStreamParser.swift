@@ -53,20 +53,14 @@ enum ScrcpyCodecStatus: UInt32 {
     case configError = 1
 }
 
-/// Scrcpy 视频编解码器元数据（12 字节）
-/// 根据 scrcpy 文档：codec id (u32) + width (u32) + height (u32)
+/// Scrcpy 视频编解码器元数据（4 字节）
+/// scrcpy 4.0 起先发送 codec id，分辨率通过后续 session meta 包发送
 struct ScrcpyCodecMeta {
     /// 编解码器 ID（大端序 32 位整数）
     let codecId: UInt32
 
-    /// 初始视频宽度
-    let width: UInt32
-
-    /// 初始视频高度
-    let height: UInt32
-
     /// 字节大小
-    static let size = 12
+    static let size = 4
 
     /// 检查 codec ID 是否为特殊状态值
     var status: ScrcpyCodecStatus? {
@@ -106,17 +100,15 @@ struct ScrcpyCodecMeta {
         }
     }
 
-    /// 从数据解析（12 字节）
+    /// 从数据解析（4 字节）
     static func parse(from data: Data) -> ScrcpyCodecMeta? {
-        guard data.count >= 12 else {
-            AppLogger.capture.warning("[ScrcpyMeta] 编解码器元数据长度不足 - 期望: 12, 实际: \(data.count)")
+        guard data.count >= size else {
+            AppLogger.capture.warning("[ScrcpyMeta] 编解码器元数据长度不足 - 期望: \(size), 实际: \(data.count)")
             return nil
         }
 
         // scrcpy 协议使用大端序
         var codecId: UInt32 = 0
-        var width: UInt32 = 0
-        var height: UInt32 = 0
 
         data.withUnsafeBytes { buffer in
             let bytes = buffer.bindMemory(to: UInt8.self)
@@ -126,30 +118,78 @@ struct ScrcpyCodecMeta {
             codecId |= UInt32(bytes[1]) << 16
             codecId |= UInt32(bytes[2]) << 8
             codecId |= UInt32(bytes[3])
+        }
 
-            // width (bytes 4-7)
+        return ScrcpyCodecMeta(codecId: codecId)
+    }
+}
+
+/// Scrcpy 视频会话元数据（12 字节）
+/// scrcpy 4.0 使用 session meta 包发送视频宽高，可在旋转/尺寸变化时重复发送
+struct ScrcpyVideoSessionMeta {
+    /// 初始或当前视频宽度
+    let width: UInt32
+
+    /// 初始或当前视频高度
+    let height: UInt32
+
+    /// 是否由客户端 resize 触发
+    let isClientResize: Bool
+
+    /// 字节大小
+    static let size = 12
+
+    private static let sessionFlag: UInt32 = 0x8000_0000
+    private static let clientResizeFlag: UInt32 = 0x0000_0001
+
+    static func parse(from data: Data) -> ScrcpyVideoSessionMeta? {
+        guard data.count >= size else {
+            AppLogger.capture.warning("[ScrcpyMeta] 会话元数据长度不足 - 期望: \(size), 实际: \(data.count)")
+            return nil
+        }
+
+        var flags: UInt32 = 0
+        var width: UInt32 = 0
+        var height: UInt32 = 0
+
+        data.withUnsafeBytes { buffer in
+            let bytes = buffer.bindMemory(to: UInt8.self)
+
+            flags = UInt32(bytes[0]) << 24
+            flags |= UInt32(bytes[1]) << 16
+            flags |= UInt32(bytes[2]) << 8
+            flags |= UInt32(bytes[3])
+
             width = UInt32(bytes[4]) << 24
             width |= UInt32(bytes[5]) << 16
             width |= UInt32(bytes[6]) << 8
             width |= UInt32(bytes[7])
 
-            // height (bytes 8-11)
             height = UInt32(bytes[8]) << 24
             height |= UInt32(bytes[9]) << 16
             height |= UInt32(bytes[10]) << 8
             height |= UInt32(bytes[11])
         }
 
-        return ScrcpyCodecMeta(codecId: codecId, width: width, height: height)
+        guard flags & Self.sessionFlag != 0 else {
+            return nil
+        }
+
+        return ScrcpyVideoSessionMeta(
+            width: width,
+            height: height,
+            isClientResize: flags & Self.clientResizeFlag != 0
+        )
     }
 }
 
 /// Scrcpy 帧头（12 字节）
 /// 协议格式:
 /// - PTS (8 bytes): 大端序 64 位整数
-///   - bit 63: config packet 标志
-///   - bit 62: key frame 标志
-///   - bit 0-61: 实际 PTS（微秒）
+///   - bit 63: session meta 标志
+///   - bit 62: config packet 标志
+///   - bit 61: key frame 标志
+///   - bit 0-60: 实际 PTS（微秒）
 /// - packet size (4 bytes): 大端序 32 位整数
 struct ScrcpyFrameHeader: Equatable {
     /// 显示时间戳（微秒，大端序 64 位整数）
@@ -158,22 +198,28 @@ struct ScrcpyFrameHeader: Equatable {
     /// 数据包大小（大端序 32 位整数）
     let packetSize: UInt32
 
-    /// PTS 标志位常量（与 scrcpy demuxer.c 一致）
-    private static let configFlag: UInt64 = 1 << 63
-    private static let keyFrameFlag: UInt64 = 1 << 62
+    /// PTS 标志位常量（与 scrcpy 4.0 streamer 协议一致）
+    private static let sessionFlag: UInt64 = 1 << 63
+    private static let configFlag: UInt64 = 1 << 62
+    private static let keyFrameFlag: UInt64 = 1 << 61
     private static let ptsMask: UInt64 = keyFrameFlag - 1
 
-    /// 是否为配置包（PTS 的 bit63 为 1 表示配置包）
+    /// 是否为会话元数据包（PTS 的 bit63 为 1 表示 session meta）
+    var isSessionMeta: Bool {
+        pts & Self.sessionFlag != 0
+    }
+
+    /// 是否为配置包（PTS 的 bit62 为 1 表示配置包）
     var isConfigPacket: Bool {
         pts & Self.configFlag != 0
     }
 
-    /// 是否为关键帧（PTS 的 bit62 为 1 表示关键帧）
+    /// 是否为关键帧（PTS 的 bit61 为 1 表示关键帧）
     var isKeyFrame: Bool {
         pts & Self.keyFrameFlag != 0
     }
 
-    /// 实际 PTS（去掉标志位，只保留低 62 位）
+    /// 实际 PTS（去掉标志位，只保留低 61 位）
     var actualPTS: UInt64 {
         pts & Self.ptsMask
     }
@@ -308,7 +354,7 @@ struct ParsedNALUnit {
     /// 是否为关键帧（从 NAL 类型判断）
     let isKeyFrame: Bool
 
-    /// 协议层关键帧标志（从 scrcpy 帧头 bit62 获取）
+    /// 协议层关键帧标志（从 scrcpy 帧头 bit61 获取）
     /// 注意：这个标志比 isKeyFrame 更权威，因为它是由服务端设置的
     let protocolKeyFrame: Bool
 
@@ -398,7 +444,7 @@ enum ScrcpyParserState: Equatable {
     case waitingDummyByte
     /// 等待设备元数据
     case waitingDeviceMeta
-    /// 等待编解码器元数据
+    /// 等待编解码器 ID
     case waitingCodecMeta
     /// 等待帧头
     case waitingFrameHeader
@@ -450,6 +496,9 @@ final class ScrcpyVideoStreamParser {
 
     /// 编解码器元数据
     private(set) var codecMeta: ScrcpyCodecMeta?
+
+    /// 视频会话元数据
+    private(set) var sessionMeta: ScrcpyVideoSessionMeta?
 
     /// 是否使用 raw stream 模式（跳过协议头）
     var useRawStream: Bool = false
@@ -622,6 +671,7 @@ final class ScrcpyVideoStreamParser {
         totalBytesReceived = 0
         deviceMeta = nil
         codecMeta = nil
+        sessionMeta = nil
         parserState = useRawStream ? .parsingRawStream : .waitingDummyByte
         currentFramePTS = .invalid
         bytesReceivedInLastSecond = 0
@@ -647,6 +697,9 @@ final class ScrcpyVideoStreamParser {
         }
         if let codecMeta {
             parts.append("编解码器: \(codecMeta.codecName)")
+        }
+        if let sessionMeta {
+            parts.append("分辨率: \(sessionMeta.width)x\(sessionMeta.height)")
         }
         return parts.isEmpty ? "未解析" : parts.joined(separator: ", ")
     }
@@ -716,7 +769,7 @@ final class ScrcpyVideoStreamParser {
                 parserState = .waitingCodecMeta
 
             case .waitingCodecMeta:
-                // 等待 12 字节的编解码器元数据 (codec id + width + height)
+                // 等待 4 字节的编解码器 ID
                 guard buffer.count >= ScrcpyCodecMeta.size else {
                     return nalUnits
                 }
@@ -727,8 +780,7 @@ final class ScrcpyVideoStreamParser {
                 if let meta = ScrcpyCodecMeta.parse(from: codecData) {
                     codecMeta = meta
                     codecType = meta.cmCodecType
-                    AppLogger.capture
-                        .info("[StreamParser] 编解码器: \(meta.codecName), 分辨率: \(meta.width)x\(meta.height)")
+                    AppLogger.capture.info("[StreamParser] 编解码器: \(meta.codecName)")
                 } else {
                     AppLogger.capture.warning("[StreamParser] 编解码器元数据解析失败")
                 }
@@ -744,6 +796,18 @@ final class ScrcpyVideoStreamParser {
 
                 guard let header = ScrcpyFrameHeader.parse(from: headerData) else {
                     AppLogger.capture.warning("[StreamParser] 帧头解析失败")
+                    continue
+                }
+
+                if header.isSessionMeta {
+                    if let meta = ScrcpyVideoSessionMeta.parse(from: headerData) {
+                        sessionMeta = meta
+                        let resizeSource = meta.isClientResize ? "客户端 resize" : "服务端"
+                        AppLogger.capture
+                            .info("[StreamParser] 视频会话元数据: \(meta.width)x\(meta.height), 来源: \(resizeSource)")
+                    } else {
+                        AppLogger.capture.warning("[StreamParser] 会话元数据解析失败")
+                    }
                     continue
                 }
 
@@ -783,7 +847,7 @@ final class ScrcpyVideoStreamParser {
     /// - Parameters:
     ///   - data: 帧数据
     ///   - pts: 显示时间戳
-    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit62 获取）
+    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit61 获取）
     ///   - isConfigPacket: 是否为配置包
     private func parseNALUnitsFromData(
         _ data: Data,
@@ -916,7 +980,7 @@ final class ScrcpyVideoStreamParser {
     /// - Parameters:
     ///   - data: NAL 单元数据（不含起始码）
     ///   - pts: 显示时间戳
-    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit62 获取）
+    ///   - protocolKeyFrame: 协议层关键帧标志（从帧头 bit61 获取）
     private func parseNALUnit(data: Data, pts: CMTime = .invalid, protocolKeyFrame: Bool = false) -> ParsedNALUnit? {
         guard !data.isEmpty else {
             AppLogger.capture.warning("[StreamParser] 解析失败: NAL 数据为空")
