@@ -15,11 +15,13 @@
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>兼容未安装 xcpretty 的发布构建</li>
-                    <li>完善开源项目配置和文档</li>
-                    <li>适配: 支持 scrcpy 4.0 流元数据协议</li>
-                    <li>降低最低兼容版本到 macOS 13</li>
-                    <li>release: finalize 1.1.2 metadata</li>
+                    <li>新增 GitHub CI、自动 Release、Issue/PR 模板、Dependabot 与贡献文档</li>
+                    <li>发布构建输出统一优先使用 `xcbeautify`</li>
+                    <li>修复 GitHub Actions runner 使用 Xcode 16.4 时的 SDK 兼容构建问题</li>
+                    <li>README 聚焦用户与贡献者内容，维护者发布流程移至 `docs/RELEASE.md`</li>
+                    <li>GitHub Linguist 语言统计排除内嵌 HTML 资源</li>
+                    <li>适配 scrcpy 4.0.0 server 流元数据协议</li>
+                    <li>最低系统版本调整为 macOS 13.0</li>
                 </ul>
                 ]]>
             </description>
