@@ -129,9 +129,11 @@ private class GlassButton: NSButton, ButtonLabeling {
             labelView.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
 
-        if #available(macOS 26.0, *) {
-            bezelStyle = .glass
-        }
+        #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                bezelStyle = .glass
+            }
+        #endif
     }
 
     @available(*, unavailable)

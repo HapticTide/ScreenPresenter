@@ -28,7 +28,7 @@ enum AppDesign {
      Note: Disabled in embedded mode to avoid conflicts with host window titlebar.
      */
     static var modernTitleBar: Bool {
-        return isMacOSTahoe
+        isMacOSTahoe
     }
 
     /**
@@ -50,11 +50,15 @@ enum AppDesign {
      `NSGlassEffectView` is used when it is available and `modernStyle` is true.
      */
     static var modernEffectView: NSView.Type {
-        guard #available(macOS 26.0, *), modernStyle, AppRuntimeConfig.visualEffectType == .glass else {
-            return NSVisualEffectView.self
-        }
+        #if compiler(>=6.2)
+            guard #available(macOS 26.0, *), modernStyle, AppRuntimeConfig.visualEffectType == .glass else {
+                return NSVisualEffectView.self
+            }
 
-        return NSGlassEffectView.self
+            return NSGlassEffectView.self
+        #else
+            return NSVisualEffectView.self
+        #endif
     }
 }
 

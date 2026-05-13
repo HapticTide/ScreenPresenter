@@ -68,11 +68,17 @@ extension EditorViewController {
                 modernBackgroundView.topAnchor.constraint(equalTo: modernEffectView.bottomAnchor),
             ])
 
-            if let effectView = modernEffectView as? NSVisualEffectView {
-                effectView.material = .titlebar
-            } else if #available(macOS 26.0, *) {
-                (modernEffectView as? NSGlassEffectView)?.cornerRadius = 0
-            }
+            #if compiler(>=6.2)
+                if let effectView = modernEffectView as? NSVisualEffectView {
+                    effectView.material = .titlebar
+                } else if #available(macOS 26.0, *) {
+                    (modernEffectView as? NSGlassEffectView)?.cornerRadius = 0
+                }
+            #else
+                if let effectView = modernEffectView as? NSVisualEffectView {
+                    effectView.material = .titlebar
+                }
+            #endif
 
             modernEffectView.clipsToBounds = true // To cut the shadows
             modernEffectView.translatesAutoresizingMaskIntoConstraints = false
@@ -204,12 +210,16 @@ extension EditorViewController {
             let tintColor = backgroundColor.withAlphaComponent(alphaValue).resolvedColor()
 
             // For NSGlassEffectView, the built-in tintColor is preferred
-            if #available(macOS 26.0, *), let glassView = modernEffectView as? NSGlassEffectView {
-                glassView.tintColor = tintColor
-                glassView.layerBackgroundColor = backgroundColor.withAlphaComponent(0.66)
-            } else {
+            #if compiler(>=6.2)
+                if #available(macOS 26.0, *), let glassView = modernEffectView as? NSGlassEffectView {
+                    glassView.tintColor = tintColor
+                    glassView.layerBackgroundColor = backgroundColor.withAlphaComponent(0.66)
+                } else {
+                    modernTintedView.layerBackgroundColor = tintColor
+                }
+            #else
                 modernTintedView.layerBackgroundColor = tintColor
-            }
+            #endif
 
             // Hide the effect view and remove the opacity of the title bar view
             if reduceTransparency {
