@@ -10,6 +10,7 @@
 
 import AppKit
 import AVFoundation
+import Combine
 import MarkdownEditor
 
 // MARK: - 应用程序委托
@@ -28,8 +29,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var preventSleepToolbarItem: NSToolbarItem?
     private var layoutModeToolbarItem: NSToolbarItem?
     private var layoutModeSegmentedControl: NSSegmentedControl?
+    private var recordingToolbarItem: NSToolbarItem?
+    private var recordingOutputToolbarItem: NSToolbarItem?
+    private var recordingOutputButton: NSButton?
+    private var recordingOutputWidthConstraint: NSLayoutConstraint?
     private var markdownToggleToolbarItem: NSToolbarItem?
     private var isRefreshing: Bool = false
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - 菜单项
 
@@ -56,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
     // MARK: - 应用生命周期
 
+    @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLogger.app.info("应用启动")
 
@@ -144,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         updateLayoutModeToolbarState()
     }
 
+    @MainActor
     @objc private func handleLanguageChange() {
         // 重建主菜单
         setupMainMenu()
@@ -160,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         mainViewController?.updateLocalizedTexts()
     }
 
+    @MainActor
     private func rebuildWindowToolbar(for window: NSWindow) {
         // 移除旧工具栏
         window.toolbar = nil
@@ -168,10 +177,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         preventSleepToolbarItem = nil
         layoutModeToolbarItem = nil
         layoutModeSegmentedControl = nil
+        recordingToolbarItem = nil
+        recordingOutputToolbarItem = nil
+        recordingOutputButton = nil
+        recordingOutputWidthConstraint = nil
         markdownToggleToolbarItem = nil
 
         // 创建新工具栏
         setupWindowToolbar(for: window)
+        updateRecordingUI()
     }
 
     /// 请求摄像头权限
@@ -1153,6 +1167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     }
     // MARK: - 窗口设置
 
+    @MainActor
     private func setupMainWindow() {
         // 创建主视图控制器
         mainViewController = MainViewController()
@@ -1175,6 +1190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
         // 设置窗口工具栏
         setupWindowToolbar(for: window)
+        setupRecordingObservation()
 
         // 设置窗口代理
         window.delegate = self
@@ -1198,6 +1214,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
         window.toolbar = toolbar
         windowToolbar = toolbar
+    }
+
+    @MainActor
+    private func setupRecordingObservation() {
+        AppState.shared.recordingService.stateChangedPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                self?.updateRecordingUI()
+            }
+            .store(in: &cancellables)
     }
 }
 
@@ -1469,6 +1495,46 @@ extension AppDelegate {
     @MainActor
     private func showRefreshToast() {
         ToastView.success(L10n.toolbar.refreshComplete, in: mainWindow)
+    }
+
+    // MARK: - 录制操作
+
+    @IBAction func toggleRecording(_ sender: Any?) {
+        let recordingService = AppState.shared.recordingService
+
+        if recordingService.state.isRecording {
+            let directory = recordingService.stopRecording()
+            AppState.shared.iosDeviceSource?.stopAudioCaptureForCurrentSession()
+            updateRecordingUI()
+            if directory != nil {
+                ToastView.success(L10n.recording.saved, in: mainWindow)
+            }
+            return
+        }
+
+        Task {
+            do {
+                try await recordingService.startRecording()
+                await MainActor.run {
+                    updateRecordingUI()
+                    ToastView.success(L10n.recording.started, in: mainWindow)
+                }
+            } catch {
+                await MainActor.run {
+                    updateRecordingUI()
+                    ToastView.error(error.localizedDescription, in: mainWindow)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    @objc private func openRecordingOutputDirectory(_ sender: Any?) {
+        guard let directory = AppState.shared.recordingService.lastOutputDirectory else {
+            NSSound.beep()
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([directory])
     }
 
     // MARK: - 面板交换操作
@@ -1757,6 +1823,70 @@ extension AppDelegate {
         item.image = image
     }
 
+    @MainActor
+    private func updateRecordingUI() {
+        let service = AppState.shared.recordingService
+        let isRecording = service.state.isRecording
+        let shouldShowOutput = service.lastOutputDirectory != nil && !isRecording
+
+        if let item = recordingToolbarItem {
+            updateRecordingToolbarItemImage(item)
+        }
+
+        updateRecordingOutputToolbarPresence(shouldShowOutput)
+
+        if let outputButton = recordingOutputButton {
+            if let directory = service.lastOutputDirectory, shouldShowOutput {
+                outputButton.title = L10n.recording.savedLocation(
+                    (directory.path as NSString).abbreviatingWithTildeInPath
+                )
+                outputButton.toolTip = L10n.recording.openOutputDirectory
+                outputButton.isHidden = false
+                recordingOutputWidthConstraint?.constant = 320
+            } else {
+                outputButton.title = ""
+                outputButton.toolTip = nil
+                outputButton.isHidden = true
+                recordingOutputWidthConstraint?.constant = 0
+            }
+        }
+
+        mainViewController?.setRecordingIndicatorVisible(isRecording, elapsedSeconds: service.elapsedSeconds)
+    }
+
+    @MainActor
+    private func updateRecordingOutputToolbarPresence(_ shouldShow: Bool) {
+        guard let toolbar = windowToolbar else { return }
+
+        let items = toolbar.items
+        let outputIndex = items.firstIndex { $0.itemIdentifier == ToolbarItemIdentifier.recordingOutput }
+
+        if shouldShow {
+            guard outputIndex == nil else { return }
+
+            let recordingIndex = items.firstIndex { $0.itemIdentifier == ToolbarItemIdentifier.recording } ?? 0
+            toolbar.insertItem(withItemIdentifier: ToolbarItemIdentifier.recordingOutput, at: recordingIndex)
+        } else if let outputIndex {
+            toolbar.removeItem(at: outputIndex)
+            recordingOutputToolbarItem = nil
+            recordingOutputButton = nil
+            recordingOutputWidthConstraint = nil
+        }
+    }
+
+    @MainActor
+    private func updateRecordingToolbarItemImage(_ item: NSToolbarItem) {
+        let isRecording = AppState.shared.recordingService.state.isRecording
+        let symbolName = isRecording ? "stop.circle.fill" : "record.circle"
+        item.label = isRecording ? L10n.recording.stop : L10n.recording.record
+        item.paletteLabel = L10n.recording.record
+        item.toolTip = isRecording ? L10n.recording.stop : L10n.recording.record
+        item.image = NSImage(
+            systemSymbolName: symbolName,
+            accessibilityDescription: item.toolTip
+        )
+    }
+
     private func updateLayoutModeToolbarState() {
         guard let segmentedControl = layoutModeSegmentedControl else { return }
         let currentMode = UserPreferences.shared.layoutMode
@@ -1797,6 +1927,8 @@ extension AppDelegate: NSMenuDelegate {
 
 extension AppDelegate: NSToolbarDelegate {
     private enum ToolbarItemIdentifier {
+        static let recording = NSToolbarItem.Identifier("recording")
+        static let recordingOutput = NSToolbarItem.Identifier("recordingOutput")
         static let layoutMode = NSToolbarItem.Identifier("layoutMode")
         static let refresh = NSToolbarItem.Identifier("refresh")
         static let toggleBezel = NSToolbarItem.Identifier("toggleBezel")
@@ -1808,6 +1940,7 @@ extension AppDelegate: NSToolbarDelegate {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [
+            ToolbarItemIdentifier.recording,
             ToolbarItemIdentifier.markdownToggle,
             .space,
             ToolbarItemIdentifier.layoutMode,
@@ -1820,6 +1953,8 @@ extension AppDelegate: NSToolbarDelegate {
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [
+            ToolbarItemIdentifier.recording,
+            ToolbarItemIdentifier.recordingOutput,
             ToolbarItemIdentifier.refresh,
             ToolbarItemIdentifier.markdownToggle,
             ToolbarItemIdentifier.layoutMode,
@@ -1835,6 +1970,39 @@ extension AppDelegate: NSToolbarDelegate {
         willBeInsertedIntoToolbar flag: Bool
     ) -> NSToolbarItem? {
         switch itemIdentifier {
+        case ToolbarItemIdentifier.recording:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.target = self
+            item.action = #selector(toggleRecording(_:))
+            recordingToolbarItem = item
+            updateRecordingToolbarItemImage(item)
+            return item
+
+        case ToolbarItemIdentifier.recordingOutput:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = L10n.recording.saved
+            item.paletteLabel = L10n.recording.saved
+
+            let button = NSButton(title: "", target: self, action: #selector(openRecordingOutputDirectory(_:)))
+            button.bezelStyle = .rounded
+            button.isBordered = true
+            button.font = NSFont.systemFont(ofSize: 12)
+            button.lineBreakMode = .byTruncatingMiddle
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.isHidden = true
+
+            let widthConstraint = button.widthAnchor.constraint(equalToConstant: 0)
+            let heightConstraint = button.heightAnchor.constraint(equalToConstant: 28)
+            widthConstraint.isActive = true
+            heightConstraint.isActive = true
+
+            item.view = button
+            recordingOutputToolbarItem = item
+            recordingOutputButton = button
+            recordingOutputWidthConstraint = widthConstraint
+            return item
+
         case ToolbarItemIdentifier.layoutMode:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = L10n.toolbar.layoutMode

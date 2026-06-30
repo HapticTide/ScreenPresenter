@@ -47,6 +47,14 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     /// 音频播放器
     private var audioPlayer: AudioPlayer?
 
+    /// 当前捕获会话中的 iOS 音频开关状态
+    /// 说明：停止录制时需要临时释放系统音频输入路径，但不能改写用户的持久偏好。
+    private var audioEnabledForCurrentSession = false
+
+    /// 可用于音频捕获的 iOS CoreMediaIO 设备
+    /// 说明：iOS 投屏设备的音频和视频通常来自同一个 muxed 设备，保存引用用于运行时开关音频输出。
+    private var audioCaptureDevice: AVCaptureDevice?
+
     /// 是否正在捕获（使用线程安全的原子操作）
     private let capturingLock = OSAllocatedUnfairLock(initialState: false)
 
@@ -55,12 +63,13 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
     // MARK: - 音频控制
 
-    /// 是否启用音频（从偏好设置读取）
+    /// 是否启用当前会话的 iOS 音频
     var isAudioEnabled: Bool {
-        get { UserPreferences.shared.iosAudioEnabled }
+        get { audioEnabledForCurrentSession }
         set {
+            audioEnabledForCurrentSession = newValue
             UserPreferences.shared.iosAudioEnabled = newValue
-            updateAudioPlayback()
+            setAudioCaptureEnabled(newValue)
         }
     }
 
@@ -93,6 +102,7 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         self.deviceInfo = deviceInfo
 
         AppLogger.device.info("创建 iOS 设备源: \(device.name)")
+        audioEnabledForCurrentSession = UserPreferences.shared.iosAudioEnabled
     }
 
     // MARK: - DeviceSource 实现
@@ -142,6 +152,7 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         audioOutput = nil
         videoDelegate = nil
         audioDelegate = nil
+        audioCaptureDevice = nil
         onFrame = nil
 
         lastCaptureSize = .zero
@@ -297,11 +308,22 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         // 检查是否支持 muxed 或 audio
         let supportsMuxed = videoDevice.hasMediaType(.muxed)
         let supportsAudio = videoDevice.hasMediaType(.audio)
+        audioCaptureDevice = videoDevice
 
         AppLogger.capture.info("[Audio] 设备音频支持: muxed=\(supportsMuxed), audio=\(supportsAudio)")
 
         guard supportsMuxed || supportsAudio else {
             AppLogger.capture.info("[Audio] 设备不支持音频捕获")
+            return
+        }
+
+        guard isAudioEnabled else {
+            AppLogger.capture.info("[Audio] iOS 音频开关关闭，跳过音频输出")
+            return
+        }
+
+        guard audioOutput == nil else {
+            AppLogger.capture.info("[Audio] 音频输出已存在，跳过重复添加")
             return
         }
 
@@ -349,7 +371,63 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
     /// 更新音频播放状态
     private func updateAudioPlayback() {
-        audioPlayer?.isMuted = !isAudioEnabled
+        audioPlayer?.isMuted = !audioEnabledForCurrentSession
+    }
+
+    /// 仅停止当前捕获会话的 iOS 音频，不改写用户偏好。
+    /// 停止录制时用于释放系统音频输入路径，避免下次启动时丢失用户原本的音频偏好。
+    func stopAudioCaptureForCurrentSession() {
+        audioEnabledForCurrentSession = false
+        setAudioCaptureEnabled(false)
+    }
+
+    /// 运行时切换 iOS 设备音频捕获
+    /// 说明：只静音播放器不能释放系统音频输入路径，必须从 AVCaptureSession 中移除音频输出。
+    private func setAudioCaptureEnabled(_ enabled: Bool) {
+        guard let session = captureSession else {
+            updateAudioPlayback()
+            return
+        }
+
+        captureQueue.async { [weak self] in
+            guard let self else { return }
+
+            if enabled {
+                guard let audioCaptureDevice else {
+                    AppLogger.capture.warning("[Audio] 缺少 iOS 音频设备，无法启用音频捕获")
+                    return
+                }
+
+                session.beginConfiguration()
+                self.setupAudioCapture(for: session, videoDevice: audioCaptureDevice)
+                session.commitConfiguration()
+            } else {
+                self.removeAudioCaptureOutput(from: session)
+            }
+        }
+    }
+
+    /// 移除音频输出并停止播放器
+    /// 说明：停止录制或关闭 iOS 音频时调用，确保系统不再把 ScreenPresenter 视为音频输入占用方。
+    private func removeAudioCaptureOutput(from session: AVCaptureSession) {
+        guard let audioOutput else {
+            audioPlayer?.stop()
+            audioPlayer = nil
+            audioDelegate = nil
+            return
+        }
+
+        session.beginConfiguration()
+        audioOutput.setSampleBufferDelegate(nil, queue: nil)
+        session.removeOutput(audioOutput)
+        session.commitConfiguration()
+
+        self.audioOutput = nil
+        audioDelegate = nil
+        audioPlayer?.stop()
+        audioPlayer = nil
+
+        AppLogger.capture.info("[Audio] iOS 音频捕获已关闭")
     }
 
     // MARK: - 帧处理

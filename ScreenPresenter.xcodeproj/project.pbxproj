@@ -77,6 +77,9 @@
 		G1000001000000000004 /* ScrcpyVideoStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000004 /* ScrcpyVideoStreamParser.swift */; };
 		G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000005 /* VideoToolboxDecoder.swift */; };
 		G60942986538400935988421 /* ScrcpyErrorHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = G34952747508024177339802 /* ScrcpyErrorHelper.swift */; };
+		R0000001000000000001 /* RecordingFileNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000001 /* RecordingFileNaming.swift */; };
+		R0000001000000000002 /* RecordingFrameSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000002 /* RecordingFrameSnapshot.swift */; };
+		R0000001000000000003 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000003 /* RecordingService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -160,6 +163,9 @@
 		G1000002000000000004 /* ScrcpyVideoStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyVideoStreamParser.swift; sourceTree = "<group>"; };
 		G1000002000000000005 /* VideoToolboxDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolboxDecoder.swift; sourceTree = "<group>"; };
 		G34952747508024177339802 /* ScrcpyErrorHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyErrorHelper.swift; sourceTree = "<group>"; };
+		R0000002000000000001 /* RecordingFileNaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFileNaming.swift; sourceTree = "<group>"; };
+		R0000002000000000002 /* RecordingFrameSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFrameSnapshot.swift; sourceTree = "<group>"; };
+		R0000002000000000003 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -290,6 +296,16 @@
 			path = Rendering;
 			sourceTree = "<group>";
 		};
+		R0000003000000000001 /* Recording */ = {
+			isa = PBXGroup;
+			children = (
+				R0000002000000000001 /* RecordingFileNaming.swift */,
+				R0000002000000000002 /* RecordingFrameSnapshot.swift */,
+				R0000002000000000003 /* RecordingService.swift */,
+			);
+			path = Recording;
+			sourceTree = "<group>";
+		};
 		A44133202EF93201003DCDD3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -315,6 +331,7 @@
 				A44133092EF93201003DCDD3 /* DeviceSource */,
 				A441330F2EF93201003DCDD3 /* Preferences */,
 				A44133122EF93201003DCDD3 /* Process */,
+				R0000003000000000001 /* Recording */,
 				A441331E2EF93201003DCDD3 /* Rendering */,
 				A44133202EF93201003DCDD3 /* Utilities */,
 			);
@@ -538,6 +555,9 @@
 				C0025E2AB0327BD165380C0C /* FrameBuffer.swift in Sources */,
 				A481F7992F0B579F00D9DAB0 /* FramePipeline.swift in Sources */,
 				2A000001000000000001 /* AudioPlayer.swift in Sources */,
+				R0000001000000000001 /* RecordingFileNaming.swift in Sources */,
+				R0000001000000000002 /* RecordingFrameSnapshot.swift in Sources */,
+				R0000001000000000003 /* RecordingService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

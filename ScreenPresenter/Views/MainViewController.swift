@@ -756,6 +756,11 @@ final class MainViewController: NSViewController {
         previewContainerView.setMarkdownEditorPosition(position)
     }
 
+    /// 更新录制中标识
+    func setRecordingIndicatorVisible(_ visible: Bool, elapsedSeconds: Int) {
+        previewContainerView.setRecordingIndicatorVisible(visible, elapsedSeconds: elapsedSeconds)
+    }
+
     /// 新建 Markdown 文件（清空当前内容）
     func newMarkdownFile() {
         previewContainerView.newMarkdownFile()

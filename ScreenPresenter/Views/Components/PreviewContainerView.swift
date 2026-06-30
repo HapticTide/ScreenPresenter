@@ -265,6 +265,11 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         return button
     }()
 
+    /// 录制中状态标识（覆盖在整个投屏区域左上角）
+    private let recordingIndicatorView = NSView()
+    private let recordingIndicatorDotLayer = CALayer()
+    private let recordingIndicatorLabel = NSTextField(labelWithString: "")
+
     // MARK: - 状态
 
     /// 当前布局模式
@@ -342,6 +347,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         setupDevicePanels()
         setupSwapButton()
         setupPreviewToggleButton()
+        setupRecordingIndicator()
         updateMarkdownTabBarVisibilityForCurrentMode()
         startMarkdownUnsavedStateTimer()
 
@@ -586,6 +592,22 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
 
         iosPanelView.updateLocalizedTexts()
         androidPanelView.updateLocalizedTexts()
+    }
+
+    /// 更新录制状态标识。
+    /// - Parameters:
+    ///   - visible: 是否显示录制中标识
+    ///   - elapsedSeconds: 当前录制经过秒数
+    func setRecordingIndicatorVisible(_ visible: Bool, elapsedSeconds: Int) {
+        recordingIndicatorView.isHidden = !visible
+        guard visible else {
+            recordingIndicatorDotLayer.removeAnimation(forKey: "recordingPulse")
+            return
+        }
+
+        recordingIndicatorLabel.stringValue = L10n.recording.recordingWithElapsed(formatElapsedTime(elapsedSeconds))
+        startRecordingPulseAnimationIfNeeded()
+        layoutRecordingIndicator()
     }
 
     // MARK: - 私有方法
@@ -1159,6 +1181,101 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         swapButtonIconLayer.frame = CGRect(x: iconOffset, y: iconOffset, width: iconSize, height: iconSize)
     }
 
+    private func setupRecordingIndicator() {
+        recordingIndicatorView.wantsLayer = true
+        recordingIndicatorView.layer?.cornerRadius = 8
+        recordingIndicatorView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.72).cgColor
+        recordingIndicatorView.layer?.shadowColor = NSColor.black.cgColor
+        recordingIndicatorView.layer?.shadowOpacity = 0.18
+        recordingIndicatorView.layer?.shadowOffset = CGSize(width: 0, height: -2)
+        recordingIndicatorView.layer?.shadowRadius = 8
+        recordingIndicatorView.isHidden = true
+
+        recordingIndicatorDotLayer.backgroundColor = NSColor.systemRed.cgColor
+        recordingIndicatorDotLayer.cornerRadius = 4
+        recordingIndicatorView.layer?.addSublayer(recordingIndicatorDotLayer)
+
+        recordingIndicatorLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        recordingIndicatorLabel.textColor = .white
+        recordingIndicatorLabel.alignment = .left
+        recordingIndicatorLabel.lineBreakMode = .byTruncatingTail
+        recordingIndicatorLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        recordingIndicatorView.addSubview(recordingIndicatorLabel)
+
+        addSubview(recordingIndicatorView)
+    }
+
+    private func layoutRecordingIndicator() {
+        guard !recordingIndicatorView.isHidden else { return }
+
+        let horizontalPadding: CGFloat = 10
+        let verticalPadding: CGFloat = 7
+        let dotSize: CGFloat = 8
+        let spacing: CGFloat = 8
+        let labelSize = recordingIndicatorLabelSize()
+        let width = min(
+            bounds.width - 24,
+            horizontalPadding * 2 + dotSize + spacing + labelSize.width
+        )
+        let height = max(28, verticalPadding * 2 + labelSize.height)
+        let labelWidth = max(0, width - horizontalPadding * 2 - dotSize - spacing)
+
+        recordingIndicatorView.frame = CGRect(
+            x: 12,
+            y: bounds.height - height - 12,
+            width: width,
+            height: height
+        )
+
+        recordingIndicatorDotLayer.frame = CGRect(
+            x: horizontalPadding,
+            y: (height - dotSize) / 2,
+            width: dotSize,
+            height: dotSize
+        )
+        recordingIndicatorLabel.frame = CGRect(
+            x: horizontalPadding + dotSize + spacing,
+            y: (height - labelSize.height) / 2,
+            width: labelWidth,
+            height: labelSize.height
+        )
+    }
+
+    private func recordingIndicatorLabelSize() -> CGSize {
+        let font = recordingIndicatorLabel.font ?? NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        let textSize = (recordingIndicatorLabel.stringValue as NSString).size(withAttributes: attributes)
+        // `NSTextField.intrinsicContentSize` 在频繁更新时间文本时偶尔会偏紧，手动测量并给少量冗余。
+        return CGSize(width: ceil(textSize.width) + 8, height: ceil(textSize.height))
+    }
+
+    private func startRecordingPulseAnimationIfNeeded() {
+        guard recordingIndicatorDotLayer.animation(forKey: "recordingPulse") == nil else { return }
+
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.fromValue = 0.95
+        opacity.toValue = 0.45
+
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 1.0
+        scale.toValue = 1.18
+
+        let group = CAAnimationGroup()
+        group.animations = [opacity, scale]
+        group.duration = 1.4
+        group.autoreverses = true
+        group.repeatCount = .infinity
+        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        recordingIndicatorDotLayer.add(group, forKey: "recordingPulse")
+    }
+
+    private func formatElapsedTime(_ seconds: Int) -> String {
+        let clamped = max(0, seconds)
+        let minutes = clamped / 60
+        let remainingSeconds = clamped % 60
+        return String(format: "%02d:%02d", minutes, remainingSeconds)
+    }
+
     override func layout() {
         super.layout()
         // 动画期间不更新区域帧，避免覆盖动画初始状态
@@ -1173,6 +1290,7 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
         if isFullScreen, !previewToggleButton.isHidden {
             layoutPreviewToggleButton()
         }
+        layoutRecordingIndicator()
     }
 
     override func mouseDown(with event: NSEvent) {
