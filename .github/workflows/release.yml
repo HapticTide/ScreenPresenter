@@ -60,9 +60,13 @@ jobs:
             exit 1
           fi
 
+          # 构建号使用北京时区时间戳（YYYYMMDDHHMM），与本地 release.sh 保持一致，
+          # 保证 sparkle:version 单调递增，Sparkle 才能判定为“有更新”。
+          build_number="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
-          echo "build_number=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
       - name: Show toolchain
         run: |
@@ -78,19 +82,27 @@ jobs:
             cp ScreenPresenter/Core/Utilities/Secrets.swift.template ScreenPresenter/Core/Utilities/Secrets.swift
           fi
 
-      - name: Build unsigned release app
+      - name: Build ad-hoc signed release app
         id: build
         run: |
           set -euo pipefail
           set -o pipefail
 
+          # CI 上没有 Apple Development 证书，覆盖项目的 Automatic 签名为 ad-hoc（"-"）。
+          # 保留 ENABLE_HARDENED_RUNTIME=YES，让 Sparkle 安装器 XPC 服务能在硬化系统上正常拉起。
           xcodebuild clean build \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME_NAME" \
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_HARDENED_RUNTIME=YES \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
             ONLY_ACTIVE_ARCH=NO \
@@ -101,6 +113,9 @@ jobs:
             echo "Cannot find ${APP_NAME}.app" >&2
             exit 1
           fi
+
+          # 校验 ad-hoc 签名有效（Sparkle 更新时会校验宿主/更新包的签名一致性）
+          codesign --verify --deep --verbose=2 "$app_path"
 
           echo "app_path=$app_path" >> "$GITHUB_OUTPUT"
 
@@ -145,6 +160,53 @@ jobs:
           echo "dmg_path=$dmg_path" >> "$GITHUB_OUTPUT"
           echo "checksum_path=$checksum_path" >> "$GITHUB_OUTPUT"
 
+      - name: Sign update with Sparkle
+        id: sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "缺少 SPARKLE_PRIVATE_KEY secret，无法进行 Sparkle 签名" >&2
+            exit 1
+          fi
+
+          # 安装 Sparkle 工具（提供 sign_update）
+          command -v sign_update >/dev/null 2>&1 || brew install --cask sparkle
+          sign_update="$(command -v sign_update || true)"
+          if [ -z "$sign_update" ]; then
+            sign_update="$(find /opt/homebrew/Caskroom/sparkle /usr/local/Caskroom/sparkle -name sign_update -type f 2>/dev/null | sort -V | tail -1)"
+          fi
+          if [ -z "$sign_update" ] || [ ! -x "$sign_update" ]; then
+            echo "找不到 sign_update 工具" >&2
+            exit 1
+          fi
+
+          # 私钥写入临时文件（trim 尾随空白），避免出现在命令行/进程列表
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | tr -d '\r\n' > "$key_file"
+
+          zip_path="${{ steps.package.outputs.zip_path }}"
+          sign_output="$("$sign_update" -f "$key_file" "$zip_path")"
+
+          ed_signature="$(printf '%s' "$sign_output" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)"
+          length="$(printf '%s' "$sign_output" | grep -o 'length="[^"]*"' | cut -d'"' -f2)"
+
+          if [ -z "$ed_signature" ] || [ -z "$length" ]; then
+            echo "Sparkle 签名失败，未解析到 edSignature/length" >&2
+            echo "$sign_output" >&2
+            exit 1
+          fi
+
+          # 签名值不打印，仅输出长度供排查
+          echo "Sparkle 签名成功，包长度: $length"
+          {
+            echo "ed_signature=$ed_signature"
+            echo "length=$length"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -159,11 +221,38 @@ jobs:
         run: |
           set -euo pipefail
 
+          version="${{ steps.version.outputs.version }}"
+
+          # 从 git log 生成发布条目：上一个版本 tag..HEAD（无 tag 则取最近 30 条）
+          last_tag="$(git tag --list --sort=-v:refname \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            | grep -vx "$version" \
+            | head -n 1 || true)"
+          if [ -n "$last_tag" ]; then
+            range="${last_tag}..HEAD"
+          else
+            range=""
+          fi
+
+          bullets_file="$PWD/build/release/NOTES_BULLETS.txt"
+          if [ -n "$range" ]; then
+            git log --no-merges --pretty=format:'%s' "$range" > "$bullets_file" || true
+          else
+            git log --no-merges --pretty=format:'%s' -n 30 > "$bullets_file" || true
+          fi
+          if [ ! -s "$bullets_file" ]; then
+            echo "常规维护与稳定性优化" > "$bullets_file"
+          fi
+
           notes_path="$PWD/build/release/RELEASE_NOTES.md"
           {
-            echo "## ScreenPresenter ${{ steps.version.outputs.version }}"
+            echo "## ScreenPresenter ${version}"
             echo
             echo "此 Release 由 GitHub Actions 自动构建。"
+            echo
+            echo "### 更新内容"
+            echo
+            sed 's/^/- /' "$bullets_file"
             echo
             echo "### 安装提示"
             echo
@@ -177,6 +266,7 @@ jobs:
           } > "$notes_path"
 
           echo "notes_path=$notes_path" >> "$GITHUB_OUTPUT"
+          echo "bullets_file=$bullets_file" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         env:
@@ -213,3 +303,54 @@ jobs:
               --notes-file "$notes_path" \
               --target "$GITHUB_SHA"
           fi
+
+      - name: Update appcast and push to main
+        if: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          version="${{ steps.version.outputs.version }}"
+          build_number="${{ steps.version.outputs.build_number }}"
+          tag_name="${{ steps.version.outputs.tag_name }}"
+          ed_signature="${{ steps.sparkle.outputs.ed_signature }}"
+          length="${{ steps.sparkle.outputs.length }}"
+          bullets_file="${{ steps.notes.outputs.bullets_file }}"
+
+          # enclosure 下载直链：与 Package 步骤产出的 zip 命名保持一致
+          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag_name}/${APP_NAME}-${version}.zip"
+
+          # 把 tag 上更新后的 appcast 暂存，切到 main 再覆盖提交
+          # （工作区处于 detached HEAD，直接改的 appcast 需要搬运到 main 分支）
+          APPCAST_PATH="appcast.xml" \
+          VERSION="$version" \
+          BUILD_NUMBER="$build_number" \
+          ED_SIGNATURE="$ed_signature" \
+          LENGTH="$length" \
+          DOWNLOAD_URL="$download_url" \
+          NOTES_FILE="$bullets_file" \
+            bash scripts/ci_update_appcast.sh
+
+          updated_appcast="$(mktemp)"
+          cp appcast.xml "$updated_appcast"
+
+          # 还原工作区被脚本改动的 appcast.xml（当前处于 detached HEAD），
+          # 否则切到 main 时 Git 会因已跟踪文件存在本地修改而拒绝切换。
+          git checkout -- appcast.xml 2>/dev/null || true
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git checkout -B main origin/main
+          cp "$updated_appcast" appcast.xml
+
+          if git diff --quiet -- appcast.xml; then
+            echo "appcast.xml 无变化，跳过提交"
+            exit 0
+          fi
+
+          git add appcast.xml
+          git commit -m "release: 更新 appcast 至 ${version} [skip ci]"
+          git push origin main
