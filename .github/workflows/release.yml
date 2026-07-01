@@ -174,9 +174,19 @@ jobs:
 
           # 安装 Sparkle 工具（提供 sign_update）
           command -v sign_update >/dev/null 2>&1 || brew install --cask sparkle
+
+          # 查找 sign_update：cask 安装不会 link 进 PATH，需到 Caskroom 里找。
+          # 只遍历真实存在的目录，且用 || true 兜底，避免 find 非零退出叠加 pipefail 杀掉脚本。
           sign_update="$(command -v sign_update || true)"
           if [ -z "$sign_update" ]; then
-            sign_update="$(find /opt/homebrew/Caskroom/sparkle /usr/local/Caskroom/sparkle -name sign_update -type f 2>/dev/null | sort -V | tail -1)"
+            for cask_dir in /opt/homebrew/Caskroom/sparkle /usr/local/Caskroom/sparkle; do
+              [ -d "$cask_dir" ] || continue
+              found="$(find "$cask_dir" -name sign_update -type f 2>/dev/null | sort -V | tail -1 || true)"
+              if [ -n "$found" ]; then
+                sign_update="$found"
+                break
+              fi
+            done
           fi
           if [ -z "$sign_update" ] || [ ! -x "$sign_update" ]; then
             echo "找不到 sign_update 工具" >&2
