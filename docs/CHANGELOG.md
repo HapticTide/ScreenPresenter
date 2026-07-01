@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1
+
+### 改动
+
+- 优化: 自动查找 Sparkle 签名工具
+- 新增投屏录制功能
+- Bump actions/checkout from 6 to 7
+- release: finalize 1.2.0 metadata
+
+
 ## 1.2.0
 
 ### 改动

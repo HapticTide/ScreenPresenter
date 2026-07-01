@@ -7,28 +7,25 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.2.0</title>
+            <title>Version 1.2.1</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.2.0</h2>
+                <h2>🚀 ScreenPresenter 1.2.1</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>新增 GitHub CI、自动 Release、Issue/PR 模板、Dependabot 与贡献文档</li>
-                    <li>发布构建输出统一优先使用 `xcbeautify`</li>
-                    <li>修复 GitHub Actions runner 使用 Xcode 16.4 时的 SDK 兼容构建问题</li>
-                    <li>README 聚焦用户与贡献者内容，维护者发布流程移至 `docs/RELEASE.md`</li>
-                    <li>GitHub Linguist 语言统计排除内嵌 HTML 资源</li>
-                    <li>适配 scrcpy 4.0.0 server 流元数据协议</li>
-                    <li>最低系统版本调整为 macOS 13.0</li>
+                    <li>优化: 自动查找 Sparkle 签名工具</li>
+                    <li>新增投屏录制功能</li>
+                    <li>Bump actions/checkout from 6 to 7</li>
+                    <li>release: finalize 1.2.0 metadata</li>
                 </ul>
                 ]]>
             </description>
             <pubDate>Wed, 13 May 2026 14:08:15 +0800</pubDate>
             
             <sparkle:version>202605131407</sparkle:version>
-            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
