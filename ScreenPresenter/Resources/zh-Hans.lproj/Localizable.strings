@@ -437,6 +437,18 @@
 "toast.exportLogsSuccess" = "日志导出成功";
 "toast.exportLogsFailed" = "日志导出失败: %@";
 
+// MARK: - Recording
+"recording.record" = "录制";
+"recording.stop" = "停止录制";
+"recording.started" = "录制已开始";
+"recording.saved" = "录制已保存";
+"recording.startFailed" = "录制开始失败";
+"recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";
+"recording.outputDirectoryUnavailable" = "无法创建录制保存目录";
+"recording.openOutputDirectory" = "打开录制目录";
+"recording.savedLocation" = "已保存：%@";
+"recording.recordingWithElapsed" = "录制中 %@";
+
 // MARK: - Menu (Color)
 "menu.view" = "显示";
 "menu.colorCompensation" = "颜色补偿...";

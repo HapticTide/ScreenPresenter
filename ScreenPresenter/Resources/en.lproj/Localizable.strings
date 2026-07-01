@@ -437,6 +437,18 @@
 "toast.exportLogsSuccess" = "Logs exported successfully";
 "toast.exportLogsFailed" = "Failed to export logs: %@";
 
+// MARK: - Recording
+"recording.record" = "Record";
+"recording.stop" = "Stop Recording";
+"recording.started" = "Recording started";
+"recording.saved" = "Recording saved";
+"recording.startFailed" = "Failed to start recording";
+"recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";
+"recording.outputDirectoryUnavailable" = "Unable to create recording output directory";
+"recording.openOutputDirectory" = "Open recording folder";
+"recording.savedLocation" = "Saved: %@";
+"recording.recordingWithElapsed" = "Recording %@";
+
 // MARK: - Menu (Color)
 "menu.view" = "View";
 "menu.colorCompensation" = "Color Compensation...";

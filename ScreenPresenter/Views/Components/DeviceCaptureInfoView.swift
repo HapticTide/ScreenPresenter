@@ -529,14 +529,17 @@ final class DeviceCaptureInfoView: NSView {
         audioControlContainer.isHidden = !shouldShowAudioControls
 
         if shouldShowAudioControls {
-            // 运行期偏好设置更改需重启生效，这里仅使用当前会话的音频启用状态（已为 true）
+            // 是否显示控件由启动时快照决定；控件状态使用当前偏好，避免关闭音频后仍显示为开启。
+            let enabled: Bool
             let volume: Float
             if platform == .ios {
+                enabled = AppState.shared.iosDeviceSource?.isAudioEnabled ?? UserPreferences.shared.iosAudioEnabled
                 volume = UserPreferences.shared.iosAudioVolume
             } else {
+                enabled = UserPreferences.shared.androidAudioEnabled
                 volume = UserPreferences.shared.androidAudioVolume
             }
-            updateAudioState(enabled: true, volume: volume)
+            updateAudioState(enabled: enabled, volume: volume)
         } else {
             showsVolumeControls = false
             volumeSlider.isHidden = true

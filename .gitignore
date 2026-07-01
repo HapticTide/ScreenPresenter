@@ -88,3 +88,9 @@ Secrets.swift
 *.xcuserstate
 ScreenPresenter.xcodeproj/xcuserdata
 ScreenPresenter.xcodeproj/xcuserdata
+
+# =============================================================================
+# Agent workspace
+# =============================================================================
+.superpowers/
+docs/

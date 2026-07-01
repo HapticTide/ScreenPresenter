@@ -531,6 +531,21 @@ enum L10n {
         static var markdownEditorTooltip: String { "toolbar.markdownEditorTooltip".localized }
     }
 
+    // MARK: - Recording
+
+    enum recording {
+        static var record: String { "recording.record".localized }
+        static var stop: String { "recording.stop".localized }
+        static var started: String { "recording.started".localized }
+        static var saved: String { "recording.saved".localized }
+        static var startFailed: String { "recording.startFailed".localized }
+        static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }
+        static var outputDirectoryUnavailable: String { "recording.outputDirectoryUnavailable".localized }
+        static var openOutputDirectory: String { "recording.openOutputDirectory".localized }
+        static func savedLocation(_ path: String) -> String { "recording.savedLocation".localized(path) }
+        static func recordingWithElapsed(_ elapsed: String) -> String { "recording.recordingWithElapsed".localized(elapsed) }
+    }
+
     // MARK: - Toast
 
     enum toast {

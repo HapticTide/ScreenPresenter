@@ -39,6 +39,11 @@ final class AppState {
     /// Android 设备源
     private(set) var androidDeviceSource: ScrcpyDeviceSource?
 
+    /// 录制服务
+    private(set) lazy var recordingService = RecordingService { [weak self] in
+        self?.currentRecordingFrameSnapshots() ?? []
+    }
+
     /// 是否正在初始化
     private(set) var isInitializing = true
 
@@ -104,6 +109,7 @@ final class AppState {
         AppLogger.app.info("开始清理资源")
 
         deviceObservationTask?.cancel()
+        recordingService.stopRecording()
 
         // 断开所有设备
         if let source = iosDeviceSource {
@@ -299,6 +305,36 @@ final class AppState {
                 stateChangedPublisher.send()
             }
         }
+    }
+
+    /// 获取当前可用于录制截图的投屏帧。
+    /// 录制服务每秒调用这里一次，因此录制开始后才启动投屏的设备也会自动加入。
+    private func currentRecordingFrameSnapshots() -> [RecordingFrameSnapshot] {
+        var snapshots: [RecordingFrameSnapshot] = []
+
+        if
+            let source = iosDeviceSource,
+            source.state == .capturing,
+            let pixelBuffer = source.latestFrame?.pixelBuffer {
+            snapshots.append(RecordingFrameSnapshot(
+                platform: .ios,
+                deviceName: currentIOSDevice?.displayName ?? L10n.platform.ios,
+                pixelBuffer: pixelBuffer
+            ))
+        }
+
+        if
+            let source = androidDeviceSource,
+            source.state == .capturing,
+            let pixelBuffer = source.latestPixelBuffer ?? source.latestFrame?.pixelBuffer {
+            snapshots.append(RecordingFrameSnapshot(
+                platform: .android,
+                deviceName: currentAndroidDevice?.displayName ?? L10n.platform.android,
+                pixelBuffer: pixelBuffer
+            ))
+        }
+
+        return snapshots
     }
 
     // MARK: - 计算属性
