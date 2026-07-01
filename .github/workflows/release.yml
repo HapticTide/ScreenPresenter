@@ -89,7 +89,9 @@ jobs:
           set -o pipefail
 
           # CI 上没有 Apple Development 证书，覆盖项目的 Automatic 签名为 ad-hoc（"-"）。
-          # 保留 ENABLE_HARDENED_RUNTIME=YES，让 Sparkle 安装器 XPC 服务能在硬化系统上正常拉起。
+          # 关闭 ENABLE_HARDENED_RUNTIME：ad-hoc 签名无 Team ID，硬化运行时的库验证
+          # 会因主程序与 Sparkle.framework 的 Team ID 不一致而拒绝加载，导致启动即崩溃。
+          # ad-hoc 未公证场景下硬化运行时无实际收益；将来改用 Developer ID 公证时再开回。
           xcodebuild clean build \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME_NAME" \
@@ -102,7 +104,7 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            ENABLE_HARDENED_RUNTIME=YES \
+            ENABLE_HARDENED_RUNTIME=NO \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
             ONLY_ACTIVE_ARCH=NO \
