@@ -172,23 +172,27 @@ jobs:
             exit 1
           fi
 
-          # 安装 Sparkle 工具（提供 sign_update）
-          command -v sign_update >/dev/null 2>&1 || brew install --cask sparkle
+          # 从 Sparkle 官方 Release 下载工具包，仅取命令行 sign_update。
+          # 不用 Homebrew cask：其 sparkle cask 已弃用（2026-09-01 停用），
+          # 且会连带安装带 GUI 的 Sparkle.app、触发 Gatekeeper 警告。
+          # 版本固定 + SHA-256 校验，保证可复现并防止供应链篡改。
+          SPARKLE_VERSION="2.9.3"
+          SPARKLE_SHA256="74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be6"
+          sparkle_url="https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
 
-          # 查找 sign_update：cask 安装不会 link 进 PATH，需到 Caskroom 里找。
-          # 只遍历真实存在的目录，且用 || true 兜底，避免 find 非零退出叠加 pipefail 杀掉脚本。
-          sign_update="$(command -v sign_update || true)"
-          if [ -z "$sign_update" ]; then
-            for cask_dir in /opt/homebrew/Caskroom/sparkle /usr/local/Caskroom/sparkle; do
-              [ -d "$cask_dir" ] || continue
-              found="$(find "$cask_dir" -name sign_update -type f 2>/dev/null | sort -V | tail -1 || true)"
-              if [ -n "$found" ]; then
-                sign_update="$found"
-                break
-              fi
-            done
-          fi
-          if [ -z "$sign_update" ] || [ ! -x "$sign_update" ]; then
+          sparkle_dir="$(mktemp -d)"
+          sparkle_tar="$sparkle_dir/sparkle.tar.xz"
+          curl -fsSL "$sparkle_url" -o "$sparkle_tar"
+
+          echo "${SPARKLE_SHA256}  ${sparkle_tar}" | shasum -a 256 -c - || {
+            echo "Sparkle 工具包 SHA-256 校验失败，拒绝使用" >&2
+            exit 1
+          }
+
+          # 包内路径为 ./bin/sign_update
+          tar -xf "$sparkle_tar" -C "$sparkle_dir" bin/sign_update
+          sign_update="$sparkle_dir/bin/sign_update"
+          if [ ! -x "$sign_update" ]; then
             echo "找不到 sign_update 工具" >&2
             exit 1
           fi
