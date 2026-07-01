@@ -75,9 +75,12 @@ BUILD_DIR="$PROJECT_DIR/build"
 ZIP_PATH="$BUILD_DIR/$APP_NAME.zip"
 APPCAST_PATH="$PROJECT_DIR/appcast.xml"
 
-# Sparkle 工具路径
-SPARKLE_BIN="/opt/homebrew/Caskroom/sparkle/2.8.1/bin"
-SIGN_UPDATE="$SPARKLE_BIN/sign_update"
+# Sparkle 工具路径（自动查找已安装版本，避免硬编码版本号）
+SIGN_UPDATE=$(find /opt/homebrew/Caskroom/sparkle -name sign_update -type f 2>/dev/null | sort -V | tail -1)
+if [ -z "$SIGN_UPDATE" ]; then
+    # 回退到 PATH 中的 sign_update（若通过其它方式安装）
+    SIGN_UPDATE=$(command -v sign_update || true)
+fi
 
 # GitHub 仓库（优先从 origin 自动解析）
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
@@ -111,9 +114,10 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
-if [ ! -f "$SIGN_UPDATE" ]; then
+if [ -z "$SIGN_UPDATE" ] || [ ! -f "$SIGN_UPDATE" ]; then
     log_error "未找到 Sparkle sign_update 工具"
     echo "请运行: brew install --cask sparkle"
+    echo "（若已安装，请确认 /opt/homebrew/Caskroom/sparkle 下存在 sign_update）"
     exit 1
 fi
 
