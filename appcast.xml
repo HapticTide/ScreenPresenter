@@ -15,24 +15,27 @@
 
                 <h3>✨ 更新内容</h3>
                 <ul>
+                    <li>修复: CI Sparkle 签名步骤因 find 不存在目录而退出</li>
+                    <li>修复: release workflow 支持 Sparkle 自动更新</li>
+                    <li>release: prepare 1.2.1</li>
+                    <li>release: prepare 1.2.1</li>
                     <li>优化: 自动查找 Sparkle 签名工具</li>
                     <li>新增投屏录制功能</li>
                     <li>Bump actions/checkout from 6 to 7</li>
-                    <li>release: finalize 1.2.0 metadata</li>
                 </ul>
                 ]]>
             </description>
-            <pubDate>Wed, 13 May 2026 14:08:15 +0800</pubDate>
+            <pubDate>Wed, 01 Jul 2026 03:02:41 +0000</pubDate>
             
-            <sparkle:version>202605131407</sparkle:version>
+            <sparkle:version>202607011100</sparkle:version>
             <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.0/ScreenPresenter.zip"
-                length="15206425"
+                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.1/ScreenPresenter-1.2.1.zip"
+                length="15230241"
                 type="application/octet-stream"
-                sparkle:edSignature="8xpAhqkuLt+dK+gegW8mGbCcN8ZFgSQ5Y8i0l11dU4oIHM2M+ButRAZNjhU5O25hSkvTT8AEqQzGuPelGGcdDQ=="
+                sparkle:edSignature="rEt8vaqpfPmlKWSLsKLPmaWsPwMyWZRsrFtfnSjqsZiV21WuNYZKsv0uoHtLuMqUG18jAFkcn/yq4Nb2qbldCg=="
             />
         </item>
     </channel>
