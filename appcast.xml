@@ -7,38 +7,29 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.2.1</title>
+            <title>Version 1.2.2</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.2.1</h2>
+                <h2>🚀 ScreenPresenter 1.2.2</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>修复: CI 关闭硬化运行时，解决 ad-hoc 签名下 Sparkle.framework 库验证 Team ID 不匹配导致的启动崩溃</li>
-                    <li>优化: CI 改用 Sparkle 官方 Release 下载 sign_update</li>
-                    <li>release: 更新 appcast 至 1.2.1 [skip ci]</li>
-                    <li>修复: CI Sparkle 签名步骤因 find 不存在目录而退出</li>
-                    <li>修复: release workflow 支持 Sparkle 自动更新</li>
-                    <li>release: prepare 1.2.1</li>
-                    <li>release: prepare 1.2.1</li>
-                    <li>优化: 自动查找 Sparkle 签名工具</li>
-                    <li>新增投屏录制功能</li>
-                    <li>Bump actions/checkout from 6 to 7</li>
+                    <li>修复麦克风权限发布配置</li>
                 </ul>
                 ]]>
             </description>
-            <pubDate>Wed, 01 Jul 2026 03:55:07 +0000</pubDate>
+            <pubDate>Thu, 02 Jul 2026 01:43:37 +0000</pubDate>
             
-            <sparkle:version>202607011150</sparkle:version>
-            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:version>202607020940</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.1/ScreenPresenter-1.2.1.zip"
-                length="15230104"
+                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.2/ScreenPresenter-1.2.2.zip"
+                length="15175381"
                 type="application/octet-stream"
-                sparkle:edSignature="VuxwCQ1cFj/39xpNN4HKd1IwNUQUxcUTkmdyWrAV6Ea1OreCKT1MeLYoeX7t4IqCbRHLZnvm27/6Dt3siMKxDQ=="
+                sparkle:edSignature="9xh44pNpDlb4nv6FdJnQwGdhpDlCdL3DwISktDQYivEQ1AU1w2ySdKAvBNMdymtPIUIrqTjy33Tw3dn1Xj42AQ=="
             />
         </item>
     </channel>
