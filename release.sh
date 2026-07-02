@@ -199,6 +199,13 @@ cp -R "$APP_BUILD_PATH" "$BUILD_DIR/"
 log_info "验证签名..."
 codesign --verify --verbose=2 "$BUILD_DIR/$APP_NAME.app"
 
+# 录制功能需要麦克风输入权限；Hardened Runtime 下必须把 audio-input entitlement 签进应用。
+if ! codesign -d --entitlements :- "$BUILD_DIR/$APP_NAME.app" 2>/dev/null | \
+    grep -q "com.apple.security.device.audio-input"; then
+    log_error "缺少麦克风输入 entitlement: com.apple.security.device.audio-input"
+    exit 1
+fi
+
 # 验证 Sparkle framework 签名
 SPARKLE_FRAMEWORK="$BUILD_DIR/$APP_NAME.app/Contents/Frameworks/Sparkle.framework"
 if [ -d "$SPARKLE_FRAMEWORK" ]; then
