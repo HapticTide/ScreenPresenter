@@ -542,8 +542,37 @@ enum L10n {
         static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }
         static var outputDirectoryUnavailable: String { "recording.outputDirectoryUnavailable".localized }
         static var openOutputDirectory: String { "recording.openOutputDirectory".localized }
+        static var openHistory: String { "recording.openHistory".localized }
+        static var back: String { "recording.back".localized }
+        static var play: String { "recording.play".localized }
+        static var pause: String { "recording.pause".localized }
+        static var revealDirectory: String { "recording.revealDirectory".localized }
+        static var replay: String { "recording.replay".localized }
+        static var noHistory: String { "recording.noHistory".localized }
+        static var historyTitle: String { "recording.historyTitle".localized }
+        static var rewindFiveSeconds: String {
+            "recording.rewindFiveSeconds".localized
+        }
+        static var forwardFiveSeconds: String {
+            "recording.forwardFiveSeconds".localized
+        }
+        static var noSnapshots: String { "recording.noSnapshots".localized }
+        static var replayLoadFailed: String {
+            "recording.replayLoadFailed".localized
+        }
         static func savedLocation(_ path: String) -> String { "recording.savedLocation".localized(path) }
-        static func recordingWithElapsed(_ elapsed: String) -> String { "recording.recordingWithElapsed".localized(elapsed) }
+        static func recordingWithElapsed(_ elapsed: String) -> String {
+            "recording.recordingWithElapsed".localized(elapsed)
+        }
+        static func replayTitle(_ title: String) -> String {
+            "recording.replayTitle".localized(title)
+        }
+        static func replayDeviceCount(_ count: Int) -> String {
+            "recording.replayDeviceCount".localized(count)
+        }
+        static func historyDetail(_ duration: String, _ deviceCount: Int) -> String {
+            "recording.historyDetail".localized(duration, deviceCount)
+        }
     }
 
     // MARK: - Toast

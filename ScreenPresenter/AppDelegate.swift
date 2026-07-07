@@ -31,8 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var layoutModeSegmentedControl: NSSegmentedControl?
     private var recordingToolbarItem: NSToolbarItem?
     private var recordingOutputToolbarItem: NSToolbarItem?
-    private var recordingOutputButton: NSButton?
-    private var recordingOutputWidthConstraint: NSLayoutConstraint?
+    private let recordingLibrary = RecordingLibrary()
+    private var recordingHistoryWindowController: NSWindowController?
     private var markdownToggleToolbarItem: NSToolbarItem?
     private var isRefreshing: Bool = false
     private var cancellables = Set<AnyCancellable>()
@@ -179,8 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         layoutModeSegmentedControl = nil
         recordingToolbarItem = nil
         recordingOutputToolbarItem = nil
-        recordingOutputButton = nil
-        recordingOutputWidthConstraint = nil
+        recordingHistoryWindowController?.close()
+        recordingHistoryWindowController = nil
         markdownToggleToolbarItem = nil
 
         // 创建新工具栏
@@ -1231,6 +1231,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
 extension AppDelegate: NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if sender == recordingHistoryWindowController?.window {
+            recordingHistoryWindowController = nil
+            return true
+        }
+
         guard sender == mainWindow else {
             return true
         }
@@ -1528,13 +1533,80 @@ extension AppDelegate {
         }
     }
 
-    @MainActor
-    @objc private func openRecordingOutputDirectory(_ sender: Any?) {
-        guard let directory = AppState.shared.recordingService.lastOutputDirectory else {
-            NSSound.beep()
+    @objc private func showRecordingHistory(_ sender: Any?) {
+        let historyView = RecordingHistoryPopoverView(
+            frame: NSRect(x: 0, y: 0, width: 560, height: 400)
+        )
+        historyView.configure(sessions: [])
+
+        let contentViewController = NSViewController()
+        contentViewController.view = historyView
+
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: historyView.frame.size),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = L10n.recording.historyTitle
+        window.contentViewController = contentViewController
+        window.delegate = self
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 520, height: 320)
+
+        let windowController = NSWindowController(window: window)
+
+        historyView.onRevealDirectory = { [weak self, weak window] session in
+            self?.dismissRecordingHistoryWindow(window)
+            NSWorkspace.shared.activateFileViewerSelecting([session.directory])
+        }
+
+        historyView.onReplay = { [weak self, weak window] session in
+            self?.dismissRecordingHistoryWindow(window)
+            self?.mainViewController?.showRecordingReplay(session: session)
+        }
+
+        dismissRecordingHistoryWindow(recordingHistoryWindowController?.window)
+        recordingHistoryWindowController = windowController
+
+        positionRecordingHistoryWindow(window)
+        windowController.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+
+        do {
+            let sessions = try recordingLibrary.scanSessions()
+            historyView.configure(sessions: sessions)
+        } catch {
+            AppLogger.capture.error("读取录制历史失败: \(error.localizedDescription)")
+            historyView.configure(sessions: [])
+        }
+    }
+
+    private func positionRecordingHistoryWindow(_ window: NSWindow) {
+        guard let mainWindow else {
+            window.center()
             return
         }
-        NSWorkspace.shared.activateFileViewerSelecting([directory])
+
+        let mainFrame = mainWindow.frame
+        let windowSize = window.frame.size
+        let origin = NSPoint(
+            x: mainFrame.midX - windowSize.width / 2,
+            y: mainFrame.midY - windowSize.height / 2
+        )
+        window.setFrameOrigin(origin)
+    }
+
+    private func dismissRecordingHistoryWindow(_ window: NSWindow?) {
+        guard let window else {
+            recordingHistoryWindowController = nil
+            return
+        }
+
+        window.close()
+        recordingHistoryWindowController = nil
     }
 
     // MARK: - 面板交换操作
@@ -1827,28 +1899,15 @@ extension AppDelegate {
     private func updateRecordingUI() {
         let service = AppState.shared.recordingService
         let isRecording = service.state.isRecording
-        let shouldShowOutput = service.lastOutputDirectory != nil && !isRecording
 
         if let item = recordingToolbarItem {
             updateRecordingToolbarItemImage(item)
         }
 
-        updateRecordingOutputToolbarPresence(shouldShowOutput)
+        updateRecordingOutputToolbarPresence(true)
 
-        if let outputButton = recordingOutputButton {
-            if let directory = service.lastOutputDirectory, shouldShowOutput {
-                outputButton.title = L10n.recording.savedLocation(
-                    (directory.path as NSString).abbreviatingWithTildeInPath
-                )
-                outputButton.toolTip = L10n.recording.openOutputDirectory
-                outputButton.isHidden = false
-                recordingOutputWidthConstraint?.constant = 320
-            } else {
-                outputButton.title = ""
-                outputButton.toolTip = nil
-                outputButton.isHidden = true
-                recordingOutputWidthConstraint?.constant = 0
-            }
+        if let item = recordingOutputToolbarItem {
+            updateRecordingHistoryToolbarItemImage(item)
         }
 
         mainViewController?.setRecordingIndicatorVisible(isRecording, elapsedSeconds: service.elapsedSeconds)
@@ -1866,11 +1925,9 @@ extension AppDelegate {
 
             let recordingIndex = items.firstIndex { $0.itemIdentifier == ToolbarItemIdentifier.recording } ?? 0
             toolbar.insertItem(withItemIdentifier: ToolbarItemIdentifier.recordingOutput, at: recordingIndex)
-        } else if let outputIndex {
+        } else if let outputIndex, recordingOutputToolbarItem == nil {
             toolbar.removeItem(at: outputIndex)
             recordingOutputToolbarItem = nil
-            recordingOutputButton = nil
-            recordingOutputWidthConstraint = nil
         }
     }
 
@@ -1885,6 +1942,19 @@ extension AppDelegate {
             systemSymbolName: symbolName,
             accessibilityDescription: item.toolTip
         )
+    }
+
+    @MainActor
+    private func updateRecordingHistoryToolbarItemImage(_ item: NSToolbarItem) {
+        let image = NSImage(
+            systemSymbolName: "clock.arrow.circlepath",
+            accessibilityDescription: L10n.recording.openHistory
+        )
+
+        item.label = L10n.recording.openHistory
+        item.paletteLabel = L10n.recording.openHistory
+        item.toolTip = L10n.recording.openHistory
+        item.image = image
     }
 
     private func updateLayoutModeToolbarState() {
@@ -1940,6 +2010,7 @@ extension AppDelegate: NSToolbarDelegate {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [
+            ToolbarItemIdentifier.recordingOutput,
             ToolbarItemIdentifier.recording,
             ToolbarItemIdentifier.markdownToggle,
             .space,
@@ -1980,27 +2051,10 @@ extension AppDelegate: NSToolbarDelegate {
 
         case ToolbarItemIdentifier.recordingOutput:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = L10n.recording.saved
-            item.paletteLabel = L10n.recording.saved
-
-            let button = NSButton(title: "", target: self, action: #selector(openRecordingOutputDirectory(_:)))
-            button.bezelStyle = .rounded
-            button.isBordered = true
-            button.font = NSFont.systemFont(ofSize: 12)
-            button.lineBreakMode = .byTruncatingMiddle
-            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            button.isHidden = true
-
-            let widthConstraint = button.widthAnchor.constraint(equalToConstant: 0)
-            let heightConstraint = button.heightAnchor.constraint(equalToConstant: 28)
-            widthConstraint.isActive = true
-            heightConstraint.isActive = true
-
-            item.view = button
+            item.target = self
+            item.action = #selector(showRecordingHistory(_:))
             recordingOutputToolbarItem = item
-            recordingOutputButton = button
-            recordingOutputWidthConstraint = widthConstraint
+            updateRecordingHistoryToolbarItemImage(item)
             return item
 
         case ToolbarItemIdentifier.layoutMode:

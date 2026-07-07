@@ -170,6 +170,8 @@ final class AnnexBToAVCCConverterTests: XCTestCase {
             data: Data([0x67, 0x42, 0x00]),
             isParameterSet: true,
             isKeyFrame: false,
+            protocolKeyFrame: false,
+            isVCL: false,
             codecType: kCMVideoCodecType_H264
         )
         let nalUnit2 = ParsedNALUnit(
@@ -177,6 +179,8 @@ final class AnnexBToAVCCConverterTests: XCTestCase {
             data: Data([0x68, 0xce]),
             isParameterSet: true,
             isKeyFrame: false,
+            protocolKeyFrame: false,
+            isVCL: false,
             codecType: kCMVideoCodecType_H264
         )
 
@@ -247,8 +251,8 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
     func testFrameHeaderParsing() {
         // PTS = 1000000 (1秒), packetSize = 4096
         var data = Data()
-        var pts: UInt64 = 1_000_000
-        var size: UInt32 = 4096
+        let pts: UInt64 = 1_000_000
+        let size: UInt32 = 4096
         data.append(contentsOf: withUnsafeBytes(of: pts.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: size.bigEndian) { Array($0) })
 
@@ -258,14 +262,14 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
         XCTAssertEqual(header?.pts, 1_000_000)
         XCTAssertEqual(header?.packetSize, 4096)
         XCTAssertFalse(header?.isConfigPacket ?? true, "普通帧不应该是配置包")
-        XCTAssertEqual(header?.cmTime.seconds, 1.0, accuracy: 0.001)
+        XCTAssertEqual(header?.cmTime.seconds ?? 0, 1.0, accuracy: 0.001)
     }
 
     func testFrameHeaderParsingConfigPacket() {
         // 配置包：PTS bit62 为 1
         var data = Data()
-        var pts: UInt64 = (1 << 62) | 0
-        var size: UInt32 = 128
+        let pts: UInt64 = (1 << 62) | 0
+        let size: UInt32 = 128
         data.append(contentsOf: withUnsafeBytes(of: pts.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: size.bigEndian) { Array($0) })
 
@@ -278,9 +282,9 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
 
     func testVideoSessionMetaParsing() {
         var data = Data()
-        var flags: UInt32 = 0x8000_0000
-        var width: UInt32 = 1080
-        var height: UInt32 = 1920
+        let flags: UInt32 = 0x8000_0000
+        let width: UInt32 = 1080
+        let height: UInt32 = 1920
         data.append(contentsOf: withUnsafeBytes(of: flags.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: width.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: height.bigEndian) { Array($0) })
@@ -303,12 +307,12 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
         deviceNameBytes.append(contentsOf: [UInt8](repeating: 0, count: 64 - deviceNameBytes.count))
         data.append(contentsOf: deviceNameBytes)
 
-        var codecId: UInt32 = 0x6832_3634
+        let codecId: UInt32 = 0x6832_3634
         data.append(contentsOf: withUnsafeBytes(of: codecId.bigEndian) { Array($0) })
 
-        var sessionFlags: UInt32 = 0x8000_0000
-        var sessionWidth: UInt32 = 1080
-        var sessionHeight: UInt32 = 1920
+        let sessionFlags: UInt32 = 0x8000_0000
+        let sessionWidth: UInt32 = 1080
+        let sessionHeight: UInt32 = 1920
         data.append(contentsOf: withUnsafeBytes(of: sessionFlags.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: sessionWidth.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: sessionHeight.bigEndian) { Array($0) })
@@ -317,8 +321,8 @@ final class ScrcpyProtocolParsingTests: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             0x65, 0x88, 0x84, 0x00,
         ])
-        var pts: UInt64 = (1 << 61) | 1000
-        var packetSize = UInt32(frameData.count)
+        let pts: UInt64 = (1 << 61) | 1000
+        let packetSize = UInt32(frameData.count)
         data.append(contentsOf: withUnsafeBytes(of: pts.bigEndian) { Array($0) })
         data.append(contentsOf: withUnsafeBytes(of: packetSize.bigEndian) { Array($0) })
         data.append(frameData)

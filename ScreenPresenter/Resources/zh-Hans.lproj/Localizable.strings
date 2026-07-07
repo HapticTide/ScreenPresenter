@@ -446,6 +446,21 @@
 "recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";
 "recording.outputDirectoryUnavailable" = "无法创建录制保存目录";
 "recording.openOutputDirectory" = "打开录制目录";
+"recording.openHistory" = "查看录制历史";
+"recording.back" = "返回";
+"recording.play" = "播放";
+"recording.pause" = "暂停";
+"recording.revealDirectory" = "查看目录";
+"recording.replay" = "回放";
+"recording.noHistory" = "暂无录制记录";
+"recording.historyTitle" = "录制历史";
+"recording.historyDetail" = "%@ · %d 台设备";
+"recording.rewindFiveSeconds" = "后退5秒";
+"recording.forwardFiveSeconds" = "前进5秒";
+"recording.noSnapshots" = "暂无截图";
+"recording.replayLoadFailed" = "录制音频加载失败";
+"recording.replayTitle" = "回看 %@";
+"recording.replayDeviceCount" = "%d 台设备";
 "recording.savedLocation" = "已保存：%@";
 "recording.recordingWithElapsed" = "录制中 %@";
 

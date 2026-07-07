@@ -22,7 +22,7 @@ final class RecordingFileNamingTests: XCTestCase {
         XCTAssertEqual(result, "iOS-Tank-iPhone-15-Pro")
     }
 
-    func testSnapshotFileNameIncludesElapsedSecondAndWallClockSecond() {
+    func testSnapshotFileNameIncludesElapsedSecondAndWallClockSecond() throws {
         var components = DateComponents()
         components.calendar = Calendar.current
         components.year = 2026
