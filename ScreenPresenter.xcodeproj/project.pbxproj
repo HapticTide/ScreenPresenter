@@ -64,6 +64,11 @@
 		D1000001000000000004 /* ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000004 /* ToastView.swift */; };
 		D1000001000000000005 /* DeviceStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000005 /* DeviceStatusView.swift */; };
 		D1000001000000000006 /* DeviceCaptureInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000006 /* DeviceCaptureInfoView.swift */; };
+		D1000001000000000007 /* RecordingReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000007 /* RecordingReplayView.swift */; };
+		D1000001000000000008 /* RecordingReplayView+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000008 /* RecordingReplayView+Layout.swift */; };
+		D1000001000000000009 /* RecordingReplayView+Playback.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000009 /* RecordingReplayView+Playback.swift */; };
+		D100000100000000000A /* RecordingReplayView+DevicePane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D100000200000000000A /* RecordingReplayView+DevicePane.swift */; };
+		D100000100000000000B /* RecordingHistoryPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D100000200000000000B /* RecordingHistoryPopoverView.swift */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		E1000001000000000002 /* FBDeviceControlKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000002 /* FBDeviceControlKit */; };
 		E1000001000000000003 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000003 /* Opus */; };
@@ -80,7 +85,21 @@
 		R0000001000000000001 /* RecordingFileNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000001 /* RecordingFileNaming.swift */; };
 		R0000001000000000002 /* RecordingFrameSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000002 /* RecordingFrameSnapshot.swift */; };
 		R0000001000000000003 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000003 /* RecordingService.swift */; };
+		R0000001000000000004 /* RecordingLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = R0000002000000000004 /* RecordingLibrary.swift */; };
+		TST000010000000000001 /* RecordingFileNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000001 /* RecordingFileNamingTests.swift */; };
+		TST000010000000000002 /* ScrcpyVideoStreamParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */; };
+		TST000010000000000003 /* RecordingLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000003 /* RecordingLibraryTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		TST000070000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000012419FFF8000001A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000012419FFFF000001A1;
+			remoteInfo = ScreenPresenter;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		PREVIEW000005000000000001 /* Embed Foundation Extensions */ = {
@@ -153,6 +172,11 @@
 		D1000002000000000004 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
 		D1000002000000000005 /* DeviceStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusView.swift; sourceTree = "<group>"; };
 		D1000002000000000006 /* DeviceCaptureInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureInfoView.swift; sourceTree = "<group>"; };
+		D1000002000000000007 /* RecordingReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingReplayView.swift; sourceTree = "<group>"; };
+		D1000002000000000008 /* RecordingReplayView+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecordingReplayView+Layout.swift"; sourceTree = "<group>"; };
+		D1000002000000000009 /* RecordingReplayView+Playback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecordingReplayView+Playback.swift"; sourceTree = "<group>"; };
+		D100000200000000000A /* RecordingReplayView+DevicePane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecordingReplayView+DevicePane.swift"; sourceTree = "<group>"; };
+		D100000200000000000B /* RecordingHistoryPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingHistoryPopoverView.swift; sourceTree = "<group>"; };
 		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
 		F1000002000000000001 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		FB000002000000000001 /* IOSDeviceStateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDeviceStateMapper.swift; sourceTree = "<group>"; };
@@ -166,6 +190,11 @@
 		R0000002000000000001 /* RecordingFileNaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFileNaming.swift; sourceTree = "<group>"; };
 		R0000002000000000002 /* RecordingFrameSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFrameSnapshot.swift; sourceTree = "<group>"; };
 		R0000002000000000003 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
+		R0000002000000000004 /* RecordingLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLibrary.swift; sourceTree = "<group>"; };
+		TST000020000000000000 /* ScreenPresenterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScreenPresenterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		TST000020000000000001 /* RecordingFileNamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFileNamingTests.swift; sourceTree = "<group>"; };
+		TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyVideoStreamParserTests.swift; sourceTree = "<group>"; };
+		TST000020000000000003 /* RecordingLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLibraryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -180,6 +209,13 @@
 				A4C8D2F12F39780A0083B267 /* MarkdownKit in Frameworks */,
 				A4C8D2F42F3978150083B267 /* MarkdownEditor in Frameworks */,
 				E1000001000000000006 /* MarkdownEditor in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TST000040000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,6 +249,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000001241A0001000001A2 /* ScreenPresenter */,
+				TST000030000000000001 /* ScreenPresenterTests */,
 				A1000001241A0001000001A3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -235,8 +272,19 @@
 			isa = PBXGroup;
 			children = (
 				A1000001241A0000000001A1 /* ScreenPresenter.app */,
+				TST000020000000000000 /* ScreenPresenterTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		TST000030000000000001 /* ScreenPresenterTests */ = {
+			isa = PBXGroup;
+			children = (
+				TST000020000000000001 /* RecordingFileNamingTests.swift */,
+				TST000020000000000003 /* RecordingLibraryTests.swift */,
+				TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */,
+			);
+			path = ScreenPresenterTests;
 			sourceTree = "<group>";
 		};
 		A44133052EF93201003DCDD3 /* DeviceDiscovery */ = {
@@ -301,6 +349,7 @@
 			children = (
 				R0000002000000000001 /* RecordingFileNaming.swift */,
 				R0000002000000000002 /* RecordingFrameSnapshot.swift */,
+				R0000002000000000004 /* RecordingLibrary.swift */,
 				R0000002000000000003 /* RecordingService.swift */,
 			);
 			path = Recording;
@@ -376,6 +425,11 @@
 				D1000002000000000001 /* DevicePanelView.swift */,
 				D1000002000000000005 /* DeviceStatusView.swift */,
 				D1000002000000000004 /* ToastView.swift */,
+				D1000002000000000007 /* RecordingReplayView.swift */,
+				D1000002000000000008 /* RecordingReplayView+Layout.swift */,
+				D1000002000000000009 /* RecordingReplayView+Playback.swift */,
+				D100000200000000000A /* RecordingReplayView+DevicePane.swift */,
+				D100000200000000000B /* RecordingHistoryPopoverView.swift */,
 				3E7E9FE2FF970D867ABAC3C4 /* ColorCompensationPanel.swift */,
 			);
 			path = Components;
@@ -435,6 +489,24 @@
 			productReference = A1000001241A0000000001A1 /* ScreenPresenter.app */;
 			productType = "com.apple.product-type.application";
 		};
+		TST000060000000000001 /* ScreenPresenterTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TST000090000000000001 /* Build configuration list for PBXNativeTarget "ScreenPresenterTests" */;
+			buildPhases = (
+				TST000040000000000001 /* Sources */,
+				TST000040000000000002 /* Frameworks */,
+				TST000040000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TST000080000000000001 /* PBXTargetDependency */,
+			);
+			name = ScreenPresenterTests;
+			productName = ScreenPresenterTests;
+			productReference = TST000020000000000000 /* ScreenPresenterTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -447,6 +519,10 @@
 				TargetAttributes = {
 					A10000012419FFFF000001A1 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					TST000060000000000001 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = A10000012419FFFF000001A1;
 					};
 				};
 			};
@@ -473,6 +549,7 @@
 			projectRoot = "";
 			targets = (
 				A10000012419FFFF000001A1 /* ScreenPresenter */,
+				TST000060000000000001 /* ScreenPresenterTests */,
 			);
 		};
 /* End PBXProject section */
@@ -486,6 +563,13 @@
 				A44133622EF93201003DCDD3 /* Tools in Resources */,
 				A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */,
 				B1000001000000000011 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TST000040000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -535,6 +619,11 @@
 				D1000001000000000004 /* ToastView.swift in Sources */,
 				D1000001000000000005 /* DeviceStatusView.swift in Sources */,
 				D1000001000000000006 /* DeviceCaptureInfoView.swift in Sources */,
+				D1000001000000000007 /* RecordingReplayView.swift in Sources */,
+				D1000001000000000008 /* RecordingReplayView+Layout.swift in Sources */,
+				D1000001000000000009 /* RecordingReplayView+Playback.swift in Sources */,
+				D100000100000000000A /* RecordingReplayView+DevicePane.swift in Sources */,
+				D100000100000000000B /* RecordingHistoryPopoverView.swift in Sources */,
 				A481F79C2F0B8CF300D9DAB0 /* ScrcpyAudioStreamParser.swift in Sources */,
 				A481F79D2F0B8CF300D9DAB0 /* ScrcpyAudioDecoder.swift in Sources */,
 				A481F79E2F0B8CF400D9DAB0 /* ScrcpyOpusDecoder.swift in Sources */,
@@ -557,11 +646,30 @@
 				2A000001000000000001 /* AudioPlayer.swift in Sources */,
 				R0000001000000000001 /* RecordingFileNaming.swift in Sources */,
 				R0000001000000000002 /* RecordingFrameSnapshot.swift in Sources */,
+				R0000001000000000004 /* RecordingLibrary.swift in Sources */,
 				R0000001000000000003 /* RecordingService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		TST000040000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				TST000010000000000001 /* RecordingFileNamingTests.swift in Sources */,
+				TST000010000000000003 /* RecordingLibraryTests.swift in Sources */,
+				TST000010000000000002 /* ScrcpyVideoStreamParserTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		TST000080000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000012419FFFF000001A1 /* ScreenPresenter */;
+			targetProxy = TST000070000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		B1000002000000000011 /* Localizable.strings */ = {
@@ -772,6 +880,52 @@
 			};
 			name = Release;
 		};
+		TST0000A0000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = TNX486YJGV;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.haptictide.ScreenPresenterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ScreenPresenter.app/Contents/MacOS/ScreenPresenter";
+				TEST_TARGET_NAME = ScreenPresenter;
+				WRAPPER_EXTENSION = xctest;
+			};
+			name = Debug;
+		};
+		TST0000A0000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = TNX486YJGV;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.haptictide.ScreenPresenterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ScreenPresenter.app/Contents/MacOS/ScreenPresenter";
+				TEST_TARGET_NAME = ScreenPresenter;
+				WRAPPER_EXTENSION = xctest;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -789,6 +943,15 @@
 			buildConfigurations = (
 				A1000001241A001F300001A1 /* Debug */,
 				A1000001241A001F400001A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		TST000090000000000001 /* Build configuration list for PBXNativeTarget "ScreenPresenterTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TST0000A0000000000001 /* Debug */,
+				TST0000A0000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

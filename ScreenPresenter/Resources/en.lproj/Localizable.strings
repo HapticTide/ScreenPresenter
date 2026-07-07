@@ -446,6 +446,21 @@
 "recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";
 "recording.outputDirectoryUnavailable" = "Unable to create recording output directory";
 "recording.openOutputDirectory" = "Open recording folder";
+"recording.openHistory" = "View recording history";
+"recording.back" = "Back";
+"recording.play" = "Play";
+"recording.pause" = "Pause";
+"recording.revealDirectory" = "Show Folder";
+"recording.replay" = "Replay";
+"recording.noHistory" = "No recordings yet";
+"recording.historyTitle" = "Recording History";
+"recording.historyDetail" = "%@ · %d devices";
+"recording.rewindFiveSeconds" = "-5s";
+"recording.forwardFiveSeconds" = "+5s";
+"recording.noSnapshots" = "No snapshots";
+"recording.replayLoadFailed" = "Failed to load recording audio";
+"recording.replayTitle" = "Replay %@";
+"recording.replayDeviceCount" = "%d devices";
 "recording.savedLocation" = "Saved: %@";
 "recording.recordingWithElapsed" = "Recording %@";
 

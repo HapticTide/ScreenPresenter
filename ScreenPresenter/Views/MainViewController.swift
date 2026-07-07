@@ -19,6 +19,7 @@ final class MainViewController: NSViewController {
     // MARK: - UI 组件
 
     private let previewContainerView = PreviewContainerView()
+    private var recordingReplayView: RecordingReplayView?
 
     // MARK: - 公开属性
 
@@ -101,6 +102,9 @@ final class MainViewController: NSViewController {
 
     override func viewWillDisappear() {
         super.viewWillDisappear()
+        if recordingReplayView?.isHidden == false {
+            hideRecordingReplay()
+        }
         stopRendering()
     }
 
@@ -246,6 +250,7 @@ final class MainViewController: NSViewController {
             width: bounds.width,
             height: max(0, bounds.height - topOffset)
         )
+        recordingReplayView?.frame = previewContainerView.frame
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -759,6 +764,27 @@ final class MainViewController: NSViewController {
     /// 更新录制中标识
     func setRecordingIndicatorVisible(_ visible: Bool, elapsedSeconds: Int) {
         previewContainerView.setRecordingIndicatorVisible(visible, elapsedSeconds: elapsedSeconds)
+    }
+
+    /// 显示录制回看页。
+    func showRecordingReplay(session: RecordingSession) {
+        let replayView = recordingReplayView ?? RecordingReplayView(frame: previewContainerView.frame)
+        replayView.onBack = { [weak self] in self?.hideRecordingReplay() }
+        replayView.frame = previewContainerView.frame
+        replayView.isHidden = false
+        previewContainerView.isHidden = true
+        if replayView.superview == nil {
+            view.addSubview(replayView, positioned: .above, relativeTo: previewContainerView)
+        }
+        recordingReplayView = replayView
+        replayView.configure(session: session)
+    }
+
+    /// 隐藏录制回看页并恢复主页预览区。
+    func hideRecordingReplay() {
+        recordingReplayView?.stopPlayback()
+        recordingReplayView?.isHidden = true
+        previewContainerView.isHidden = false
     }
 
     /// 新建 Markdown 文件（清空当前内容）
