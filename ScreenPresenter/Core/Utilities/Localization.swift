@@ -537,7 +537,9 @@ enum L10n {
         static var record: String { "recording.record".localized }
         static var stop: String { "recording.stop".localized }
         static var started: String { "recording.started".localized }
-        static var startedWithoutMicrophone: String { "recording.startedWithoutMicrophone".localized }
+        static var startedNoMicrophoneDevice: String { "recording.startedNoMicrophoneDevice".localized }
+        static var startedMicrophoneDenied: String { "recording.startedMicrophoneDenied".localized }
+        static var startedMicrophoneUnavailable: String { "recording.startedMicrophoneUnavailable".localized }
         static var saved: String { "recording.saved".localized }
         static var startFailed: String { "recording.startFailed".localized }
         static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }

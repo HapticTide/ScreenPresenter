@@ -444,7 +444,9 @@
 "recording.record" = "Record";
 "recording.stop" = "Stop Recording";
 "recording.started" = "Recording started";
-"recording.startedWithoutMicrophone" = "Recording started (microphone unavailable, screen only)";
+"recording.startedNoMicrophoneDevice" = "Recording started (no microphone detected, screen only)";
+"recording.startedMicrophoneDenied" = "Recording started (microphone permission not granted, screen only)";
+"recording.startedMicrophoneUnavailable" = "Recording started (microphone unavailable, may be in use by another app, screen only)";
 "recording.saved" = "Recording saved";
 "recording.startFailed" = "Failed to start recording";
 "recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";

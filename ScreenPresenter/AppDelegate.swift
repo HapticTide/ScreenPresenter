@@ -1537,12 +1537,7 @@ extension AppDelegate {
                 try await recordingService.startRecording()
                 await MainActor.run {
                     updateRecordingUI()
-                    // 音频降级为可选轨道：无麦克风权限时以 warning 告知用户仅录画面。
-                    if recordingService.isAudioEnabled {
-                        ToastView.success(L10n.recording.started, in: mainWindow)
-                    } else {
-                        ToastView.warning(L10n.recording.startedWithoutMicrophone, in: mainWindow)
-                    }
+                    presentRecordingStartToast(audioStatus: recordingService.audioStatus)
                 }
             } catch {
                 // 失败提示统一由 setupRecordingObservation 监听 .failed 状态弹出，避免重复。
@@ -1550,6 +1545,21 @@ extension AppDelegate {
                     updateRecordingUI()
                 }
             }
+        }
+    }
+
+    /// 按音频轨道状态弹出录制开始提示：有音频用 success，缺音频按成因用 warning 分别告知。
+    @MainActor
+    private func presentRecordingStartToast(audioStatus: RecordingAudioStatus) {
+        switch audioStatus {
+        case .enabled:
+            ToastView.success(L10n.recording.started, in: mainWindow)
+        case .noDevice:
+            ToastView.warning(L10n.recording.startedNoMicrophoneDevice, in: mainWindow)
+        case .permissionDenied:
+            ToastView.warning(L10n.recording.startedMicrophoneDenied, in: mainWindow)
+        case .unavailable:
+            ToastView.warning(L10n.recording.startedMicrophoneUnavailable, in: mainWindow)
         }
     }
 

@@ -50,6 +50,20 @@ enum RecordingServiceError: LocalizedError {
     }
 }
 
+// MARK: - 音频轨道状态
+
+/// 录制时音频轨道的最终状态。用于向用户准确说明"为什么没有声音"。
+enum RecordingAudioStatus: Equatable {
+    /// 音频正常录制中。
+    case enabled
+    /// 设备没有麦克风硬件。
+    case noDevice
+    /// 存在麦克风，但未授予权限（被拒绝 / 受限 / 用户拒绝）。
+    case permissionDenied
+    /// 存在麦克风且有权限，但录音器启动失败（被占用、硬件异常等）。
+    case unavailable
+}
+
 // MARK: - 录制服务
 
 @MainActor
@@ -74,8 +88,11 @@ final class RecordingService: NSObject {
         didSet { stateChangedPublisher.send() }
     }
 
+    /// 本次录制音频轨道的最终状态。默认无音频；startRecording 时按实际情况判定。
+    private(set) var audioStatus: RecordingAudioStatus = .noDevice
+
     /// 本次录制是否启用了音频轨道。麦克风不可用或权限被拒时为 false，仍进行纯截图录制。
-    private(set) var isAudioEnabled = false
+    var isAudioEnabled: Bool { audioStatus == .enabled }
 
     // MARK: - 私有属性
 
@@ -129,7 +146,7 @@ final class RecordingService: NSObject {
 
         lastOutputDirectory = nil
         elapsedSeconds = 0
-        isAudioEnabled = false
+        audioStatus = .noDevice
         consecutiveWriteFailures = 0
         snapshotTickCount = 0
         deviceDirectories.removeAll()
@@ -143,25 +160,16 @@ final class RecordingService: NSObject {
                 throw RecordingServiceError.insufficientDiskSpace
             }
 
-            // 音频降级为可选轨道：麦克风不可用或权限被拒时不再中断录制，仅记录画面截图。
-            if await ensureMicrophoneAccess() {
-                let audioURL = directory.appendingPathComponent("audio.m4a")
-                if let recorder = try? makeAudioRecorder(outputURL: audioURL), recorder.record() {
-                    audioRecorder = recorder
-                    isAudioEnabled = true
-                } else {
-                    AppLogger.capture.warning("音频录制启动失败，仅录制画面截图")
-                }
-            } else {
-                AppLogger.capture.info("未获得麦克风权限，仅录制画面截图")
-            }
+            // 音频降级为可选轨道：无麦克风 / 权限被拒 / 麦克风不可用都不中断录制，仅记录画面截图，
+            // 并把具体成因记入 audioStatus 供 UI 准确提示。
+            audioStatus = await configureAudioTrack(in: directory)
 
             startedAt = now
             outputDirectory = directory
             state = .recording(startedAt: now, outputDirectory: directory)
 
             startTimers()
-            AppLogger.capture.info("录制已开始: \(directory.path)，音频: \(isAudioEnabled)")
+            AppLogger.capture.info("录制已开始: \(directory.path)，音频状态: \(String(describing: audioStatus))")
         } catch {
             cleanupAfterFailedStart()
             state = .failed(error.localizedDescription)
@@ -194,6 +202,42 @@ final class RecordingService: NSObject {
     }
 
     // MARK: - 权限和录音
+
+    /// 判定音频轨道状态并在可用时启动录音器。区分三种"没有音频"的成因:
+    /// 无麦克风硬件 / 权限被拒 / 麦克风存在但不可用。
+    private func configureAudioTrack(in directory: URL) async -> RecordingAudioStatus {
+        // 1. 先看是否有麦克风硬件。没有设备时权限查询无意义。
+        guard hasMicrophoneDevice() else {
+            AppLogger.capture.info("未检测到麦克风设备，仅录制画面截图")
+            return .noDevice
+        }
+
+        // 2. 有设备再确认权限。
+        guard await ensureMicrophoneAccess() else {
+            AppLogger.capture.info("未获得麦克风权限，仅录制画面截图")
+            return .permissionDenied
+        }
+
+        // 3. 有设备有权限，尝试启动录音器；失败视为麦克风不可用（被占用 / 硬件异常等）。
+        let audioURL = directory.appendingPathComponent("audio.m4a")
+        guard let recorder = try? makeAudioRecorder(outputURL: audioURL), recorder.record() else {
+            AppLogger.capture.warning("麦克风可用但录音器启动失败，仅录制画面截图")
+            return .unavailable
+        }
+
+        audioRecorder = recorder
+        return .enabled
+    }
+
+    /// 是否存在可用的麦克风硬件。用 discovery session 枚举内建/外接麦克风。
+    private func hasMicrophoneDevice() -> Bool {
+        let session = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInMicrophone, .externalUnknown],
+            mediaType: .audio,
+            position: .unspecified
+        )
+        return !session.devices.isEmpty
+    }
 
     /// 检查麦克风访问权限。返回是否可用于录音，不再以抛错方式阻断整场录制。
     private func ensureMicrophoneAccess() async -> Bool {
