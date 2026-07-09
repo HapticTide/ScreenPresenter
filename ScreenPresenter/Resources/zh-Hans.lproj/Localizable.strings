@@ -302,11 +302,14 @@
 "permission.screenRecording.desc" = "用于捕获 Android 设备投屏画面（仅备用方案需要）";
 "permission.camera.name" = "摄像头";
 "permission.camera.desc" = "用于捕获通过 USB 连接的 iOS 设备画面";
+"permission.microphone.name" = "麦克风";
+"permission.microphone.desc" = "录制时用于采集麦克风音频";
 "permission.openSystemPrefs" = "打开设置";
 "permission.revoke" = "撤销";
 "permission.revokeTitle" = "撤销权限";
 "permission.revokeScreenRecordingHint" = "要撤销屏幕录制权限，请在「系统设置 > 隐私与安全性 > 屏幕录制」中取消勾选 ScreenPresenter，然后重启应用。";
 "permission.revokeCameraHint" = "要撤销摄像头权限，请在「系统设置 > 隐私与安全性 > 摄像头」中取消勾选 ScreenPresenter，然后重启应用。";
+"permission.revokeMicrophoneHint" = "要撤销麦克风权限，请在「系统设置 > 隐私与安全性 > 麦克风」中取消勾选 ScreenPresenter，然后重启应用。";
 "permission.revokeNote" = "要撤销权限，请点击「撤销」按钮，然后在系统设置中手动取消勾选 ScreenPresenter。更改将在重启应用后生效。";
 
 // MARK: - Background Color Mode

@@ -1237,6 +1237,15 @@ final class PreferencesViewController: NSViewController {
         let scrollView = createScrollView()
         let stackView = createVerticalStack()
 
+        // 系统权限组（录制用麦克风，跨平台）
+        let systemPermGroup = createSettingsGroup(title: L10n.prefs.section.systemPermissions, icon: "mic")
+        addGroupRow(systemPermGroup, createPermissionRow(
+            name: L10n.permission.microphoneName,
+            description: L10n.permission.microphoneDesc,
+            permissionType: .microphone
+        ), addDivider: false)
+        addSettingsGroup(systemPermGroup, to: stackView)
+
         // iOS 权限组
         let iosPermGroup = createSettingsGroup(title: L10n.prefs.section.iosPermissions, icon: "apple.logo")
         addGroupRow(iosPermGroup, createPermissionRow(
@@ -1852,6 +1861,40 @@ final class PreferencesViewController: NSViewController {
 
     private enum PermissionType {
         case camera
+        case microphone
+
+        /// 「打开系统设置」按钮的 tag，也用于反查类型。
+        var openButtonTag: Int {
+            switch self {
+            case .camera: 1
+            case .microphone: 2
+            }
+        }
+
+        /// 「撤销」按钮的 tag。
+        var revokeButtonTag: Int {
+            switch self {
+            case .camera: 11
+            case .microphone: 12
+            }
+        }
+
+        /// 系统隐私设置的锚点 URL。
+        var systemPreferencesURL: String {
+            switch self {
+            case .camera:
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+            case .microphone:
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+            }
+        }
+
+        var revokeHint: String {
+            switch self {
+            case .camera: L10n.permission.revokeCameraHint
+            case .microphone: L10n.permission.revokeMicrophoneHint
+            }
+        }
     }
 
     private enum ToolType {
@@ -1908,8 +1951,7 @@ final class PreferencesViewController: NSViewController {
         )
         openButton.bezelStyle = .rounded
         openButton.controlSize = .small
-        // 摄像头权限按钮 tag
-        openButton.tag = 1
+        openButton.tag = permissionType.openButtonTag
         rightStack.addArrangedSubview(openButton)
 
         // 撤销按钮（已授权时显示）
@@ -1921,13 +1963,12 @@ final class PreferencesViewController: NSViewController {
         revokeButton.bezelStyle = .rounded
         revokeButton.controlSize = .small
         revokeButton.isHidden = true
-        // 摄像头权限撤销按钮 tag
-        revokeButton.tag = 11
+        revokeButton.tag = permissionType.revokeButtonTag
         rightStack.addArrangedSubview(revokeButton)
 
         // 检查权限状态
         Task { @MainActor in
-            let granted = checkCameraPermission()
+            let granted = checkPermission(permissionType)
 
             if granted {
                 statusIcon.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)
@@ -1949,12 +1990,15 @@ final class PreferencesViewController: NSViewController {
         return LabeledRowView(labelView: leftStack, control: rightStack)
     }
 
-    private func checkCameraPermission() -> Bool {
-        // 检查摄像头权限
-        // 注意：iOS 设备 USB 屏幕镜像使用 .muxed 媒体类型，但 .muxed 不支持 authorizationStatus 查询
-        // 实际上 .video 权限包含了对 muxed 设备的访问权限
-        let status = AVCaptureDevice.authorizationStatus(for: .video)
-        return status == .authorized
+    private func checkPermission(_ type: PermissionType) -> Bool {
+        switch type {
+        case .camera:
+            // iOS 设备 USB 屏幕镜像使用 .muxed 媒体类型，但 .muxed 不支持 authorizationStatus 查询；
+            // 实际上 .video 权限包含了对 muxed 设备的访问权限
+            return AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        case .microphone:
+            return AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        }
     }
 
     // MARK: - 操作
@@ -2125,31 +2169,36 @@ final class PreferencesViewController: NSViewController {
     }
 
     @objc private func openSystemPreferences(_ sender: NSButton) {
-        // 打开系统偏好设置 - 隐私 - 摄像头
-        let urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
-        if let url = URL(string: urlString) {
+        // 按按钮 tag 反查权限类型，打开对应的隐私设置面板
+        let type = permissionType(forOpenTag: sender.tag) ?? .camera
+        if let url = URL(string: type.systemPreferencesURL) {
             NSWorkspace.shared.open(url)
         }
     }
 
     @objc private func revokePermission(_ sender: NSButton) {
-        // 摄像头权限
-        let urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
-        let alertMessage = L10n.permission.revokeCameraHint
+        let type = permissionType(forRevokeTag: sender.tag) ?? .camera
 
-        // 显示提示
         let alert = NSAlert()
         alert.messageText = L10n.permission.revokeTitle
-        alert.informativeText = alertMessage
+        alert.informativeText = type.revokeHint
         alert.alertStyle = .informational
         alert.addButton(withTitle: L10n.permission.openSystemPrefs)
         alert.addButton(withTitle: L10n.common.cancel)
 
         if alert.runModal() == .alertFirstButtonReturn {
-            if let url = URL(string: urlString) {
+            if let url = URL(string: type.systemPreferencesURL) {
                 NSWorkspace.shared.open(url)
             }
         }
+    }
+
+    private func permissionType(forOpenTag tag: Int) -> PermissionType? {
+        [.camera, .microphone].first { $0.openButtonTag == tag }
+    }
+
+    private func permissionType(forRevokeTag tag: Int) -> PermissionType? {
+        [.camera, .microphone].first { $0.revokeButtonTag == tag }
     }
 
     // MARK: - 工具链路径设置

@@ -302,11 +302,14 @@
 "permission.screenRecording.desc" = "For capturing Android device screen (fallback only)";
 "permission.camera.name" = "Camera";
 "permission.camera.desc" = "For capturing iOS device screen via USB";
+"permission.microphone.name" = "Microphone";
+"permission.microphone.desc" = "Captures microphone audio while recording";
 "permission.openSystemPrefs" = "Open Settings";
 "permission.revoke" = "Revoke";
 "permission.revokeTitle" = "Revoke Permission";
 "permission.revokeScreenRecordingHint" = "To revoke screen recording permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Screen Recording, then restart the app.";
 "permission.revokeCameraHint" = "To revoke camera permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Camera, then restart the app.";
+"permission.revokeMicrophoneHint" = "To revoke microphone permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Microphone, then restart the app.";
 "permission.revokeNote" = "To revoke a permission, click the \"Revoke\" button and manually uncheck ScreenPresenter in System Settings. Changes will take effect after restarting the app.";
 
 // MARK: - Background Color Mode

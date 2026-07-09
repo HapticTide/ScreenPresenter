@@ -608,12 +608,15 @@ enum L10n {
         static var screenRecordingDesc: String { "permission.screenRecording.desc".localized }
         static var cameraName: String { "permission.camera.name".localized }
         static var cameraDesc: String { "permission.camera.desc".localized }
+        static var microphoneName: String { "permission.microphone.name".localized }
+        static var microphoneDesc: String { "permission.microphone.desc".localized }
         static var openSystemPrefs: String { "permission.openSystemPrefs".localized }
         // 撤销权限
         static var revoke: String { "permission.revoke".localized }
         static var revokeTitle: String { "permission.revokeTitle".localized }
         static var revokeScreenRecordingHint: String { "permission.revokeScreenRecordingHint".localized }
         static var revokeCameraHint: String { "permission.revokeCameraHint".localized }
+        static var revokeMicrophoneHint: String { "permission.revokeMicrophoneHint".localized }
         static var revokeNote: String { "permission.revokeNote".localized }
     }
 
