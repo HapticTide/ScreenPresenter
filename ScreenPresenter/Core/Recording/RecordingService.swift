@@ -390,10 +390,34 @@ final class RecordingService: NSObject {
         stopTimers()
         stopAudioRecorder()
 
+        // 删除本次启动已创建、但未产出有效内容的会话目录，避免残留空壳。
+        if let directory = outputDirectory {
+            removeDirectoryIfEmptyOrResidual(directory)
+        }
+
         startedAt = nil
         outputDirectory = nil
         deviceDirectories.removeAll()
         elapsedSeconds = 0
+    }
+
+    /// 仅当目录为空、或只含启动失败残片(如未写入内容的 audio.m4a)时删除，避免误删有效数据。
+    private func removeDirectoryIfEmptyOrResidual(_ directory: URL) {
+        guard fileManager.fileExists(atPath: directory.path) else { return }
+
+        let contents = (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
+        let residualOnly = contents.allSatisfy { $0 == "audio.m4a" || $0 == ".DS_Store" }
+        guard residualOnly else {
+            AppLogger.capture.warning("启动失败目录含额外内容，保留不删除: \(directory.path)")
+            return
+        }
+
+        do {
+            try fileManager.removeItem(at: directory)
+            AppLogger.capture.info("已清理启动失败的空录制目录: \(directory.path)")
+        } catch {
+            AppLogger.capture.warning("清理启动失败目录失败: \(error.localizedDescription)")
+        }
     }
 
     private func stopTimers() {
