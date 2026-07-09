@@ -7,29 +7,44 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.2.3</title>
+            <title>Version 1.2.4</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.2.3</h2>
+                <h2>🚀 ScreenPresenter 1.2.4</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>新增录制历史回放功能</li>
+                    <li>feat: 停止录制提示条支持「回放」动作按钮</li>
+                    <li>fix: 修复投屏中退出时确认弹窗在窗口关闭后出现并循环 (#19)</li>
+                    <li>fix: 投屏录制-音频分页麦克风说明文字补足底部内边距</li>
+                    <li>fix: 回放播放结束后按钮显示重播样式而非停留在播放中</li>
+                    <li>feat: 偏好设置新增「投屏录制」分页</li>
+                    <li>修复删除录制 Toast 的主线程隔离编译警告</li>
+                    <li>麦克风设备枚举按系统版本选用非废弃的 DeviceType</li>
+                    <li>区分无音频的三种成因并分别提示</li>
+                    <li>开始录制时无麦克风弹提示告知用户</li>
+                    <li>偏好设置-权限:新增麦克风权限行 (#18)</li>
+                    <li>回放截图缓存改用 NSCache 限制内存 (#14)</li>
+                    <li>录制历史支持删除与总占用展示 (#13)</li>
+                    <li>录制截图编码移出主线程 (#12)</li>
+                    <li>录制启动失败清理空目录 (#15)</li>
+                    <li>录制磁盘空间检查与写失败处理 (#11)</li>
+                    <li>录制音频解耦:无麦克风/拒绝权限时仍可录制与回放 (#10)</li>
                 </ul>
                 ]]>
             </description>
-            <pubDate>Tue, 07 Jul 2026 09:16:51 +0000</pubDate>
+            <pubDate>Thu, 09 Jul 2026 10:36:51 +0000</pubDate>
             
-            <sparkle:version>202607071713</sparkle:version>
-            <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+            <sparkle:version>202607091833</sparkle:version>
+            <sparkle:shortVersionString>1.2.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.3/ScreenPresenter-1.2.3.zip"
-                length="18103166"
+                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.4/ScreenPresenter-1.2.4.zip"
+                length="18293758"
                 type="application/octet-stream"
-                sparkle:edSignature="eAU8QpmBgcLIdQuVnYpkH69Aemj5EmDFjTQmg5IpwIbRXs/nO2k1AzvkVRAWguBoD6iwQvV9WdRtexDjgHlXBQ=="
+                sparkle:edSignature="si82rQVBy6etouUQ8+rsKK/M0esGT/Ia1h+7T2xqiU6HnRm+hPu39sJygRIFDmZMSatTmMLTo6JyrKE1vUPbCQ=="
             />
         </item>
     </channel>
