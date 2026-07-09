@@ -116,36 +116,40 @@ struct RecordingLibrary {
             options: [.skipsHiddenFiles]
         )
 
-        let sessions = sessionDirectories.compactMap { directory -> RecordingSession? in
-            guard fileManager.directoryExists(at: directory) else {
-                return nil
-            }
-
-            let audioFileURL = directory.appendingPathComponent("audio.m4a", isDirectory: false)
-            let hasAudio = fileManager.fileExists(atPath: audioFileURL.path)
-            let deviceTracks = scanDeviceTracks(in: directory)
-            let hasSnapshots = deviceTracks.contains { !$0.snapshots.isEmpty }
-
-            // 无音频且无任何截图才视为无效目录。纯截图录制仍应出现在历史中。
-            guard hasAudio || hasSnapshots else {
-                return nil
-            }
-
-            let audioDuration = hasAudio ? (try? audioDurationProvider(audioFileURL)) ?? 0 : 0
-            let duration = audioDuration > 0 ? audioDuration : snapshotDuration(of: deviceTracks)
-
-            return RecordingSession(
-                directory: directory,
-                audioURL: hasAudio ? audioFileURL : nil,
-                startedAt: startedAt(for: directory),
-                duration: duration,
-                deviceTracks: deviceTracks
-            )
-        }
+        let sessions = sessionDirectories.compactMap(makeSession(from:))
 
         return sessions.sorted { lhs, rhs in
             lhs.startedAt > rhs.startedAt
         }
+    }
+
+    /// 从单个会话目录构建 `RecordingSession`。无音频且无任何截图则视为无效目录返回 nil。
+    /// 供历史扫描与停录后即时构建会话共用。
+    func makeSession(from directory: URL) -> RecordingSession? {
+        guard fileManager.directoryExists(at: directory) else {
+            return nil
+        }
+
+        let audioFileURL = directory.appendingPathComponent("audio.m4a", isDirectory: false)
+        let hasAudio = fileManager.fileExists(atPath: audioFileURL.path)
+        let deviceTracks = scanDeviceTracks(in: directory)
+        let hasSnapshots = deviceTracks.contains { !$0.snapshots.isEmpty }
+
+        // 无音频且无任何截图才视为无效目录。纯截图录制仍应出现在历史中。
+        guard hasAudio || hasSnapshots else {
+            return nil
+        }
+
+        let audioDuration = hasAudio ? (try? audioDurationProvider(audioFileURL)) ?? 0 : 0
+        let duration = audioDuration > 0 ? audioDuration : snapshotDuration(of: deviceTracks)
+
+        return RecordingSession(
+            directory: directory,
+            audioURL: hasAudio ? audioFileURL : nil,
+            startedAt: startedAt(for: directory),
+            duration: duration,
+            deviceTracks: deviceTracks
+        )
     }
 
     /// 将指定会话移入废纸篓（可恢复，比直接删除更安全）。仅允许删除录制根目录下的会话。

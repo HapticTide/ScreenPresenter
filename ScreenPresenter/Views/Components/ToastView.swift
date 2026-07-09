@@ -46,12 +46,17 @@ final class ToastView: NSView {
     private let iconView: NSImageView
     private let label: NSTextField
     private let copyButton: NSButton
+    private let actionButton: NSButton
 
     // MARK: - 属性
 
     private let message: String
     private let style: ToastStyle
     private let copyable: Bool
+    /// 尾部动作按钮标题；为 nil 时不展示。
+    private let actionTitle: String?
+    /// 点击动作按钮后的回调。执行后 Toast 立即消失。
+    private var actionHandler: (() -> Void)?
     private let contentInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
     private let iconSize: CGFloat = 18
     private let copySize: CGFloat = 20
@@ -66,24 +71,36 @@ final class ToastView: NSView {
 
     // MARK: - 初始化
 
-    init(message: String, style: ToastStyle = .info, copyable: Bool = false) {
+    init(
+        message: String,
+        style: ToastStyle = .info,
+        copyable: Bool = false,
+        actionTitle: String? = nil,
+        actionHandler: (() -> Void)? = nil
+    ) {
         self.message = message
         self.style = style
         self.copyable = copyable
+        self.actionTitle = actionTitle
+        self.actionHandler = actionHandler
 
         // 初始化 UI 组件
         iconView = NSImageView()
         label = NSTextField(labelWithString: message)
         copyButton = NSButton()
+        actionButton = NSButton()
         super.init(frame: .zero)
 
         setupUI()
 
-        // 只有 error 类型才启用鼠标追踪（悬停时暂停消失计时）
-        if style == .error {
+        // error 类型，或带动作按钮时，启用鼠标追踪（悬停暂停消失计时，给用户点击时间）
+        if style == .error || hasAction {
             setupTrackingArea()
         }
     }
+
+    /// 是否展示尾部动作按钮。
+    private var hasAction: Bool { actionTitle?.isEmpty == false }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
@@ -131,10 +148,24 @@ final class ToastView: NSView {
         copyButton.isHidden = !copyable
         copyButton.setContentHuggingPriority(.required, for: .horizontal)
 
+        // 动作按钮：链接样式的文字按钮，点击执行回调并消失
+        actionButton.title = actionTitle ?? ""
+        actionButton.bezelStyle = .inline
+        actionButton.isBordered = false
+        actionButton.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        actionButton.contentTintColor = style.iconColor
+        actionButton.target = self
+        actionButton.action = #selector(actionTapped)
+        actionButton.isHidden = !hasAction
+        actionButton.setContentHuggingPriority(.required, for: .horizontal)
+
         addSubview(iconView)
         addSubview(label)
         if copyable {
             addSubview(copyButton)
+        }
+        if hasAction {
+            addSubview(actionButton)
         }
     }
 
@@ -155,8 +186,8 @@ final class ToastView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
 
-        // 只有 error 类型才需要更新追踪区域
-        guard style == .error else { return }
+        // error 类型或带动作按钮时才需要更新追踪区域
+        guard style == .error || hasAction else { return }
 
         if let trackingArea {
             removeTrackingArea(trackingArea)
@@ -216,10 +247,9 @@ final class ToastView: NSView {
     private func layoutContent() {
         let availableWidth = bounds.width - contentInsets.left - contentInsets.right
         let copyWidth = copyable ? copySize : 0
-        let labelWidth = max(
-            0,
-            availableWidth - iconSize - spacing - (copyable ? (spacing + copyWidth) : 0)
-        )
+        let actionWidth = hasAction ? actionButtonSize().width : 0
+        let trailingWidth = (copyable ? (spacing + copyWidth) : 0) + (hasAction ? (spacing + actionWidth) : 0)
+        let labelWidth = max(0, availableWidth - iconSize - spacing - trailingWidth)
         let labelSize = labelSize(maxWidth: labelWidth)
 
         let contentHeight = max(iconSize, labelSize.height, copyWidth)
@@ -230,29 +260,42 @@ final class ToastView: NSView {
         let labelY = contentInsets.bottom + (contentHeight - labelSize.height) / 2
         label.frame = CGRect(x: labelX, y: labelY, width: labelWidth, height: labelSize.height)
 
+        var trailingX = label.frame.maxX
         if copyable {
-            let copyX = label.frame.maxX + spacing
+            let copyX = trailingX + spacing
             let copyY = contentInsets.bottom + (contentHeight - copySize) / 2
             copyButton.frame = CGRect(x: copyX, y: copyY, width: copySize, height: copySize)
+            trailingX = copyButton.frame.maxX
         }
+        if hasAction {
+            let actionHeight = actionButtonSize().height
+            let actionX = trailingX + spacing
+            let actionY = contentInsets.bottom + (contentHeight - actionHeight) / 2
+            actionButton.frame = CGRect(x: actionX, y: actionY, width: actionWidth, height: actionHeight)
+        }
+    }
+
+    /// 动作按钮的内在尺寸（用于布局与宽度预算）。
+    private func actionButtonSize() -> CGSize {
+        guard hasAction else { return .zero }
+        return actionButton.intrinsicContentSize
     }
 
     private func preferredSize(maxWidth: CGFloat) -> CGSize {
         // 计算内容区域的最大可用宽度
         let availableContentWidth = maxWidth - contentInsets.left - contentInsets.right
         let copyWidth = copyable ? copySize : 0
-        let maxLabelWidth = max(
-            0,
-            availableContentWidth - iconSize - spacing - (copyable ? (spacing + copyWidth) : 0)
-        )
+        let actionWidth = hasAction ? actionButtonSize().width : 0
+        let trailingWidth = (copyable ? (spacing + copyWidth) : 0) + (hasAction ? (spacing + actionWidth) : 0)
+        let maxLabelWidth = max(0, availableContentWidth - iconSize - spacing - trailingWidth)
 
         // 获取文本实际需要的尺寸
         let labelSize = labelSize(maxWidth: maxLabelWidth)
-        let contentHeight = max(iconSize, labelSize.height, copyWidth)
+        let contentHeight = max(iconSize, labelSize.height, copyWidth, hasAction ? actionButtonSize().height : 0)
         let height = contentInsets.top + contentHeight + contentInsets.bottom
 
         // 根据实际文本宽度计算总宽度
-        let actualContentWidth = iconSize + spacing + labelSize.width + (copyable ? (spacing + copyWidth) : 0)
+        let actualContentWidth = iconSize + spacing + labelSize.width + trailingWidth
         let actualWidth = contentInsets.left + actualContentWidth + contentInsets.right
 
         // 返回实际需要的宽度，但不超过最大宽度
@@ -286,6 +329,14 @@ final class ToastView: NSView {
         }
     }
 
+    @objc private func actionTapped() {
+        // 先取消消失计时，执行回调后立即消失。
+        dismissWorkItem?.cancel()
+        dismissWorkItem = nil
+        actionHandler?()
+        dismiss()
+    }
+
     // MARK: - 静态方法
 
     /// 在指定视图中显示 Toast
@@ -301,11 +352,19 @@ final class ToastView: NSView {
         style: ToastStyle = .info,
         copyable: Bool = false,
         duration: TimeInterval = 2.5,
+        actionTitle: String? = nil,
+        actionHandler: (() -> Void)? = nil,
         in view: NSView?
     ) {
         guard let view else { return }
 
-        let toast = ToastView(message: message, style: style, copyable: copyable)
+        let toast = ToastView(
+            message: message,
+            style: style,
+            copyable: copyable,
+            actionTitle: actionTitle,
+            actionHandler: actionHandler
+        )
         toast.duration = duration
         toast.alphaValue = 0
         view.addSubview(toast)
@@ -382,6 +441,25 @@ final class ToastView: NSView {
     @MainActor
     static func success(_ message: String, in window: NSWindow?) {
         show(message, style: .success, in: window)
+    }
+
+    /// 显示带动作按钮的成功提示（延长展示时长，悬停暂停消失，留出点击时间）。
+    @MainActor
+    static func success(
+        _ message: String,
+        actionTitle: String,
+        duration: TimeInterval = 5.0,
+        in window: NSWindow?,
+        actionHandler: @escaping () -> Void
+    ) {
+        show(
+            message,
+            style: .success,
+            duration: duration,
+            actionTitle: actionTitle,
+            actionHandler: actionHandler,
+            in: window?.contentView
+        )
     }
 
     /// 显示错误提示

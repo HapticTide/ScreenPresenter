@@ -1555,8 +1555,8 @@ extension AppDelegate {
             let directory = recordingService.stopRecording()
             AppState.shared.iosDeviceSource?.stopAudioCaptureForCurrentSession()
             updateRecordingUI()
-            if directory != nil {
-                ToastView.success(L10n.recording.saved, in: mainWindow)
+            if let directory {
+                presentRecordingSavedToast(directory: directory)
             }
             return
         }
@@ -1574,6 +1574,23 @@ extension AppDelegate {
                     updateRecordingUI()
                 }
             }
+        }
+    }
+
+    /// 停录成功提示：能构建出会话则带「回放」动作按钮，点击直接打开回放；否则退回普通提示。
+    /// 不自动弹窗，避免投屏时打断画面或暴露给观众。
+    @MainActor
+    private func presentRecordingSavedToast(directory: URL) {
+        guard let session = recordingLibrary.makeSession(from: directory) else {
+            ToastView.success(L10n.recording.saved, in: mainWindow)
+            return
+        }
+        ToastView.success(
+            L10n.recording.saved,
+            actionTitle: L10n.recording.replay,
+            in: mainWindow
+        ) { [weak self] in
+            self?.mainViewController?.showRecordingReplay(session: session)
         }
     }
 
