@@ -89,7 +89,8 @@ extension RecordingReplayView {
         }
 
         pane.currentSnapshotURL = fileURL
-        if let cachedImage = imageCache[fileURL] {
+        let key = fileURL as NSURL
+        if let cachedImage = imageCache.object(forKey: key) {
             pane.imageView.image = cachedImage
             return
         }
@@ -99,7 +100,7 @@ extension RecordingReplayView {
             return
         }
 
-        imageCache[fileURL] = image
+        imageCache.setObject(image, forKey: key, cost: image.estimatedByteCost)
         pane.imageView.image = image
     }
 

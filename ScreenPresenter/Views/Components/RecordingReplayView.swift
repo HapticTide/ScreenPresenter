@@ -46,7 +46,14 @@ final class RecordingReplayView: NSView {
     var playbackTimer: Timer?
     private var keyboardMonitor: Any?
     var devicePanes: [DevicePane] = []
-    var imageCache: [URL: NSImage] = [:]
+    /// 回放截图缓存。用 NSCache 限制条目数与总字节，避免长录制回放时内存无上限增长，
+    /// 内存吃紧时系统会自动回收。
+    let imageCache: NSCache<NSURL, NSImage> = {
+        let cache = NSCache<NSURL, NSImage>()
+        cache.countLimit = 60
+        cache.totalCostLimit = 256 * 1024 * 1024
+        return cache
+    }()
     var playbackRate: Float = 1.0
 
     // MARK: - 初始化
@@ -96,7 +103,7 @@ final class RecordingReplayView: NSView {
         stopPlayback()
 
         self.session = session
-        imageCache.removeAll()
+        imageCache.removeAllObjects()
         playbackRate = 1.0
 
         titleLabel.stringValue = L10n.recording.replayTitle(session.directory.lastPathComponent)
@@ -308,6 +315,20 @@ final class RecordingReplayView: NSView {
         button.action = action
         button.focusRingType = .none
         controlsContainer.addSubview(button)
+    }
+}
+
+extension NSImage {
+    /// 估算位图占用字节数(像素数 × 4)，作为 NSCache 的 cost。取最大的位图表示，
+    /// 无位图表示时回退到点尺寸估算。
+    var estimatedByteCost: Int {
+        let pixelCost = representations
+            .map { $0.pixelsWide * $0.pixelsHigh }
+            .max() ?? 0
+        if pixelCost > 0 {
+            return pixelCost * 4
+        }
+        return Int(size.width * size.height) * 4
     }
 }
 
