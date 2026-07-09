@@ -452,6 +452,13 @@
 "recording.play" = "播放";
 "recording.pause" = "暂停";
 "recording.revealDirectory" = "查看目录";
+"recording.delete" = "删除";
+"recording.deleteConfirmTitle" = "删除这条录制记录？";
+"recording.deleteConfirmMessage" = "将把「%@」移入废纸篓，可从废纸篓恢复。";
+"recording.deleteConfirmButton" = "移入废纸篓";
+"recording.cancel" = "取消";
+"recording.deleteFailed" = "删除录制失败";
+"recording.historySummary" = "共 %1$d 条 · 占用 %2$@";
 "recording.replay" = "回放";
 "recording.noHistory" = "暂无录制记录";
 "recording.historyTitle" = "录制历史";

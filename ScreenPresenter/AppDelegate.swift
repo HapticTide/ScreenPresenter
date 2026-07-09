@@ -1581,6 +1581,10 @@ extension AppDelegate {
             self?.mainViewController?.showRecordingReplay(session: session)
         }
 
+        historyView.onDeleteSession = { [weak self, weak historyView] session in
+            self?.confirmAndDeleteRecording(session, in: historyView)
+        }
+
         dismissRecordingHistoryWindow(recordingHistoryWindowController?.window)
         recordingHistoryWindowController = windowController
 
@@ -1590,12 +1594,50 @@ extension AppDelegate {
         window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
 
+        reloadRecordingHistory(into: historyView)
+    }
+
+    /// 扫描并刷新历史列表，同时更新总占用摘要。
+    private func reloadRecordingHistory(into historyView: RecordingHistoryPopoverView) {
         do {
             let sessions = try recordingLibrary.scanSessions()
-            historyView.configure(sessions: sessions)
+            historyView.configure(sessions: sessions, summaryText: historySummaryText(for: sessions))
         } catch {
             AppLogger.capture.error("读取录制历史失败: \(error.localizedDescription)")
             historyView.configure(sessions: [])
+        }
+    }
+
+    private func historySummaryText(for sessions: [RecordingSession]) -> String {
+        guard !sessions.isEmpty else { return "" }
+        let bytes = recordingLibrary.totalSize(of: sessions)
+        let sizeText = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return L10n.recording.historySummary(sessions.count, sizeText)
+    }
+
+    /// 弹确认框，确认后将会话移入废纸篓并刷新列表。
+    private func confirmAndDeleteRecording(
+        _ session: RecordingSession,
+        in historyView: RecordingHistoryPopoverView?
+    ) {
+        guard let historyView, let window = recordingHistoryWindowController?.window else { return }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.recording.deleteConfirmTitle
+        alert.informativeText = L10n.recording.deleteConfirmMessage(session.directory.lastPathComponent)
+        alert.addButton(withTitle: L10n.recording.deleteConfirmButton)
+        alert.addButton(withTitle: L10n.recording.cancel)
+
+        alert.beginSheetModal(for: window) { [weak self, weak historyView] response in
+            guard response == .alertFirstButtonReturn, let self, let historyView else { return }
+            do {
+                try self.recordingLibrary.deleteSession(session)
+                self.reloadRecordingHistory(into: historyView)
+            } catch {
+                AppLogger.capture.error("删除录制失败: \(error.localizedDescription)")
+                ToastView.error(L10n.recording.deleteFailed, in: window)
+            }
         }
     }
 

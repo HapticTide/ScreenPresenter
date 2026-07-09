@@ -548,6 +548,17 @@ enum L10n {
         static var play: String { "recording.play".localized }
         static var pause: String { "recording.pause".localized }
         static var revealDirectory: String { "recording.revealDirectory".localized }
+        static var delete: String { "recording.delete".localized }
+        static var deleteConfirmTitle: String { "recording.deleteConfirmTitle".localized }
+        static func deleteConfirmMessage(_ name: String) -> String {
+            "recording.deleteConfirmMessage".localized(name)
+        }
+        static var deleteConfirmButton: String { "recording.deleteConfirmButton".localized }
+        static var cancel: String { "recording.cancel".localized }
+        static var deleteFailed: String { "recording.deleteFailed".localized }
+        static func historySummary(_ count: Int, _ size: String) -> String {
+            "recording.historySummary".localized(count, size)
+        }
         static var replay: String { "recording.replay".localized }
         static var noHistory: String { "recording.noHistory".localized }
         static var historyTitle: String { "recording.historyTitle".localized }

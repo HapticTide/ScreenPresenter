@@ -452,6 +452,13 @@
 "recording.play" = "Play";
 "recording.pause" = "Pause";
 "recording.revealDirectory" = "Show Folder";
+"recording.delete" = "Delete";
+"recording.deleteConfirmTitle" = "Delete this recording?";
+"recording.deleteConfirmMessage" = "\"%@\" will be moved to the Trash. You can restore it from there.";
+"recording.deleteConfirmButton" = "Move to Trash";
+"recording.cancel" = "Cancel";
+"recording.deleteFailed" = "Failed to delete recording";
+"recording.historySummary" = "%1$d recordings · %2$@";
 "recording.replay" = "Replay";
 "recording.noHistory" = "No recordings yet";
 "recording.historyTitle" = "Recording History";

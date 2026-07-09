@@ -142,6 +142,40 @@ struct RecordingLibrary {
         }
     }
 
+    /// 将指定会话移入废纸篓（可恢复，比直接删除更安全）。仅允许删除录制根目录下的会话。
+    func deleteSession(_ session: RecordingSession) throws {
+        let directory = session.directory.standardizedFileURL
+        let root = rootDirectory.standardizedFileURL
+        guard directory.deletingLastPathComponent().path == root.path else {
+            AppLogger.capture.warning("拒绝删除非录制根目录下的目录: \(directory.path)")
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        try fileManager.trashItem(at: directory, resultingItemURL: nil)
+        AppLogger.capture.info("已将录制会话移入废纸篓: \(directory.path)")
+    }
+
+    /// 统计给定会话占用的磁盘字节总数（用于历史窗口展示总占用）。
+    func totalSize(of sessions: [RecordingSession]) -> Int64 {
+        sessions.reduce(0) { $0 + directorySize(at: $1.directory) }
+    }
+
+    private func directorySize(at directory: URL) -> Int64 {
+        guard let enumerator = fileManager.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
+        ) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            let values = try? fileURL.resourceValues(
+                forKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
+            )
+            total += Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+        }
+        return total
+    }
+
     /// 无音频时根据截图的最大相对秒估算录制时长。
     private func snapshotDuration(of tracks: [RecordingDeviceTrack]) -> TimeInterval {
         let maxSecond = tracks.compactMap { $0.snapshots.last?.elapsedSecond }.max() ?? 0
