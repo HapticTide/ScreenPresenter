@@ -1329,9 +1329,10 @@ final class PreferencesViewController: NSViewController {
         addGroupRow(group, createCheckboxRow(
             label: L10n.prefs.recording.enableMicrophone,
             isOn: UserPreferences.shared.recordingMicrophoneEnabled,
-            action: #selector(recordingMicrophoneToggled(_:)),
-            helpText: L10n.prefs.recording.enableMicrophoneNote
+            action: #selector(recordingMicrophoneToggled(_:))
         ), addDivider: false)
+        // 说明行独立成行，带底部内边距，与截图组保持一致。
+        addGroupRow(group, self.recordingNote(L10n.prefs.recording.enableMicrophoneNote), addDivider: false)
         addSettingsGroup(group, to: stackView)
     }
 
