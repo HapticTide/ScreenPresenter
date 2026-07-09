@@ -1651,7 +1651,10 @@ extension AppDelegate {
                 self.reloadRecordingHistory(into: historyView)
             } catch {
                 AppLogger.capture.error("删除录制失败: \(error.localizedDescription)")
-                ToastView.error(L10n.recording.deleteFailed, in: window)
+                // beginSheetModal 的 completion 在主线程回调，断言主线程隔离以调用 @MainActor 的 Toast。
+                MainActor.assumeIsolated {
+                    ToastView.error(L10n.recording.deleteFailed, in: window)
+                }
             }
         }
     }
