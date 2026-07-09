@@ -61,6 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var isCaptureQuitConfirmationPresented = false
     private var isUnsavedNewMarkdownQuitFlowInProgress = false
     private var quitConfirmationShortcutMonitor: Any?
+    /// 当前投屏退出确认的结果回调,供快捷键监视器在弹窗展示时直接结算。
+    private var pendingCaptureQuitCompletion: ((Bool) -> Void)?
 
     // MARK: - 应用生命周期
 
@@ -297,7 +299,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         // 没有“已落盘但未保存”的文档时，按投屏状态直接决定退出行为
         guard mainViewController.hasUnsavedFileBackedMarkdownDocuments() else {
             if hasActiveCaptureSession {
-                presentCaptureQuitConfirmation()
+                presentCaptureQuitConfirmation { [weak self] confirmed in
+                    self?.replyCaptureQuitToTermination(confirmed)
+                }
                 return .terminateLater
             }
             return .terminateNow
@@ -340,11 +344,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
     private func continueTerminationAfterDocumentSave() {
         if hasActiveCaptureSession {
-            presentCaptureQuitConfirmation()
+            presentCaptureQuitConfirmation { [weak self] confirmed in
+                self?.replyCaptureQuitToTermination(confirmed)
+            }
         } else {
             isTerminationCloseApproved = true
             NSApp.reply(toApplicationShouldTerminate: true)
         }
+    }
+
+    /// 将投屏退出确认结果结算到 AppKit 终止流程:记录审批结果并回复。
+    private func replyCaptureQuitToTermination(_ confirmed: Bool) {
+        isTerminationCloseApproved = confirmed
+        NSApp.reply(toApplicationShouldTerminate: confirmed)
     }
 
     private enum UnsavedMarkdownQuitDecision {
@@ -386,8 +398,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         }
     }
 
-    private func presentCaptureQuitConfirmation() {
-        guard !isCaptureQuitConfirmationPresented else { return }
+    /// 展示"投屏中退出"二次确认。必须在主窗口仍可见时调用,否则 sheet 会贴到已关闭的窗口上。
+    /// - Parameter completion: 用户选择结果,true 表示确认退出。
+    private func presentCaptureQuitConfirmation(completion: @escaping (Bool) -> Void) {
+        guard !isCaptureQuitConfirmationPresented else {
+            completion(false)
+            return
+        }
         isCaptureQuitConfirmationPresented = true
 
         let alert = NSAlert()
@@ -408,11 +425,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             guard let self else { return }
             self.stopQuitConfirmationShortcutMonitor()
             self.isCaptureQuitConfirmationPresented = false
-            self.isTerminationCloseApproved = confirmed
-            NSApp.reply(toApplicationShouldTerminate: confirmed)
+            self.pendingCaptureQuitCompletion = nil
+            completion(confirmed)
         }
+        pendingCaptureQuitCompletion = complete
 
-        if let mainWindow {
+        if let mainWindow, mainWindow.isVisible {
             alert.beginSheetModal(for: mainWindow) { response in
                 complete(response == .alertFirstButtonReturn)
             }
@@ -433,10 +451,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             if let mainWindow = self.mainWindow, let sheet = mainWindow.attachedSheet {
                 mainWindow.endSheet(sheet, returnCode: .alertFirstButtonReturn)
             } else {
-                self.stopQuitConfirmationShortcutMonitor()
-                self.isCaptureQuitConfirmationPresented = false
-                self.isTerminationCloseApproved = true
-                NSApp.reply(toApplicationShouldTerminate: true)
+                // 无 sheet(极少数窗口不可见的兜底路径):直接以"确认"结算当前退出流程。
+                self.pendingCaptureQuitCompletion?(true)
             }
             return nil
         }
@@ -1271,8 +1287,21 @@ extension AppDelegate: NSWindowDelegate {
         mainViewController.requestCloseMarkdownIfNeeded { [weak self, weak sender] shouldClose in
             guard let self, let sender else { return }
             guard shouldClose else { return }
-            self.isClosingWindowAfterMarkdownConfirmation = true
-            sender.performClose(nil)
+
+            // Markdown 已确认。投屏进行中时,在窗口仍可见时先弹退出确认,
+            // 避免窗口关闭后确认框贴到已消失的窗口上并循环弹出(见 issue #19)。
+            if self.hasActiveCaptureSession {
+                self.presentCaptureQuitConfirmation { [weak self] confirmed in
+                    guard let self, confirmed else { return } // 取消:窗口保持打开
+                    // 确认:投屏中关闭窗口等同退出应用。窗口仍开着时直接终止,
+                    // 保证 applicationShouldTerminate 读到的审批状态未被 windowWillClose 重置。
+                    self.isTerminationCloseApproved = true
+                    NSApp.terminate(nil)
+                }
+            } else {
+                self.isClosingWindowAfterMarkdownConfirmation = true
+                sender.performClose(nil)
+            }
         }
         return false
     }
