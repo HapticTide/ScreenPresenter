@@ -230,9 +230,17 @@ final class RecordingService: NSObject {
     }
 
     /// 是否存在可用的麦克风硬件。用 discovery session 枚举内建/外接麦克风。
+    /// deviceType 在 macOS 14 起改名（.builtInMicrophone→.microphone、.externalUnknown→.external），
+    /// 旧值在 14+ 已废弃，故按系统版本选择对应类型。
     private func hasMicrophoneDevice() -> Bool {
+        let deviceTypes: [AVCaptureDevice.DeviceType]
+        if #available(macOS 14.0, *) {
+            deviceTypes = [.microphone, .external]
+        } else {
+            deviceTypes = [.builtInMicrophone, .externalUnknown]
+        }
         let session = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInMicrophone, .externalUnknown],
+            deviceTypes: deviceTypes,
             mediaType: .audio,
             position: .unspecified
         )
