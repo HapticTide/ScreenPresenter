@@ -444,6 +444,7 @@
 "recording.record" = "录制";
 "recording.stop" = "停止录制";
 "recording.started" = "录制已开始";
+"recording.startedWithoutMicrophone" = "录制已开始（麦克风不可用，仅录制画面）";
 "recording.saved" = "录制已保存";
 "recording.startFailed" = "录制开始失败";
 "recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";

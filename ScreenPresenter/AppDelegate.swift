@@ -1537,7 +1537,12 @@ extension AppDelegate {
                 try await recordingService.startRecording()
                 await MainActor.run {
                     updateRecordingUI()
-                    ToastView.success(L10n.recording.started, in: mainWindow)
+                    // 音频降级为可选轨道：无麦克风权限时以 warning 告知用户仅录画面。
+                    if recordingService.isAudioEnabled {
+                        ToastView.success(L10n.recording.started, in: mainWindow)
+                    } else {
+                        ToastView.warning(L10n.recording.startedWithoutMicrophone, in: mainWindow)
+                    }
                 }
             } catch {
                 // 失败提示统一由 setupRecordingObservation 监听 .failed 状态弹出，避免重复。
