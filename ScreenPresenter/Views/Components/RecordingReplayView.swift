@@ -10,6 +10,7 @@
 
 import AVFoundation
 import AppKit
+import QuartzCore
 
 // MARK: - 录制回看视图
 
@@ -41,11 +42,18 @@ final class RecordingReplayView: NSView {
     // MARK: - 播放状态
 
     var session: RecordingSession?
-    var audioPlayer: AVAudioPlayer?
+    var clock: ReplayClock?
     var playbackTimer: Timer?
     private var keyboardMonitor: Any?
     var devicePanes: [DevicePane] = []
-    var imageCache: [URL: NSImage] = [:]
+    /// 回放截图缓存。用 NSCache 限制条目数与总字节，避免长录制回放时内存无上限增长，
+    /// 内存吃紧时系统会自动回收。
+    let imageCache: NSCache<NSURL, NSImage> = {
+        let cache = NSCache<NSURL, NSImage>()
+        cache.countLimit = 60
+        cache.totalCostLimit = 256 * 1024 * 1024
+        return cache
+    }()
     var playbackRate: Float = 1.0
 
     // MARK: - 初始化
@@ -95,7 +103,7 @@ final class RecordingReplayView: NSView {
         stopPlayback()
 
         self.session = session
-        imageCache.removeAll()
+        imageCache.removeAllObjects()
         playbackRate = 1.0
 
         titleLabel.stringValue = L10n.recording.replayTitle(session.directory.lastPathComponent)
@@ -109,18 +117,24 @@ final class RecordingReplayView: NSView {
         updatePlaybackControls(isEnabled: false)
         rebuildDevicePanes(for: session.deviceTracks)
 
-        do {
-            let player = try AVAudioPlayer(contentsOf: session.audioURL)
+        if let audioURL = session.audioURL, let player = try? AVAudioPlayer(contentsOf: audioURL) {
             player.enableRate = true
             player.rate = playbackRate
             player.prepareToPlay()
-            audioPlayer = player
+            clock = AudioReplayClock(player: player)
             setErrorMessage(nil)
             updatePlaybackControls(isEnabled: true)
             refreshPlaybackState(at: 0)
             startAutoPlayback()
-        } catch {
-            audioPlayer = nil
+        } else if session.duration > 0 {
+            // 纯截图录制或音频加载失败：用虚拟时钟按截图时间轴回放。
+            clock = VirtualReplayClock(duration: session.duration)
+            setErrorMessage(nil)
+            updatePlaybackControls(isEnabled: true)
+            refreshPlaybackState(at: 0)
+            startAutoPlayback()
+        } else {
+            clock = nil
             setErrorMessage(L10n.recording.replayLoadFailed)
         }
     }
@@ -129,10 +143,10 @@ final class RecordingReplayView: NSView {
         playbackTimer?.invalidate()
         playbackTimer = nil
 
-        audioPlayer?.stop()
-        audioPlayer = nil
+        clock?.pause()
+        clock = nil
 
-        updatePlayPauseButton(isPlaying: false)
+        updatePlayPauseButton(.paused)
         updatePlaybackControls(isEnabled: false)
     }
 
@@ -273,7 +287,7 @@ final class RecordingReplayView: NSView {
         totalTimeLabel.textColor = .secondaryLabelColor
         controlsContainer.addSubview(totalTimeLabel)
 
-        updatePlayPauseButton(isPlaying: false)
+        updatePlayPauseButton(.paused)
     }
 
     func configureButton(_ button: NSButton, title: String, action: Selector) {
@@ -301,5 +315,101 @@ final class RecordingReplayView: NSView {
         button.action = action
         button.focusRingType = .none
         controlsContainer.addSubview(button)
+    }
+}
+
+extension NSImage {
+    /// 估算位图占用字节数(像素数 × 4)，作为 NSCache 的 cost。取最大的位图表示，
+    /// 无位图表示时回退到点尺寸估算。
+    var estimatedByteCost: Int {
+        let pixelCost = representations
+            .map { $0.pixelsWide * $0.pixelsHigh }
+            .max() ?? 0
+        if pixelCost > 0 {
+            return pixelCost * 4
+        }
+        return Int(size.width * size.height) * 4
+    }
+}
+
+// MARK: - 回放时钟
+
+/// 回放时间轴抽象。有音频时由 AVAudioPlayer 驱动，无音频时由虚拟时钟驱动，
+/// 使回放控制逻辑无需区分是否存在音频轨道。
+protocol ReplayClock: AnyObject {
+    var currentTime: TimeInterval { get set }
+    var duration: TimeInterval { get }
+    var rate: Float { get set }
+    var isPlaying: Bool { get }
+    @discardableResult func play() -> Bool
+    func pause()
+}
+
+/// 音频驱动时钟，直接转发到 AVAudioPlayer。
+final class AudioReplayClock: ReplayClock {
+    private let player: AVAudioPlayer
+
+    init(player: AVAudioPlayer) {
+        self.player = player
+    }
+
+    var currentTime: TimeInterval {
+        get { player.currentTime }
+        set { player.currentTime = newValue }
+    }
+
+    var duration: TimeInterval { player.duration }
+
+    var rate: Float {
+        get { player.rate }
+        set { player.rate = newValue }
+    }
+
+    var isPlaying: Bool { player.isPlaying }
+
+    @discardableResult
+    func play() -> Bool { player.play() }
+    func pause() { player.pause() }
+}
+
+/// 虚拟时钟，用于纯截图录制（无音频）的回放。基于系统单调时钟按倍速推进。
+final class VirtualReplayClock: ReplayClock {
+    let duration: TimeInterval
+    var rate: Float = 1.0
+
+    private var playing = false
+    private var anchorMediaTime: TimeInterval = 0
+    private var anchorPlaybackTime: TimeInterval = 0
+
+    init(duration: TimeInterval) {
+        self.duration = max(0, duration)
+    }
+
+    var isPlaying: Bool { playing }
+
+    var currentTime: TimeInterval {
+        get {
+            guard playing else { return anchorPlaybackTime }
+            let elapsed = (CACurrentMediaTime() - anchorMediaTime) * Double(rate)
+            return min(max(0, anchorPlaybackTime + elapsed), duration)
+        }
+        set {
+            anchorPlaybackTime = min(max(0, newValue), duration)
+            anchorMediaTime = CACurrentMediaTime()
+        }
+    }
+
+    @discardableResult
+    func play() -> Bool {
+        guard !playing else { return true }
+        anchorMediaTime = CACurrentMediaTime()
+        playing = true
+        return true
+    }
+
+    func pause() {
+        guard playing else { return }
+        anchorPlaybackTime = currentTime
+        playing = false
     }
 }

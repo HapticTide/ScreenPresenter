@@ -139,6 +139,7 @@
 // MARK: - Preferences - Tabs
 "prefs.tab.general" = "通用";
 "prefs.tab.capture" = "捕获";
+"prefs.tab.recording" = "投屏录制";
 "prefs.tab.scrcpy" = "Scrcpy";
 "prefs.tab.permissions" = "权限";
 "prefs.tab.toolchain" = "工具链";
@@ -149,6 +150,9 @@
 "prefs.section.appearance" = "外观";
 "prefs.section.layout" = "布局";
 "prefs.section.frameRate" = "帧率";
+"prefs.section.recordingOutput" = "保存位置";
+"prefs.section.recordingSnapshot" = "画面截图";
+"prefs.section.recordingAudio" = "音频";
 "prefs.section.audio" = "音频";
 "prefs.section.iosAudio" = "iOS 音频";
 "prefs.section.androidAudio" = "Android 音频";
@@ -199,6 +203,19 @@
 // MARK: - Preferences - Capture
 "prefs.capture.frameRate" = "捕获帧率";
 "prefs.capture.frameRateNote" = "更高的帧率会增加 CPU 和 GPU 负载";
+"prefs.recording.saveLocation" = "保存到";
+"prefs.recording.saveLocationNote" = "录制文件将存放在所选目录的“ScreenPresenter Recordings”子文件夹中";
+"prefs.recording.chooseFolder" = "选择文件夹…";
+"prefs.recording.resetToDefault" = "恢复默认";
+"prefs.recording.snapshotInterval" = "截图间隔";
+"prefs.recording.snapshotIntervalNote" = "间隔越短回放越流畅，占用磁盘也越多";
+"prefs.recording.intervalSeconds" = "每 %d 秒";
+"prefs.recording.imageQuality" = "截图画质";
+"prefs.recording.qualityLow" = "低（更省空间）";
+"prefs.recording.qualityMedium" = "中";
+"prefs.recording.qualityHigh" = "高（更清晰）";
+"prefs.recording.enableMicrophone" = "录制麦克风音频";
+"prefs.recording.enableMicrophoneNote" = "关闭后仅录制画面，不再请求麦克风权限";
 
 // MARK: - Preferences - Scrcpy
 "prefs.scrcpy.bitrate" = "比特率";
@@ -302,11 +319,14 @@
 "permission.screenRecording.desc" = "用于捕获 Android 设备投屏画面（仅备用方案需要）";
 "permission.camera.name" = "摄像头";
 "permission.camera.desc" = "用于捕获通过 USB 连接的 iOS 设备画面";
+"permission.microphone.name" = "麦克风";
+"permission.microphone.desc" = "录制时用于采集麦克风音频";
 "permission.openSystemPrefs" = "打开设置";
 "permission.revoke" = "撤销";
 "permission.revokeTitle" = "撤销权限";
 "permission.revokeScreenRecordingHint" = "要撤销屏幕录制权限，请在「系统设置 > 隐私与安全性 > 屏幕录制」中取消勾选 ScreenPresenter，然后重启应用。";
 "permission.revokeCameraHint" = "要撤销摄像头权限，请在「系统设置 > 隐私与安全性 > 摄像头」中取消勾选 ScreenPresenter，然后重启应用。";
+"permission.revokeMicrophoneHint" = "要撤销麦克风权限，请在「系统设置 > 隐私与安全性 > 麦克风」中取消勾选 ScreenPresenter，然后重启应用。";
 "permission.revokeNote" = "要撤销权限，请点击「撤销」按钮，然后在系统设置中手动取消勾选 ScreenPresenter。更改将在重启应用后生效。";
 
 // MARK: - Background Color Mode
@@ -441,16 +461,27 @@
 "recording.record" = "录制";
 "recording.stop" = "停止录制";
 "recording.started" = "录制已开始";
+"recording.startedNoMicrophoneDevice" = "录制已开始（未检测到麦克风，仅录制画面）";
+"recording.startedMicrophoneDenied" = "录制已开始（未授予麦克风权限，仅录制画面）";
+"recording.startedMicrophoneUnavailable" = "录制已开始（麦克风不可用，可能被其他应用占用，仅录制画面）";
 "recording.saved" = "录制已保存";
 "recording.startFailed" = "录制开始失败";
 "recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";
 "recording.outputDirectoryUnavailable" = "无法创建录制保存目录";
+"recording.insufficientDiskSpace" = "磁盘空间不足，录制已停止";
 "recording.openOutputDirectory" = "打开录制目录";
 "recording.openHistory" = "查看录制历史";
 "recording.back" = "返回";
 "recording.play" = "播放";
 "recording.pause" = "暂停";
 "recording.revealDirectory" = "查看目录";
+"recording.delete" = "删除";
+"recording.deleteConfirmTitle" = "删除这条录制记录？";
+"recording.deleteConfirmMessage" = "将把「%@」移入废纸篓，可从废纸篓恢复。";
+"recording.deleteConfirmButton" = "移入废纸篓";
+"recording.cancel" = "取消";
+"recording.deleteFailed" = "删除录制失败";
+"recording.historySummary" = "共 %1$d 条 · 占用 %2$@";
 "recording.replay" = "回放";
 "recording.noHistory" = "暂无录制记录";
 "recording.historyTitle" = "录制历史";

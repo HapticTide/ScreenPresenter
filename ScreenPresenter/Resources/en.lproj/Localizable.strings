@@ -139,6 +139,7 @@
 // MARK: - Preferences - Tabs
 "prefs.tab.general" = "General";
 "prefs.tab.capture" = "Capture";
+"prefs.tab.recording" = "Recording";
 "prefs.tab.scrcpy" = "Scrcpy";
 "prefs.tab.permissions" = "Permissions";
 "prefs.tab.toolchain" = "Toolchain";
@@ -149,6 +150,9 @@
 "prefs.section.appearance" = "Appearance";
 "prefs.section.layout" = "Layout";
 "prefs.section.frameRate" = "Frame Rate";
+"prefs.section.recordingOutput" = "Save Location";
+"prefs.section.recordingSnapshot" = "Screen Snapshots";
+"prefs.section.recordingAudio" = "Audio";
 "prefs.section.audio" = "Audio";
 "prefs.section.iosAudio" = "iOS Audio";
 "prefs.section.androidAudio" = "Android Audio";
@@ -199,6 +203,19 @@
 // MARK: - Preferences - Capture
 "prefs.capture.frameRate" = "Capture Frame Rate";
 "prefs.capture.frameRateNote" = "Higher frame rate increases CPU and GPU load";
+"prefs.recording.saveLocation" = "Save to";
+"prefs.recording.saveLocationNote" = "Recordings are stored in a \"ScreenPresenter Recordings\" subfolder of the chosen directory";
+"prefs.recording.chooseFolder" = "Choose Folder…";
+"prefs.recording.resetToDefault" = "Reset to Default";
+"prefs.recording.snapshotInterval" = "Snapshot Interval";
+"prefs.recording.snapshotIntervalNote" = "Shorter intervals mean smoother replay but more disk usage";
+"prefs.recording.intervalSeconds" = "Every %d s";
+"prefs.recording.imageQuality" = "Snapshot Quality";
+"prefs.recording.qualityLow" = "Low (saves space)";
+"prefs.recording.qualityMedium" = "Medium";
+"prefs.recording.qualityHigh" = "High (sharper)";
+"prefs.recording.enableMicrophone" = "Record Microphone Audio";
+"prefs.recording.enableMicrophoneNote" = "When off, only the screen is recorded and microphone permission is not requested";
 
 // MARK: - Preferences - Scrcpy
 "prefs.scrcpy.bitrate" = "Bitrate";
@@ -302,11 +319,14 @@
 "permission.screenRecording.desc" = "For capturing Android device screen (fallback only)";
 "permission.camera.name" = "Camera";
 "permission.camera.desc" = "For capturing iOS device screen via USB";
+"permission.microphone.name" = "Microphone";
+"permission.microphone.desc" = "Captures microphone audio while recording";
 "permission.openSystemPrefs" = "Open Settings";
 "permission.revoke" = "Revoke";
 "permission.revokeTitle" = "Revoke Permission";
 "permission.revokeScreenRecordingHint" = "To revoke screen recording permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Screen Recording, then restart the app.";
 "permission.revokeCameraHint" = "To revoke camera permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Camera, then restart the app.";
+"permission.revokeMicrophoneHint" = "To revoke microphone permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Microphone, then restart the app.";
 "permission.revokeNote" = "To revoke a permission, click the \"Revoke\" button and manually uncheck ScreenPresenter in System Settings. Changes will take effect after restarting the app.";
 
 // MARK: - Background Color Mode
@@ -441,16 +461,27 @@
 "recording.record" = "Record";
 "recording.stop" = "Stop Recording";
 "recording.started" = "Recording started";
+"recording.startedNoMicrophoneDevice" = "Recording started (no microphone detected, screen only)";
+"recording.startedMicrophoneDenied" = "Recording started (microphone permission not granted, screen only)";
+"recording.startedMicrophoneUnavailable" = "Recording started (microphone unavailable, may be in use by another app, screen only)";
 "recording.saved" = "Recording saved";
 "recording.startFailed" = "Failed to start recording";
 "recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";
 "recording.outputDirectoryUnavailable" = "Unable to create recording output directory";
+"recording.insufficientDiskSpace" = "Insufficient disk space. Recording stopped.";
 "recording.openOutputDirectory" = "Open recording folder";
 "recording.openHistory" = "View recording history";
 "recording.back" = "Back";
 "recording.play" = "Play";
 "recording.pause" = "Pause";
 "recording.revealDirectory" = "Show Folder";
+"recording.delete" = "Delete";
+"recording.deleteConfirmTitle" = "Delete this recording?";
+"recording.deleteConfirmMessage" = "\"%@\" will be moved to the Trash. You can restore it from there.";
+"recording.deleteConfirmButton" = "Move to Trash";
+"recording.cancel" = "Cancel";
+"recording.deleteFailed" = "Failed to delete recording";
+"recording.historySummary" = "%1$d recordings · %2$@";
 "recording.replay" = "Replay";
 "recording.noHistory" = "No recordings yet";
 "recording.historyTitle" = "Recording History";

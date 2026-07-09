@@ -677,6 +677,7 @@ final class PreferencesViewController: NSViewController {
         let labels = [
             L10n.prefs.tab.general,
             L10n.prefs.tab.capture,
+            L10n.prefs.tab.recording,
             L10n.prefs.tab.permissions,
         ]
         segmentedControl.segmentCount = labels.count
@@ -699,6 +700,7 @@ final class PreferencesViewController: NSViewController {
         tabViews = [
             createGeneralView(),
             createCaptureView(),
+            createRecordingView(),
             createPermissionsView(),
         ]
 
@@ -1233,9 +1235,130 @@ final class PreferencesViewController: NSViewController {
 
     // MARK: - 权限设置
 
+    // MARK: - 投屏录制分页
+
+    /// 录制保存位置路径标签的 tag，供选择/重置后回填。
+    private static let recordingPathLabelTag = 4601
+    /// 截图间隔可选档位（秒）。受整秒时间轴约束，最小 1s。
+    private static let recordingIntervalOptions = [1, 2, 5, 10]
+
+    private func createRecordingView() -> NSView {
+        let scrollView = createScrollView()
+        let stackView = createVerticalStack()
+
+        // 保存位置组
+        let outputGroup = createSettingsGroup(title: L10n.prefs.section.recordingOutput, icon: "folder")
+        addGroupRow(outputGroup, createLabeledRow(label: L10n.prefs.recording.saveLocation) {
+            let row = StackContainerView()
+            row.axis = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+
+            let pathLabel = FixedSizeTextField(labelWithString: self.recordingSaveLocationDisplayPath())
+            pathLabel.font = NSFont.systemFont(ofSize: 12)
+            pathLabel.textColor = .secondaryLabelColor
+            pathLabel.lineBreakMode = .byTruncatingMiddle
+            pathLabel.tag = Self.recordingPathLabelTag
+            row.addArrangedSubview(pathLabel)
+
+            let chooseButton = NSButton(
+                title: L10n.prefs.recording.chooseFolder,
+                target: self,
+                action: #selector(self.chooseRecordingFolder(_:))
+            )
+            chooseButton.bezelStyle = .rounded
+            chooseButton.setContentHuggingPriority(.required, for: .horizontal)
+            row.addArrangedSubview(chooseButton)
+
+            let resetButton = NSButton(
+                title: L10n.prefs.recording.resetToDefault,
+                target: self,
+                action: #selector(self.resetRecordingFolder(_:))
+            )
+            resetButton.bezelStyle = .rounded
+            resetButton.setContentHuggingPriority(.required, for: .horizontal)
+            row.addArrangedSubview(resetButton)
+            return row
+        })
+        addGroupRow(outputGroup, self.recordingNote(L10n.prefs.recording.saveLocationNote), addDivider: false)
+        addSettingsGroup(outputGroup, to: stackView)
+
+        addRecordingSnapshotGroup(to: stackView)
+        addRecordingAudioGroup(to: stackView)
+
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
+        return scrollView
+    }
+
+    /// 画面截图组：截图间隔 + 画质档。
+    private func addRecordingSnapshotGroup(to stackView: StackContainerView) {
+        let group = createSettingsGroup(title: L10n.prefs.section.recordingSnapshot, icon: "camera")
+
+        // 截图间隔
+        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.snapshotInterval) {
+            let popup = NSPopUpButton()
+            for seconds in Self.recordingIntervalOptions {
+                popup.addItem(withTitle: L10n.prefs.recording.intervalSeconds(seconds))
+            }
+            let current = UserPreferences.shared.recordingSnapshotInterval
+            popup.selectItem(at: Self.recordingIntervalOptions.firstIndex(of: current) ?? 0)
+            popup.target = self
+            popup.action = #selector(self.recordingSnapshotIntervalChanged(_:))
+            return popup
+        })
+        addGroupRow(group, self.recordingNote(L10n.prefs.recording.snapshotIntervalNote), addDivider: false)
+
+        // 画质档
+        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.imageQuality) {
+            let popup = NSPopUpButton()
+            for quality in RecordingImageQuality.allCases {
+                popup.addItem(withTitle: quality.displayName)
+            }
+            let current = UserPreferences.shared.recordingImageQuality
+            popup.selectItem(at: RecordingImageQuality.allCases.firstIndex(of: current) ?? 1)
+            popup.target = self
+            popup.action = #selector(self.recordingImageQualityChanged(_:))
+            return popup
+        })
+        addSettingsGroup(group, to: stackView)
+    }
+
+    /// 音频组：麦克风录制开关。
+    private func addRecordingAudioGroup(to stackView: StackContainerView) {
+        let group = createSettingsGroup(title: L10n.prefs.section.recordingAudio, icon: "mic")
+        addGroupRow(group, createCheckboxRow(
+            label: L10n.prefs.recording.enableMicrophone,
+            isOn: UserPreferences.shared.recordingMicrophoneEnabled,
+            action: #selector(recordingMicrophoneToggled(_:))
+        ), addDivider: false)
+        // 说明行独立成行，带底部内边距，与截图组保持一致。
+        addGroupRow(group, self.recordingNote(L10n.prefs.recording.enableMicrophoneNote), addDivider: false)
+        addSettingsGroup(group, to: stackView)
+    }
+
+    /// 灰色小字说明行，复用帧率说明的边距样式。
+    private func recordingNote(_ text: String) -> NSView {
+        let note = NSTextField(wrappingLabelWithString: text)
+        note.font = NSFont.systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
+        return PaddingView(
+            contentView: note,
+            insets: NSEdgeInsets(top: 0, left: 0, bottom: LayoutMetrics.rowVerticalPadding * 1.5, right: 0)
+        )
+    }
+
     private func createPermissionsView() -> NSView {
         let scrollView = createScrollView()
         let stackView = createVerticalStack()
+
+        // 系统权限组（录制用麦克风，跨平台）
+        let systemPermGroup = createSettingsGroup(title: L10n.prefs.section.systemPermissions, icon: "mic")
+        addGroupRow(systemPermGroup, createPermissionRow(
+            name: L10n.permission.microphoneName,
+            description: L10n.permission.microphoneDesc,
+            permissionType: .microphone
+        ), addDivider: false)
+        addSettingsGroup(systemPermGroup, to: stackView)
 
         // iOS 权限组
         let iosPermGroup = createSettingsGroup(title: L10n.prefs.section.iosPermissions, icon: "apple.logo")
@@ -1852,6 +1975,40 @@ final class PreferencesViewController: NSViewController {
 
     private enum PermissionType {
         case camera
+        case microphone
+
+        /// 「打开系统设置」按钮的 tag，也用于反查类型。
+        var openButtonTag: Int {
+            switch self {
+            case .camera: 1
+            case .microphone: 2
+            }
+        }
+
+        /// 「撤销」按钮的 tag。
+        var revokeButtonTag: Int {
+            switch self {
+            case .camera: 11
+            case .microphone: 12
+            }
+        }
+
+        /// 系统隐私设置的锚点 URL。
+        var systemPreferencesURL: String {
+            switch self {
+            case .camera:
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+            case .microphone:
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+            }
+        }
+
+        var revokeHint: String {
+            switch self {
+            case .camera: L10n.permission.revokeCameraHint
+            case .microphone: L10n.permission.revokeMicrophoneHint
+            }
+        }
     }
 
     private enum ToolType {
@@ -1908,8 +2065,7 @@ final class PreferencesViewController: NSViewController {
         )
         openButton.bezelStyle = .rounded
         openButton.controlSize = .small
-        // 摄像头权限按钮 tag
-        openButton.tag = 1
+        openButton.tag = permissionType.openButtonTag
         rightStack.addArrangedSubview(openButton)
 
         // 撤销按钮（已授权时显示）
@@ -1921,13 +2077,12 @@ final class PreferencesViewController: NSViewController {
         revokeButton.bezelStyle = .rounded
         revokeButton.controlSize = .small
         revokeButton.isHidden = true
-        // 摄像头权限撤销按钮 tag
-        revokeButton.tag = 11
+        revokeButton.tag = permissionType.revokeButtonTag
         rightStack.addArrangedSubview(revokeButton)
 
         // 检查权限状态
         Task { @MainActor in
-            let granted = checkCameraPermission()
+            let granted = checkPermission(permissionType)
 
             if granted {
                 statusIcon.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)
@@ -1949,12 +2104,15 @@ final class PreferencesViewController: NSViewController {
         return LabeledRowView(labelView: leftStack, control: rightStack)
     }
 
-    private func checkCameraPermission() -> Bool {
-        // 检查摄像头权限
-        // 注意：iOS 设备 USB 屏幕镜像使用 .muxed 媒体类型，但 .muxed 不支持 authorizationStatus 查询
-        // 实际上 .video 权限包含了对 muxed 设备的访问权限
-        let status = AVCaptureDevice.authorizationStatus(for: .video)
-        return status == .authorized
+    private func checkPermission(_ type: PermissionType) -> Bool {
+        switch type {
+        case .camera:
+            // iOS 设备 USB 屏幕镜像使用 .muxed 媒体类型，但 .muxed 不支持 authorizationStatus 查询；
+            // 实际上 .video 权限包含了对 muxed 设备的访问权限
+            return AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        case .microphone:
+            return AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        }
     }
 
     // MARK: - 操作
@@ -2125,31 +2283,36 @@ final class PreferencesViewController: NSViewController {
     }
 
     @objc private func openSystemPreferences(_ sender: NSButton) {
-        // 打开系统偏好设置 - 隐私 - 摄像头
-        let urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
-        if let url = URL(string: urlString) {
+        // 按按钮 tag 反查权限类型，打开对应的隐私设置面板
+        let type = permissionType(forOpenTag: sender.tag) ?? .camera
+        if let url = URL(string: type.systemPreferencesURL) {
             NSWorkspace.shared.open(url)
         }
     }
 
     @objc private func revokePermission(_ sender: NSButton) {
-        // 摄像头权限
-        let urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
-        let alertMessage = L10n.permission.revokeCameraHint
+        let type = permissionType(forRevokeTag: sender.tag) ?? .camera
 
-        // 显示提示
         let alert = NSAlert()
         alert.messageText = L10n.permission.revokeTitle
-        alert.informativeText = alertMessage
+        alert.informativeText = type.revokeHint
         alert.alertStyle = .informational
         alert.addButton(withTitle: L10n.permission.openSystemPrefs)
         alert.addButton(withTitle: L10n.common.cancel)
 
         if alert.runModal() == .alertFirstButtonReturn {
-            if let url = URL(string: urlString) {
+            if let url = URL(string: type.systemPreferencesURL) {
                 NSWorkspace.shared.open(url)
             }
         }
+    }
+
+    private func permissionType(forOpenTag tag: Int) -> PermissionType? {
+        [.camera, .microphone].first { $0.openButtonTag == tag }
+    }
+
+    private func permissionType(forRevokeTag tag: Int) -> PermissionType? {
+        [.camera, .microphone].first { $0.revokeButtonTag == tag }
     }
 
     // MARK: - 工具链路径设置
@@ -2190,6 +2353,62 @@ final class PreferencesViewController: NSViewController {
         Task {
             await AppState.shared.toolchainManager.refresh()
         }
+    }
+
+    // MARK: - 投屏录制分页 Actions
+
+    /// 当前保存位置的展示路径：用户设定值或默认 Movies。
+    private func recordingSaveLocationDisplayPath() -> String {
+        let base = UserPreferences.shared.recordingSaveDirectory
+            ?? FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).appendingPathComponent("Movies")
+        return (base.path as NSString).abbreviatingWithTildeInPath
+    }
+
+    private func refreshRecordingPathLabel() {
+        guard let label = contentContainer.viewWithTag(Self.recordingPathLabelTag) as? NSTextField else { return }
+        label.stringValue = recordingSaveLocationDisplayPath()
+        label.superview?.needsLayout = true
+        label.superview?.layoutSubtreeIfNeeded()
+    }
+
+    @objc private func chooseRecordingFolder(_ sender: NSButton) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.message = L10n.prefs.recording.saveLocation
+        panel.prompt = L10n.common.ok
+        panel.directoryURL = UserPreferences.shared.recordingSaveDirectory
+            ?? FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
+
+        if panel.runModal() == .OK, let url = panel.url {
+            UserPreferences.shared.recordingSaveDirectory = url
+            refreshRecordingPathLabel()
+        }
+    }
+
+    @objc private func resetRecordingFolder(_ sender: NSButton) {
+        UserPreferences.shared.recordingSaveDirectory = nil
+        refreshRecordingPathLabel()
+    }
+
+    @objc private func recordingSnapshotIntervalChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0, index < Self.recordingIntervalOptions.count else { return }
+        UserPreferences.shared.recordingSnapshotInterval = Self.recordingIntervalOptions[index]
+    }
+
+    @objc private func recordingImageQualityChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        let all = RecordingImageQuality.allCases
+        guard index >= 0, index < all.count else { return }
+        UserPreferences.shared.recordingImageQuality = all[index]
+    }
+
+    @objc private func recordingMicrophoneToggled(_ sender: NSButton) {
+        UserPreferences.shared.recordingMicrophoneEnabled = (sender.state == .on)
     }
 
     @objc private func customPathChanged(_ sender: NSTextField) {

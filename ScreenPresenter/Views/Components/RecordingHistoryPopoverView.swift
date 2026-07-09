@@ -14,12 +14,14 @@ final class RecordingHistoryPopoverView: NSView {
 
     var onRevealDirectory: ((RecordingSession) -> Void)?
     var onReplay: ((RecordingSession) -> Void)?
+    var onDeleteSession: ((RecordingSession) -> Void)?
 
     // MARK: - UI 组件
 
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let emptyLabel = NSTextField(labelWithString: L10n.recording.noHistory)
+    private let summaryLabel = NSTextField(labelWithString: "")
     private var sessions: [RecordingSession] = []
 
     // MARK: - 格式化
@@ -55,11 +57,13 @@ final class RecordingHistoryPopoverView: NSView {
 
     // MARK: - 公开方法
 
-    func configure(sessions: [RecordingSession]) {
+    func configure(sessions: [RecordingSession], summaryText: String = "") {
         self.sessions = sessions
 
         emptyLabel.isHidden = !sessions.isEmpty
         scrollView.isHidden = sessions.isEmpty
+        summaryLabel.stringValue = summaryText
+        summaryLabel.isHidden = sessions.isEmpty || summaryText.isEmpty
         tableView.reloadData()
         updateTableColumnWidth()
     }
@@ -72,6 +76,21 @@ final class RecordingHistoryPopoverView: NSView {
 
         setupScrollView()
         setupEmptyState()
+        setupSummaryLabel()
+    }
+
+    private func setupSummaryLabel() {
+        summaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        summaryLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        summaryLabel.textColor = .tertiaryLabelColor
+        summaryLabel.alignment = .right
+        summaryLabel.isHidden = true
+        addSubview(summaryLabel)
+
+        NSLayoutConstraint.activate([
+            summaryLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.contentInset),
+            summaryLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+        ])
     }
 
     private func setupScrollView() {
@@ -99,7 +118,7 @@ final class RecordingHistoryPopoverView: NSView {
             scrollView.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.contentInset),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.contentInset),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.contentInset),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.contentInset)
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.contentInset - Metrics.summaryReservedHeight)
         ])
     }
 
@@ -133,6 +152,8 @@ final class RecordingHistoryPopoverView: NSView {
         row.replayButton.target = self
         row.replayButton.action = #selector(replayTapped(_:))
         row.replayButton.isEnabled = session.duration > 0
+        row.deleteButton.target = self
+        row.deleteButton.action = #selector(deleteTapped(_:))
         row.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(row)
 
@@ -177,6 +198,13 @@ final class RecordingHistoryPopoverView: NSView {
         }
         onReplay?(session)
     }
+
+    @objc private func deleteTapped(_ sender: SessionButton) {
+        guard let session = sender.session else {
+            return
+        }
+        onDeleteSession?(session)
+    }
 }
 
 // MARK: - 内部类型
@@ -188,6 +216,7 @@ private class SessionButton: NSButton {
 private final class HistoryRowView: NSView {
     let revealButton = SessionIconButton(style: .secondary)
     let replayButton = SessionIconButton(style: .primary)
+    let deleteButton = SessionIconButton(style: .destructive)
 
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
@@ -209,7 +238,7 @@ private final class HistoryRowView: NSView {
         let midpoint = bounds.width * Metrics.actionAreaStartRatio
         let actionButtonSize = Metrics.iconButtonSize
         let actionSpacing = Metrics.iconButtonSpacing
-        let actionsWidth = actionButtonSize.width * 2 + actionSpacing
+        let actionsWidth = actionButtonSize.width * 3 + actionSpacing * 2
         let actionsX = max(midpoint, bounds.width - actionsWidth - Metrics.actionRightInset)
         let buttonY = (bounds.height - actionButtonSize.height) / 2
 
@@ -221,6 +250,12 @@ private final class HistoryRowView: NSView {
         )
         replayButton.frame = NSRect(
             x: revealButton.frame.maxX + actionSpacing,
+            y: buttonY,
+            width: actionButtonSize.width,
+            height: actionButtonSize.height
+        )
+        deleteButton.frame = NSRect(
+            x: replayButton.frame.maxX + actionSpacing,
             y: buttonY,
             width: actionButtonSize.width,
             height: actionButtonSize.height
@@ -246,6 +281,7 @@ private final class HistoryRowView: NSView {
         subtitleLabel.stringValue = subtitle
         revealButton.session = session
         replayButton.session = session
+        deleteButton.session = session
     }
 
     private func setupUI() {
@@ -276,6 +312,13 @@ private final class HistoryRowView: NSView {
         )
         replayButton.toolTip = L10n.recording.replay
         addSubview(replayButton)
+
+        deleteButton.image = NSImage(
+            systemSymbolName: "trash",
+            accessibilityDescription: L10n.recording.delete
+        )
+        deleteButton.toolTip = L10n.recording.delete
+        addSubview(deleteButton)
     }
 }
 
@@ -283,6 +326,7 @@ private final class SessionIconButton: SessionButton {
     enum Style {
         case primary
         case secondary
+        case destructive
     }
 
     private let style: Style
@@ -331,6 +375,9 @@ private final class SessionIconButton: SessionButton {
         case .secondary:
             layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.75).cgColor
             contentTintColor = isEnabled ? .labelColor : .disabledControlTextColor
+        case .destructive:
+            layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.75).cgColor
+            contentTintColor = isEnabled ? .systemRed : .disabledControlTextColor
         }
     }
 }
@@ -356,11 +403,12 @@ extension RecordingHistoryPopoverView: NSTableViewDataSource, NSTableViewDelegat
 }
 
 private enum Metrics {
-    static let preferredWidth: CGFloat = 520
-    static let preferredHeight: CGFloat = 360
-    static let minimumContentWidth: CGFloat = 320
+    static let preferredWidth: CGFloat = 560
+    static let preferredHeight: CGFloat = 380
+    static let minimumContentWidth: CGFloat = 360
     static let columnIdentifier = NSUserInterfaceItemIdentifier("recordingHistory")
     static let contentInset: CGFloat = 16
+    static let summaryReservedHeight: CGFloat = 18
     static let rowSpacing: CGFloat = 8
     static let rowHeight: CGFloat = 72
     static let emptyStateYOffset: CGFloat = 14

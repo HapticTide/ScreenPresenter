@@ -33,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var recordingOutputToolbarItem: NSToolbarItem?
     private let recordingLibrary = RecordingLibrary()
     private var recordingHistoryWindowController: NSWindowController?
+    /// 已提示过的录制失败消息，避免状态发布器重复触发时反复弹 Toast。
+    private var lastRecordingFailureMessage: String?
     private var markdownToggleToolbarItem: NSToolbarItem?
     private var isRefreshing: Bool = false
     private var cancellables = Set<AnyCancellable>()
@@ -59,6 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var isCaptureQuitConfirmationPresented = false
     private var isUnsavedNewMarkdownQuitFlowInProgress = false
     private var quitConfirmationShortcutMonitor: Any?
+    /// 当前投屏退出确认的结果回调,供快捷键监视器在弹窗展示时直接结算。
+    private var pendingCaptureQuitCompletion: ((Bool) -> Void)?
 
     // MARK: - 应用生命周期
 
@@ -295,7 +299,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         // 没有“已落盘但未保存”的文档时，按投屏状态直接决定退出行为
         guard mainViewController.hasUnsavedFileBackedMarkdownDocuments() else {
             if hasActiveCaptureSession {
-                presentCaptureQuitConfirmation()
+                presentCaptureQuitConfirmation { [weak self] confirmed in
+                    self?.replyCaptureQuitToTermination(confirmed)
+                }
                 return .terminateLater
             }
             return .terminateNow
@@ -338,11 +344,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
     private func continueTerminationAfterDocumentSave() {
         if hasActiveCaptureSession {
-            presentCaptureQuitConfirmation()
+            presentCaptureQuitConfirmation { [weak self] confirmed in
+                self?.replyCaptureQuitToTermination(confirmed)
+            }
         } else {
             isTerminationCloseApproved = true
             NSApp.reply(toApplicationShouldTerminate: true)
         }
+    }
+
+    /// 将投屏退出确认结果结算到 AppKit 终止流程:记录审批结果并回复。
+    private func replyCaptureQuitToTermination(_ confirmed: Bool) {
+        isTerminationCloseApproved = confirmed
+        NSApp.reply(toApplicationShouldTerminate: confirmed)
     }
 
     private enum UnsavedMarkdownQuitDecision {
@@ -384,8 +398,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         }
     }
 
-    private func presentCaptureQuitConfirmation() {
-        guard !isCaptureQuitConfirmationPresented else { return }
+    /// 展示"投屏中退出"二次确认。必须在主窗口仍可见时调用,否则 sheet 会贴到已关闭的窗口上。
+    /// - Parameter completion: 用户选择结果,true 表示确认退出。
+    private func presentCaptureQuitConfirmation(completion: @escaping (Bool) -> Void) {
+        guard !isCaptureQuitConfirmationPresented else {
+            completion(false)
+            return
+        }
         isCaptureQuitConfirmationPresented = true
 
         let alert = NSAlert()
@@ -406,11 +425,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             guard let self else { return }
             self.stopQuitConfirmationShortcutMonitor()
             self.isCaptureQuitConfirmationPresented = false
-            self.isTerminationCloseApproved = confirmed
-            NSApp.reply(toApplicationShouldTerminate: confirmed)
+            self.pendingCaptureQuitCompletion = nil
+            completion(confirmed)
         }
+        pendingCaptureQuitCompletion = complete
 
-        if let mainWindow {
+        if let mainWindow, mainWindow.isVisible {
             alert.beginSheetModal(for: mainWindow) { response in
                 complete(response == .alertFirstButtonReturn)
             }
@@ -431,10 +451,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             if let mainWindow = self.mainWindow, let sheet = mainWindow.attachedSheet {
                 mainWindow.endSheet(sheet, returnCode: .alertFirstButtonReturn)
             } else {
-                self.stopQuitConfirmationShortcutMonitor()
-                self.isCaptureQuitConfirmationPresented = false
-                self.isTerminationCloseApproved = true
-                NSApp.reply(toApplicationShouldTerminate: true)
+                // 无 sheet(极少数窗口不可见的兜底路径):直接以"确认"结算当前退出流程。
+                self.pendingCaptureQuitCompletion?(true)
             }
             return nil
         }
@@ -1222,8 +1240,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
                 self?.updateRecordingUI()
+                self?.surfaceRecordingFailureIfNeeded()
             }
             .store(in: &cancellables)
+    }
+
+    /// 被动停录（磁盘不足/写失败等）时经状态发布器弹出错误提示，仅在新消息出现时提示一次。
+    @MainActor
+    private func surfaceRecordingFailureIfNeeded() {
+        guard case let .failed(message) = AppState.shared.recordingService.state else {
+            lastRecordingFailureMessage = nil
+            return
+        }
+        guard message != lastRecordingFailureMessage else { return }
+        lastRecordingFailureMessage = message
+        ToastView.error(message, in: mainWindow)
     }
 }
 
@@ -1256,8 +1287,21 @@ extension AppDelegate: NSWindowDelegate {
         mainViewController.requestCloseMarkdownIfNeeded { [weak self, weak sender] shouldClose in
             guard let self, let sender else { return }
             guard shouldClose else { return }
-            self.isClosingWindowAfterMarkdownConfirmation = true
-            sender.performClose(nil)
+
+            // Markdown 已确认。投屏进行中时,在窗口仍可见时先弹退出确认,
+            // 避免窗口关闭后确认框贴到已消失的窗口上并循环弹出(见 issue #19)。
+            if self.hasActiveCaptureSession {
+                self.presentCaptureQuitConfirmation { [weak self] confirmed in
+                    guard let self, confirmed else { return } // 取消:窗口保持打开
+                    // 确认:投屏中关闭窗口等同退出应用。窗口仍开着时直接终止,
+                    // 保证 applicationShouldTerminate 读到的审批状态未被 windowWillClose 重置。
+                    self.isTerminationCloseApproved = true
+                    NSApp.terminate(nil)
+                }
+            } else {
+                self.isClosingWindowAfterMarkdownConfirmation = true
+                sender.performClose(nil)
+            }
         }
         return false
     }
@@ -1511,8 +1555,8 @@ extension AppDelegate {
             let directory = recordingService.stopRecording()
             AppState.shared.iosDeviceSource?.stopAudioCaptureForCurrentSession()
             updateRecordingUI()
-            if directory != nil {
-                ToastView.success(L10n.recording.saved, in: mainWindow)
+            if let directory {
+                presentRecordingSavedToast(directory: directory)
             }
             return
         }
@@ -1522,14 +1566,47 @@ extension AppDelegate {
                 try await recordingService.startRecording()
                 await MainActor.run {
                     updateRecordingUI()
-                    ToastView.success(L10n.recording.started, in: mainWindow)
+                    presentRecordingStartToast(audioStatus: recordingService.audioStatus)
                 }
             } catch {
+                // 失败提示统一由 setupRecordingObservation 监听 .failed 状态弹出，避免重复。
                 await MainActor.run {
                     updateRecordingUI()
-                    ToastView.error(error.localizedDescription, in: mainWindow)
                 }
             }
+        }
+    }
+
+    /// 停录成功提示：能构建出会话则带「回放」动作按钮，点击直接打开回放；否则退回普通提示。
+    /// 不自动弹窗，避免投屏时打断画面或暴露给观众。
+    @MainActor
+    private func presentRecordingSavedToast(directory: URL) {
+        guard let session = recordingLibrary.makeSession(from: directory) else {
+            ToastView.success(L10n.recording.saved, in: mainWindow)
+            return
+        }
+        ToastView.success(
+            L10n.recording.saved,
+            actionTitle: L10n.recording.replay,
+            in: mainWindow
+        ) { [weak self] in
+            self?.mainViewController?.showRecordingReplay(session: session)
+        }
+    }
+
+    /// 按音频轨道状态弹出录制开始提示：有音频用 success，缺音频按成因用 warning 分别告知。
+    @MainActor
+    private func presentRecordingStartToast(audioStatus: RecordingAudioStatus) {
+        switch audioStatus {
+        case .enabled, .disabled:
+            // 正常录音，或用户主动关闭麦克风：均属预期，用 success。
+            ToastView.success(L10n.recording.started, in: mainWindow)
+        case .noDevice:
+            ToastView.warning(L10n.recording.startedNoMicrophoneDevice, in: mainWindow)
+        case .permissionDenied:
+            ToastView.warning(L10n.recording.startedMicrophoneDenied, in: mainWindow)
+        case .unavailable:
+            ToastView.warning(L10n.recording.startedMicrophoneUnavailable, in: mainWindow)
         }
     }
 
@@ -1566,6 +1643,10 @@ extension AppDelegate {
             self?.mainViewController?.showRecordingReplay(session: session)
         }
 
+        historyView.onDeleteSession = { [weak self, weak historyView] session in
+            self?.confirmAndDeleteRecording(session, in: historyView)
+        }
+
         dismissRecordingHistoryWindow(recordingHistoryWindowController?.window)
         recordingHistoryWindowController = windowController
 
@@ -1575,12 +1656,53 @@ extension AppDelegate {
         window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
 
+        reloadRecordingHistory(into: historyView)
+    }
+
+    /// 扫描并刷新历史列表，同时更新总占用摘要。
+    private func reloadRecordingHistory(into historyView: RecordingHistoryPopoverView) {
         do {
             let sessions = try recordingLibrary.scanSessions()
-            historyView.configure(sessions: sessions)
+            historyView.configure(sessions: sessions, summaryText: historySummaryText(for: sessions))
         } catch {
             AppLogger.capture.error("读取录制历史失败: \(error.localizedDescription)")
             historyView.configure(sessions: [])
+        }
+    }
+
+    private func historySummaryText(for sessions: [RecordingSession]) -> String {
+        guard !sessions.isEmpty else { return "" }
+        let bytes = recordingLibrary.totalSize(of: sessions)
+        let sizeText = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return L10n.recording.historySummary(sessions.count, sizeText)
+    }
+
+    /// 弹确认框，确认后将会话移入废纸篓并刷新列表。
+    private func confirmAndDeleteRecording(
+        _ session: RecordingSession,
+        in historyView: RecordingHistoryPopoverView?
+    ) {
+        guard let historyView, let window = recordingHistoryWindowController?.window else { return }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.recording.deleteConfirmTitle
+        alert.informativeText = L10n.recording.deleteConfirmMessage(session.directory.lastPathComponent)
+        alert.addButton(withTitle: L10n.recording.deleteConfirmButton)
+        alert.addButton(withTitle: L10n.recording.cancel)
+
+        alert.beginSheetModal(for: window) { [weak self, weak historyView] response in
+            guard response == .alertFirstButtonReturn, let self, let historyView else { return }
+            do {
+                try self.recordingLibrary.deleteSession(session)
+                self.reloadRecordingHistory(into: historyView)
+            } catch {
+                AppLogger.capture.error("删除录制失败: \(error.localizedDescription)")
+                // beginSheetModal 的 completion 在主线程回调，断言主线程隔离以调用 @MainActor 的 Toast。
+                MainActor.assumeIsolated {
+                    ToastView.error(L10n.recording.deleteFailed, in: window)
+                }
+            }
         }
     }
 

@@ -325,6 +325,7 @@ enum L10n {
         enum tab {
             static var general: String { "prefs.tab.general".localized }
             static var capture: String { "prefs.tab.capture".localized }
+            static var recording: String { "prefs.tab.recording".localized }
             static var scrcpy: String { "prefs.tab.scrcpy".localized }
             static var permissions: String { "prefs.tab.permissions".localized }
             static var toolchain: String { "prefs.tab.toolchain".localized }
@@ -336,6 +337,9 @@ enum L10n {
             static var appearance: String { "prefs.section.appearance".localized }
             static var layout: String { "prefs.section.layout".localized }
             static var frameRate: String { "prefs.section.frameRate".localized }
+            static var recordingOutput: String { "prefs.section.recordingOutput".localized }
+            static var recordingSnapshot: String { "prefs.section.recordingSnapshot".localized }
+            static var recordingAudio: String { "prefs.section.recordingAudio".localized }
             static var audio: String { "prefs.section.audio".localized }
             static var iosAudio: String { "prefs.section.iosAudio".localized }
             static var androidAudio: String { "prefs.section.androidAudio".localized }
@@ -384,6 +388,22 @@ enum L10n {
         enum capturePref {
             static var frameRate: String { "prefs.capture.frameRate".localized }
             static var frameRateNote: String { "prefs.capture.frameRateNote".localized }
+        }
+
+        enum recording {
+            static var saveLocation: String { "prefs.recording.saveLocation".localized }
+            static var saveLocationNote: String { "prefs.recording.saveLocationNote".localized }
+            static var chooseFolder: String { "prefs.recording.chooseFolder".localized }
+            static var resetToDefault: String { "prefs.recording.resetToDefault".localized }
+            static var snapshotInterval: String { "prefs.recording.snapshotInterval".localized }
+            static var snapshotIntervalNote: String { "prefs.recording.snapshotIntervalNote".localized }
+            static func intervalSeconds(_ seconds: Int) -> String { "prefs.recording.intervalSeconds".localized(seconds) }
+            static var imageQuality: String { "prefs.recording.imageQuality".localized }
+            static var qualityLow: String { "prefs.recording.qualityLow".localized }
+            static var qualityMedium: String { "prefs.recording.qualityMedium".localized }
+            static var qualityHigh: String { "prefs.recording.qualityHigh".localized }
+            static var enableMicrophone: String { "prefs.recording.enableMicrophone".localized }
+            static var enableMicrophoneNote: String { "prefs.recording.enableMicrophoneNote".localized }
         }
 
         enum audioPref {
@@ -537,16 +557,31 @@ enum L10n {
         static var record: String { "recording.record".localized }
         static var stop: String { "recording.stop".localized }
         static var started: String { "recording.started".localized }
+        static var startedNoMicrophoneDevice: String { "recording.startedNoMicrophoneDevice".localized }
+        static var startedMicrophoneDenied: String { "recording.startedMicrophoneDenied".localized }
+        static var startedMicrophoneUnavailable: String { "recording.startedMicrophoneUnavailable".localized }
         static var saved: String { "recording.saved".localized }
         static var startFailed: String { "recording.startFailed".localized }
         static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }
         static var outputDirectoryUnavailable: String { "recording.outputDirectoryUnavailable".localized }
+        static var insufficientDiskSpace: String { "recording.insufficientDiskSpace".localized }
         static var openOutputDirectory: String { "recording.openOutputDirectory".localized }
         static var openHistory: String { "recording.openHistory".localized }
         static var back: String { "recording.back".localized }
         static var play: String { "recording.play".localized }
         static var pause: String { "recording.pause".localized }
         static var revealDirectory: String { "recording.revealDirectory".localized }
+        static var delete: String { "recording.delete".localized }
+        static var deleteConfirmTitle: String { "recording.deleteConfirmTitle".localized }
+        static func deleteConfirmMessage(_ name: String) -> String {
+            "recording.deleteConfirmMessage".localized(name)
+        }
+        static var deleteConfirmButton: String { "recording.deleteConfirmButton".localized }
+        static var cancel: String { "recording.cancel".localized }
+        static var deleteFailed: String { "recording.deleteFailed".localized }
+        static func historySummary(_ count: Int, _ size: String) -> String {
+            "recording.historySummary".localized(count, size)
+        }
         static var replay: String { "recording.replay".localized }
         static var noHistory: String { "recording.noHistory".localized }
         static var historyTitle: String { "recording.historyTitle".localized }
@@ -596,12 +631,15 @@ enum L10n {
         static var screenRecordingDesc: String { "permission.screenRecording.desc".localized }
         static var cameraName: String { "permission.camera.name".localized }
         static var cameraDesc: String { "permission.camera.desc".localized }
+        static var microphoneName: String { "permission.microphone.name".localized }
+        static var microphoneDesc: String { "permission.microphone.desc".localized }
         static var openSystemPrefs: String { "permission.openSystemPrefs".localized }
         // 撤销权限
         static var revoke: String { "permission.revoke".localized }
         static var revokeTitle: String { "permission.revokeTitle".localized }
         static var revokeScreenRecordingHint: String { "permission.revokeScreenRecordingHint".localized }
         static var revokeCameraHint: String { "permission.revokeCameraHint".localized }
+        static var revokeMicrophoneHint: String { "permission.revokeMicrophoneHint".localized }
         static var revokeNote: String { "permission.revokeNote".localized }
     }
 

@@ -112,10 +112,11 @@ final class RecordingLibraryTests: XCTestCase {
             isDirectory: true
         )
         try FileManager.default.createDirectory(at: invalidSession, withIntermediateDirectories: true)
+        // 既无 audio.m4a，也无可解析的截图（文件名缺少下划线时间戳），应被整体跳过。
         try makeDeviceDirectory(
             in: invalidSession,
             named: "Android-Pixel",
-            snapshotNames: ["000001_2026-07-02_09-10-12.jpg"]
+            snapshotNames: ["000001.jpg"]
         )
 
         let library = RecordingLibrary(
@@ -128,6 +129,32 @@ final class RecordingLibraryTests: XCTestCase {
         XCTAssertEqual(sessions.count, 1)
         XCTAssertEqual(sessions[0].deviceTracks.map(\.deviceName), ["iPhone"])
         XCTAssertEqual(sessions[0].deviceTracks[0].snapshots.map(\.elapsedSecond), [1])
+    }
+
+    func testScanIncludesAudiolessSessionAndDerivesDurationFromSnapshots() throws {
+        // 纯截图录制（无 audio.m4a）：会话仍应被收录，时长按最大截图秒数 + 1 估算。
+        let directory = temporaryDirectory.appendingPathComponent("2026-07-03 10-00-00", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try makeDeviceDirectory(
+            in: directory,
+            named: "iOS-iPhone",
+            snapshotNames: [
+                "000001_2026-07-03_10-00-01.jpg",
+                "000009_2026-07-03_10-00-09.jpg"
+            ]
+        )
+
+        let library = RecordingLibrary(
+            rootDirectory: temporaryDirectory,
+            audioDurationProvider: { _ in XCTFail("无音频会话不应调用音频时长解析"); return 0 }
+        )
+
+        let sessions = try library.scanSessions()
+
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertNil(sessions[0].audioURL)
+        XCTAssertEqual(sessions[0].duration, 10)
+        XCTAssertEqual(sessions[0].deviceTracks[0].snapshots.map(\.elapsedSecond), [1, 9])
     }
 
     private func makeSession(named name: String, duration: TimeInterval) throws -> URL {
