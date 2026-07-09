@@ -71,6 +71,9 @@ final class RecordingService: NSObject {
         didSet { stateChangedPublisher.send() }
     }
 
+    /// 本次录制是否启用了音频轨道。麦克风不可用或权限被拒时为 false，仍进行纯截图录制。
+    private(set) var isAudioEnabled = false
+
     // MARK: - 私有属性
 
     private let frameProvider: FrameProvider
@@ -108,27 +111,32 @@ final class RecordingService: NSObject {
 
         lastOutputDirectory = nil
         elapsedSeconds = 0
+        isAudioEnabled = false
         deviceDirectories.removeAll()
 
         do {
-            try await ensureMicrophoneAccess()
-
             let now = Date()
             let directory = try createSessionDirectory(startedAt: now)
-            let audioURL = directory.appendingPathComponent("audio.m4a")
-            let recorder = try makeAudioRecorder(outputURL: audioURL)
 
-            guard recorder.record() else {
-                throw RecordingServiceError.recorderStartFailed
+            // 音频降级为可选轨道：麦克风不可用或权限被拒时不再中断录制，仅记录画面截图。
+            if await ensureMicrophoneAccess() {
+                let audioURL = directory.appendingPathComponent("audio.m4a")
+                if let recorder = try? makeAudioRecorder(outputURL: audioURL), recorder.record() {
+                    audioRecorder = recorder
+                    isAudioEnabled = true
+                } else {
+                    AppLogger.capture.warning("音频录制启动失败，仅录制画面截图")
+                }
+            } else {
+                AppLogger.capture.info("未获得麦克风权限，仅录制画面截图")
             }
 
             startedAt = now
             outputDirectory = directory
-            audioRecorder = recorder
             state = .recording(startedAt: now, outputDirectory: directory)
 
             startTimers()
-            AppLogger.capture.info("录制已开始: \(directory.path)")
+            AppLogger.capture.info("录制已开始: \(directory.path)，音频: \(isAudioEnabled)")
         } catch {
             cleanupAfterFailedStart()
             state = .failed(error.localizedDescription)
@@ -162,19 +170,17 @@ final class RecordingService: NSObject {
 
     // MARK: - 权限和录音
 
-    private func ensureMicrophoneAccess() async throws {
+    /// 检查麦克风访问权限。返回是否可用于录音，不再以抛错方式阻断整场录制。
+    private func ensureMicrophoneAccess() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
-            return
+            return true
         case .notDetermined:
-            let granted = await requestMicrophoneAccess()
-            guard granted else {
-                throw RecordingServiceError.microphonePermissionDenied
-            }
+            return await requestMicrophoneAccess()
         case .denied, .restricted:
-            throw RecordingServiceError.microphonePermissionDenied
+            return false
         @unknown default:
-            throw RecordingServiceError.microphonePermissionDenied
+            return false
         }
     }
 

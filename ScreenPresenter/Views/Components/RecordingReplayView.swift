@@ -10,6 +10,7 @@
 
 import AVFoundation
 import AppKit
+import QuartzCore
 
 // MARK: - 录制回看视图
 
@@ -41,7 +42,7 @@ final class RecordingReplayView: NSView {
     // MARK: - 播放状态
 
     var session: RecordingSession?
-    var audioPlayer: AVAudioPlayer?
+    var clock: ReplayClock?
     var playbackTimer: Timer?
     private var keyboardMonitor: Any?
     var devicePanes: [DevicePane] = []
@@ -109,18 +110,24 @@ final class RecordingReplayView: NSView {
         updatePlaybackControls(isEnabled: false)
         rebuildDevicePanes(for: session.deviceTracks)
 
-        do {
-            let player = try AVAudioPlayer(contentsOf: session.audioURL)
+        if let audioURL = session.audioURL, let player = try? AVAudioPlayer(contentsOf: audioURL) {
             player.enableRate = true
             player.rate = playbackRate
             player.prepareToPlay()
-            audioPlayer = player
+            clock = AudioReplayClock(player: player)
             setErrorMessage(nil)
             updatePlaybackControls(isEnabled: true)
             refreshPlaybackState(at: 0)
             startAutoPlayback()
-        } catch {
-            audioPlayer = nil
+        } else if session.duration > 0 {
+            // 纯截图录制或音频加载失败：用虚拟时钟按截图时间轴回放。
+            clock = VirtualReplayClock(duration: session.duration)
+            setErrorMessage(nil)
+            updatePlaybackControls(isEnabled: true)
+            refreshPlaybackState(at: 0)
+            startAutoPlayback()
+        } else {
+            clock = nil
             setErrorMessage(L10n.recording.replayLoadFailed)
         }
     }
@@ -129,8 +136,8 @@ final class RecordingReplayView: NSView {
         playbackTimer?.invalidate()
         playbackTimer = nil
 
-        audioPlayer?.stop()
-        audioPlayer = nil
+        clock?.pause()
+        clock = nil
 
         updatePlayPauseButton(isPlaying: false)
         updatePlaybackControls(isEnabled: false)
@@ -301,5 +308,87 @@ final class RecordingReplayView: NSView {
         button.action = action
         button.focusRingType = .none
         controlsContainer.addSubview(button)
+    }
+}
+
+// MARK: - 回放时钟
+
+/// 回放时间轴抽象。有音频时由 AVAudioPlayer 驱动，无音频时由虚拟时钟驱动，
+/// 使回放控制逻辑无需区分是否存在音频轨道。
+protocol ReplayClock: AnyObject {
+    var currentTime: TimeInterval { get set }
+    var duration: TimeInterval { get }
+    var rate: Float { get set }
+    var isPlaying: Bool { get }
+    @discardableResult func play() -> Bool
+    func pause()
+}
+
+/// 音频驱动时钟，直接转发到 AVAudioPlayer。
+final class AudioReplayClock: ReplayClock {
+    private let player: AVAudioPlayer
+
+    init(player: AVAudioPlayer) {
+        self.player = player
+    }
+
+    var currentTime: TimeInterval {
+        get { player.currentTime }
+        set { player.currentTime = newValue }
+    }
+
+    var duration: TimeInterval { player.duration }
+
+    var rate: Float {
+        get { player.rate }
+        set { player.rate = newValue }
+    }
+
+    var isPlaying: Bool { player.isPlaying }
+
+    @discardableResult
+    func play() -> Bool { player.play() }
+    func pause() { player.pause() }
+}
+
+/// 虚拟时钟，用于纯截图录制（无音频）的回放。基于系统单调时钟按倍速推进。
+final class VirtualReplayClock: ReplayClock {
+    let duration: TimeInterval
+    var rate: Float = 1.0
+
+    private var playing = false
+    private var anchorMediaTime: TimeInterval = 0
+    private var anchorPlaybackTime: TimeInterval = 0
+
+    init(duration: TimeInterval) {
+        self.duration = max(0, duration)
+    }
+
+    var isPlaying: Bool { playing }
+
+    var currentTime: TimeInterval {
+        get {
+            guard playing else { return anchorPlaybackTime }
+            let elapsed = (CACurrentMediaTime() - anchorMediaTime) * Double(rate)
+            return min(max(0, anchorPlaybackTime + elapsed), duration)
+        }
+        set {
+            anchorPlaybackTime = min(max(0, newValue), duration)
+            anchorMediaTime = CACurrentMediaTime()
+        }
+    }
+
+    @discardableResult
+    func play() -> Bool {
+        guard !playing else { return true }
+        anchorMediaTime = CACurrentMediaTime()
+        playing = true
+        return true
+    }
+
+    func pause() {
+        guard playing else { return }
+        anchorPlaybackTime = currentTime
+        playing = false
     }
 }

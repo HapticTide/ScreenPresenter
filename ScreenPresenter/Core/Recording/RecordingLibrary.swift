@@ -66,7 +66,8 @@ struct RecordingDeviceTrack: Hashable {
 
 struct RecordingSession: Hashable {
     let directory: URL
-    let audioURL: URL
+    /// 音频文件地址。纯截图录制（无麦克风/拒权限）时为 nil。
+    let audioURL: URL?
     let startedAt: Date
     let duration: TimeInterval
     let deviceTracks: [RecordingDeviceTrack]
@@ -114,28 +115,37 @@ struct RecordingLibrary {
                 return nil
             }
 
-            let audioURL = directory.appendingPathComponent("audio.m4a", isDirectory: false)
-            guard fileManager.fileExists(atPath: audioURL.path) else {
+            let audioFileURL = directory.appendingPathComponent("audio.m4a", isDirectory: false)
+            let hasAudio = fileManager.fileExists(atPath: audioFileURL.path)
+            let deviceTracks = scanDeviceTracks(in: directory)
+            let hasSnapshots = deviceTracks.contains { !$0.snapshots.isEmpty }
+
+            // 无音频且无任何截图才视为无效目录。纯截图录制仍应出现在历史中。
+            guard hasAudio || hasSnapshots else {
                 return nil
             }
 
-            do {
-                return RecordingSession(
-                    directory: directory,
-                    audioURL: audioURL,
-                    startedAt: startedAt(for: directory),
-                    duration: try audioDurationProvider(audioURL),
-                    deviceTracks: scanDeviceTracks(in: directory)
-                )
-            } catch {
-                AppLogger.capture.warning("跳过损坏的录制记录: \(directory.path), \(error.localizedDescription)")
-                return nil
-            }
+            let audioDuration = hasAudio ? (try? audioDurationProvider(audioFileURL)) ?? 0 : 0
+            let duration = audioDuration > 0 ? audioDuration : snapshotDuration(of: deviceTracks)
+
+            return RecordingSession(
+                directory: directory,
+                audioURL: hasAudio ? audioFileURL : nil,
+                startedAt: startedAt(for: directory),
+                duration: duration,
+                deviceTracks: deviceTracks
+            )
         }
 
         return sessions.sorted { lhs, rhs in
             lhs.startedAt > rhs.startedAt
         }
+    }
+
+    /// 无音频时根据截图的最大相对秒估算录制时长。
+    private func snapshotDuration(of tracks: [RecordingDeviceTrack]) -> TimeInterval {
+        let maxSecond = tracks.compactMap { $0.snapshots.last?.elapsedSecond }.max() ?? 0
+        return TimeInterval(maxSecond + 1)
     }
 
     private func scanDeviceTracks(in sessionDirectory: URL) -> [RecordingDeviceTrack] {

@@ -11,9 +11,9 @@ import AppKit
 
 extension RecordingReplayView {
     func seek(to time: TimeInterval) {
-        let duration = session?.duration ?? audioPlayer?.duration ?? 0
+        let duration = session?.duration ?? clock?.duration ?? 0
         let clampedTime = min(max(0, time), duration)
-        audioPlayer?.currentTime = clampedTime
+        clock?.currentTime = clampedTime
         refreshPlaybackState(at: clampedTime)
     }
 
@@ -38,10 +38,10 @@ extension RecordingReplayView {
     }
 
     func startAutoPlayback() {
-        guard let audioPlayer else { return }
+        guard let clock else { return }
 
-        audioPlayer.rate = playbackRate
-        if audioPlayer.play() {
+        clock.rate = playbackRate
+        if clock.play() {
             startPlaybackTimer()
             updatePlayPauseButton(isPlaying: true)
         } else {
@@ -109,30 +109,30 @@ extension RecordingReplayView {
     }
 
     @objc func playPauseTapped() {
-        guard let audioPlayer else { return }
+        guard let clock else { return }
 
-        if audioPlayer.isPlaying {
-            audioPlayer.pause()
+        if clock.isPlaying {
+            clock.pause()
             playbackTimer?.invalidate()
             playbackTimer = nil
             updatePlayPauseButton(isPlaying: false)
         } else {
-            if audioPlayer.currentTime >= audioPlayer.duration {
+            if clock.currentTime >= clock.duration {
                 seek(to: 0)
             }
-            audioPlayer.rate = playbackRate
-            audioPlayer.play()
+            clock.rate = playbackRate
+            clock.play()
             startPlaybackTimer()
             updatePlayPauseButton(isPlaying: true)
         }
     }
 
     @objc func rewindTapped() {
-        seek(to: (audioPlayer?.currentTime ?? progressSlider.doubleValue) - 5)
+        seek(to: (clock?.currentTime ?? progressSlider.doubleValue) - 5)
     }
 
     @objc func forwardTapped() {
-        seek(to: (audioPlayer?.currentTime ?? progressSlider.doubleValue) + 5)
+        seek(to: (clock?.currentTime ?? progressSlider.doubleValue) + 5)
     }
 
     @objc func speedTapped() {
@@ -147,7 +147,7 @@ extension RecordingReplayView {
             playbackRate = 1.0
         }
 
-        audioPlayer?.rate = playbackRate
+        clock?.rate = playbackRate
         updateSpeedButtonTitle()
     }
 
@@ -156,10 +156,10 @@ extension RecordingReplayView {
     }
 
     @objc func playbackTimerFired() {
-        guard let audioPlayer else { return }
+        guard let clock else { return }
 
-        refreshPlaybackState(at: audioPlayer.currentTime)
-        if !audioPlayer.isPlaying {
+        refreshPlaybackState(at: clock.currentTime)
+        if !clock.isPlaying {
             playbackTimer?.invalidate()
             playbackTimer = nil
             updatePlayPauseButton(isPlaying: false)
