@@ -272,7 +272,14 @@ jobs:
             echo
             echo "### 安装提示"
             echo
-            echo "当前自动构建产物未进行 Developer ID 签名和公证。首次打开时，如 macOS 阻止启动，可参考 README 中的 xattr 方式移除隔离属性。"
+            echo "当前自动构建产物未进行 Developer ID 签名和公证。首次打开时，如 macOS 提示“无法验证开发者”或阻止启动，请在确认来源可信后执行以下命令移除隔离属性："
+            echo
+            echo '```bash'
+            echo "xattr -dr com.apple.quarantine /Applications/${APP_NAME}.app"
+            echo "open /Applications/${APP_NAME}.app"
+            echo '```'
+            echo
+            echo "若 App 放在其他目录，请把上面命令中的路径替换为实际位置。"
             echo
             echo "### SHA-256"
             echo
