@@ -146,7 +146,7 @@ final class RecordingReplayView: NSView {
         clock?.pause()
         clock = nil
 
-        updatePlayPauseButton(isPlaying: false)
+        updatePlayPauseButton(.paused)
         updatePlaybackControls(isEnabled: false)
     }
 
@@ -287,7 +287,7 @@ final class RecordingReplayView: NSView {
         totalTimeLabel.textColor = .secondaryLabelColor
         controlsContainer.addSubview(totalTimeLabel)
 
-        updatePlayPauseButton(isPlaying: false)
+        updatePlayPauseButton(.paused)
     }
 
     func configureButton(_ button: NSButton, title: String, action: Selector) {

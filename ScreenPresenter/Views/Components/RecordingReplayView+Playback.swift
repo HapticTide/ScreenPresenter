@@ -30,9 +30,27 @@ extension RecordingReplayView {
         }
     }
 
-    func updatePlayPauseButton(isPlaying: Bool) {
-        let title = isPlaying ? L10n.recording.pause : L10n.recording.play
-        let symbolName = isPlaying ? "pause.fill" : "play.fill"
+    /// 播放按钮的三种形态:播放中(暂停图标)、已暂停(播放图标)、已播完(重播图标)。
+    enum PlaybackButtonState {
+        case playing
+        case paused
+        case ended
+    }
+
+    func updatePlayPauseButton(_ state: PlaybackButtonState) {
+        let symbolName: String
+        let title: String
+        switch state {
+        case .playing:
+            symbolName = "pause.fill"
+            title = L10n.recording.pause
+        case .paused:
+            symbolName = "play.fill"
+            title = L10n.recording.play
+        case .ended:
+            symbolName = "arrow.counterclockwise"
+            title = L10n.recording.replay
+        }
         playPauseButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
         playPauseButton.toolTip = title
     }
@@ -43,9 +61,9 @@ extension RecordingReplayView {
         clock.rate = playbackRate
         if clock.play() {
             startPlaybackTimer()
-            updatePlayPauseButton(isPlaying: true)
+            updatePlayPauseButton(.playing)
         } else {
-            updatePlayPauseButton(isPlaying: false)
+            updatePlayPauseButton(.paused)
         }
     }
 
@@ -116,7 +134,7 @@ extension RecordingReplayView {
             clock.pause()
             playbackTimer?.invalidate()
             playbackTimer = nil
-            updatePlayPauseButton(isPlaying: false)
+            updatePlayPauseButton(.paused)
         } else {
             if clock.currentTime >= clock.duration {
                 seek(to: 0)
@@ -124,7 +142,7 @@ extension RecordingReplayView {
             clock.rate = playbackRate
             clock.play()
             startPlaybackTimer()
-            updatePlayPauseButton(isPlaying: true)
+            updatePlayPauseButton(.playing)
         }
     }
 
@@ -160,10 +178,18 @@ extension RecordingReplayView {
         guard let clock else { return }
 
         refreshPlaybackState(at: clock.currentTime)
-        if !clock.isPlaying {
-            playbackTimer?.invalidate()
-            playbackTimer = nil
-            updatePlayPauseButton(isPlaying: false)
-        }
+
+        // 手动暂停会在 playPauseTapped 中同步失效定时器，不会走到这里；
+        // 因此定时器一旦观测到「不再播放」或「已到末尾」，必定是自然播完。
+        // 音频时钟播完后 isPlaying 变 false；虚拟时钟无自停机制，靠 currentTime 到达 duration 判定。
+        let reachedEnd = !clock.isPlaying || clock.currentTime >= clock.duration
+        guard reachedEnd else { return }
+
+        clock.pause() // 冻结虚拟时钟于末尾；对音频时钟是空操作。
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+        // 对齐进度条与时间标签到末尾，避免停在 24.75s / 25s 这类中间态。
+        refreshPlaybackState(at: clock.duration)
+        updatePlayPauseButton(.ended)
     }
 }
