@@ -139,6 +139,7 @@
 // MARK: - Preferences - Tabs
 "prefs.tab.general" = "通用";
 "prefs.tab.capture" = "捕获";
+"prefs.tab.recording" = "投屏录制";
 "prefs.tab.scrcpy" = "Scrcpy";
 "prefs.tab.permissions" = "权限";
 "prefs.tab.toolchain" = "工具链";
@@ -149,6 +150,9 @@
 "prefs.section.appearance" = "外观";
 "prefs.section.layout" = "布局";
 "prefs.section.frameRate" = "帧率";
+"prefs.section.recordingOutput" = "保存位置";
+"prefs.section.recordingSnapshot" = "画面截图";
+"prefs.section.recordingAudio" = "音频";
 "prefs.section.audio" = "音频";
 "prefs.section.iosAudio" = "iOS 音频";
 "prefs.section.androidAudio" = "Android 音频";
@@ -199,6 +203,19 @@
 // MARK: - Preferences - Capture
 "prefs.capture.frameRate" = "捕获帧率";
 "prefs.capture.frameRateNote" = "更高的帧率会增加 CPU 和 GPU 负载";
+"prefs.recording.saveLocation" = "保存到";
+"prefs.recording.saveLocationNote" = "录制文件将存放在所选目录的“ScreenPresenter Recordings”子文件夹中";
+"prefs.recording.chooseFolder" = "选择文件夹…";
+"prefs.recording.resetToDefault" = "恢复默认";
+"prefs.recording.snapshotInterval" = "截图间隔";
+"prefs.recording.snapshotIntervalNote" = "间隔越短回放越流畅，占用磁盘也越多";
+"prefs.recording.intervalSeconds" = "每 %d 秒";
+"prefs.recording.imageQuality" = "截图画质";
+"prefs.recording.qualityLow" = "低（更省空间）";
+"prefs.recording.qualityMedium" = "中";
+"prefs.recording.qualityHigh" = "高（更清晰）";
+"prefs.recording.enableMicrophone" = "录制麦克风音频";
+"prefs.recording.enableMicrophoneNote" = "关闭后仅录制画面，不再请求麦克风权限";
 
 // MARK: - Preferences - Scrcpy
 "prefs.scrcpy.bitrate" = "比特率";

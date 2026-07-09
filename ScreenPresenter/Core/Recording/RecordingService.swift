@@ -56,6 +56,8 @@ enum RecordingServiceError: LocalizedError {
 enum RecordingAudioStatus: Equatable {
     /// 音频正常录制中。
     case enabled
+    /// 用户在偏好设置中主动关闭了麦克风录制。
+    case disabled
     /// 设备没有麦克风硬件。
     case noDevice
     /// 存在麦克风，但未授予权限（被拒绝 / 受限 / 用户拒绝）。
@@ -106,9 +108,6 @@ final class RecordingService: NSObject {
     private var outputDirectory: URL?
     private var deviceDirectories: [String: URL] = [:]
 
-    private let maxSnapshotLongSide: CGFloat = 1280
-    private let jpegQuality: CGFloat = 0.65
-
     /// 录制启动前要求的最小可用磁盘空间。
     private let minFreeBytesToStart: Int64 = 1_024 * 1_024 * 1_024
     /// 录制过程中的安全下限，低于此值主动停录。
@@ -119,9 +118,10 @@ final class RecordingService: NSObject {
     private var consecutiveWriteFailures = 0
     private var snapshotTickCount = 0
 
-    private lazy var snapshotEncoder = SnapshotEncoder(
-        maxLongSide: maxSnapshotLongSide,
-        quality: jpegQuality,
+    /// 截图编码器。按当前画质偏好在每次录制开始时重建。
+    private var snapshotEncoder = SnapshotEncoder(
+        maxLongSide: RecordingImageQuality.medium.maxLongSide,
+        quality: RecordingImageQuality.medium.jpegQuality,
         maxPendingFrames: 12
     )
 
@@ -159,6 +159,14 @@ final class RecordingService: NSObject {
             if availableCapacity(at: directory) < minFreeBytesToStart {
                 throw RecordingServiceError.insufficientDiskSpace
             }
+
+            // 按当前画质偏好重建截图编码器。
+            let quality = UserPreferences.shared.recordingImageQuality
+            snapshotEncoder = SnapshotEncoder(
+                maxLongSide: quality.maxLongSide,
+                quality: quality.jpegQuality,
+                maxPendingFrames: 12
+            )
 
             // 音频降级为可选轨道：无麦克风 / 权限被拒 / 麦克风不可用都不中断录制，仅记录画面截图，
             // 并把具体成因记入 audioStatus 供 UI 准确提示。
@@ -206,6 +214,12 @@ final class RecordingService: NSObject {
     /// 判定音频轨道状态并在可用时启动录音器。区分三种"没有音频"的成因:
     /// 无麦克风硬件 / 权限被拒 / 麦克风存在但不可用。
     private func configureAudioTrack(in directory: URL) async -> RecordingAudioStatus {
+        // 0. 用户主动关闭麦克风录制时，直接纯画面录制，不查硬件/权限。
+        guard UserPreferences.shared.recordingMicrophoneEnabled else {
+            AppLogger.capture.info("用户已关闭麦克风录制，仅录制画面截图")
+            return .disabled
+        }
+
         // 1. 先看是否有麦克风硬件。没有设备时权限查询无意义。
         guard hasMicrophoneDevice() else {
             AppLogger.capture.info("未检测到麦克风设备，仅录制画面截图")
@@ -287,11 +301,8 @@ final class RecordingService: NSObject {
     // MARK: - 目录
 
     private func createSessionDirectory(startedAt: Date) throws -> URL {
-        guard let moviesDirectory = fileManager.urls(for: .moviesDirectory, in: .userDomainMask).first else {
-            throw RecordingServiceError.outputDirectoryUnavailable
-        }
-
-        let rootDirectory = moviesDirectory.appendingPathComponent("ScreenPresenter Recordings", isDirectory: true)
+        // 根目录取自偏好（保存位置），录制写入与历史扫描保持一致。
+        let rootDirectory = UserPreferences.shared.recordingsRootDirectory(fileManager: fileManager)
         let sessionDirectory = rootDirectory.appendingPathComponent(
             RecordingFileNaming.sessionDirectoryName(date: startedAt),
             isDirectory: true
@@ -335,7 +346,9 @@ final class RecordingService: NSObject {
         RunLoop.main.add(elapsedTimer, forMode: .common)
         self.elapsedTimer = elapsedTimer
 
-        let snapshotTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+        // 截图间隔取自偏好（秒）。整秒时间轴模型下最小 1s。
+        let snapshotInterval = TimeInterval(max(1, UserPreferences.shared.recordingSnapshotInterval))
+        let snapshotTimer = Timer(timeInterval: snapshotInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.captureCurrentDeviceSnapshots()

@@ -677,6 +677,7 @@ final class PreferencesViewController: NSViewController {
         let labels = [
             L10n.prefs.tab.general,
             L10n.prefs.tab.capture,
+            L10n.prefs.tab.recording,
             L10n.prefs.tab.permissions,
         ]
         segmentedControl.segmentCount = labels.count
@@ -699,6 +700,7 @@ final class PreferencesViewController: NSViewController {
         tabViews = [
             createGeneralView(),
             createCaptureView(),
+            createRecordingView(),
             createPermissionsView(),
         ]
 
@@ -1232,6 +1234,117 @@ final class PreferencesViewController: NSViewController {
     }
 
     // MARK: - 权限设置
+
+    // MARK: - 投屏录制分页
+
+    /// 录制保存位置路径标签的 tag，供选择/重置后回填。
+    private static let recordingPathLabelTag = 4601
+    /// 截图间隔可选档位（秒）。受整秒时间轴约束，最小 1s。
+    private static let recordingIntervalOptions = [1, 2, 5, 10]
+
+    private func createRecordingView() -> NSView {
+        let scrollView = createScrollView()
+        let stackView = createVerticalStack()
+
+        // 保存位置组
+        let outputGroup = createSettingsGroup(title: L10n.prefs.section.recordingOutput, icon: "folder")
+        addGroupRow(outputGroup, createLabeledRow(label: L10n.prefs.recording.saveLocation) {
+            let row = StackContainerView()
+            row.axis = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+
+            let pathLabel = FixedSizeTextField(labelWithString: self.recordingSaveLocationDisplayPath())
+            pathLabel.font = NSFont.systemFont(ofSize: 12)
+            pathLabel.textColor = .secondaryLabelColor
+            pathLabel.lineBreakMode = .byTruncatingMiddle
+            pathLabel.tag = Self.recordingPathLabelTag
+            row.addArrangedSubview(pathLabel)
+
+            let chooseButton = NSButton(
+                title: L10n.prefs.recording.chooseFolder,
+                target: self,
+                action: #selector(self.chooseRecordingFolder(_:))
+            )
+            chooseButton.bezelStyle = .rounded
+            chooseButton.setContentHuggingPriority(.required, for: .horizontal)
+            row.addArrangedSubview(chooseButton)
+
+            let resetButton = NSButton(
+                title: L10n.prefs.recording.resetToDefault,
+                target: self,
+                action: #selector(self.resetRecordingFolder(_:))
+            )
+            resetButton.bezelStyle = .rounded
+            resetButton.setContentHuggingPriority(.required, for: .horizontal)
+            row.addArrangedSubview(resetButton)
+            return row
+        })
+        addGroupRow(outputGroup, self.recordingNote(L10n.prefs.recording.saveLocationNote), addDivider: false)
+        addSettingsGroup(outputGroup, to: stackView)
+
+        addRecordingSnapshotGroup(to: stackView)
+        addRecordingAudioGroup(to: stackView)
+
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
+        return scrollView
+    }
+
+    /// 画面截图组：截图间隔 + 画质档。
+    private func addRecordingSnapshotGroup(to stackView: StackContainerView) {
+        let group = createSettingsGroup(title: L10n.prefs.section.recordingSnapshot, icon: "camera")
+
+        // 截图间隔
+        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.snapshotInterval) {
+            let popup = NSPopUpButton()
+            for seconds in Self.recordingIntervalOptions {
+                popup.addItem(withTitle: L10n.prefs.recording.intervalSeconds(seconds))
+            }
+            let current = UserPreferences.shared.recordingSnapshotInterval
+            popup.selectItem(at: Self.recordingIntervalOptions.firstIndex(of: current) ?? 0)
+            popup.target = self
+            popup.action = #selector(self.recordingSnapshotIntervalChanged(_:))
+            return popup
+        })
+        addGroupRow(group, self.recordingNote(L10n.prefs.recording.snapshotIntervalNote), addDivider: false)
+
+        // 画质档
+        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.imageQuality) {
+            let popup = NSPopUpButton()
+            for quality in RecordingImageQuality.allCases {
+                popup.addItem(withTitle: quality.displayName)
+            }
+            let current = UserPreferences.shared.recordingImageQuality
+            popup.selectItem(at: RecordingImageQuality.allCases.firstIndex(of: current) ?? 1)
+            popup.target = self
+            popup.action = #selector(self.recordingImageQualityChanged(_:))
+            return popup
+        })
+        addSettingsGroup(group, to: stackView)
+    }
+
+    /// 音频组：麦克风录制开关。
+    private func addRecordingAudioGroup(to stackView: StackContainerView) {
+        let group = createSettingsGroup(title: L10n.prefs.section.recordingAudio, icon: "mic")
+        addGroupRow(group, createCheckboxRow(
+            label: L10n.prefs.recording.enableMicrophone,
+            isOn: UserPreferences.shared.recordingMicrophoneEnabled,
+            action: #selector(recordingMicrophoneToggled(_:)),
+            helpText: L10n.prefs.recording.enableMicrophoneNote
+        ), addDivider: false)
+        addSettingsGroup(group, to: stackView)
+    }
+
+    /// 灰色小字说明行，复用帧率说明的边距样式。
+    private func recordingNote(_ text: String) -> NSView {
+        let note = NSTextField(wrappingLabelWithString: text)
+        note.font = NSFont.systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
+        return PaddingView(
+            contentView: note,
+            insets: NSEdgeInsets(top: 0, left: 0, bottom: LayoutMetrics.rowVerticalPadding * 1.5, right: 0)
+        )
+    }
 
     private func createPermissionsView() -> NSView {
         let scrollView = createScrollView()
@@ -2239,6 +2352,62 @@ final class PreferencesViewController: NSViewController {
         Task {
             await AppState.shared.toolchainManager.refresh()
         }
+    }
+
+    // MARK: - 投屏录制分页 Actions
+
+    /// 当前保存位置的展示路径：用户设定值或默认 Movies。
+    private func recordingSaveLocationDisplayPath() -> String {
+        let base = UserPreferences.shared.recordingSaveDirectory
+            ?? FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).appendingPathComponent("Movies")
+        return (base.path as NSString).abbreviatingWithTildeInPath
+    }
+
+    private func refreshRecordingPathLabel() {
+        guard let label = contentContainer.viewWithTag(Self.recordingPathLabelTag) as? NSTextField else { return }
+        label.stringValue = recordingSaveLocationDisplayPath()
+        label.superview?.needsLayout = true
+        label.superview?.layoutSubtreeIfNeeded()
+    }
+
+    @objc private func chooseRecordingFolder(_ sender: NSButton) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.message = L10n.prefs.recording.saveLocation
+        panel.prompt = L10n.common.ok
+        panel.directoryURL = UserPreferences.shared.recordingSaveDirectory
+            ?? FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
+
+        if panel.runModal() == .OK, let url = panel.url {
+            UserPreferences.shared.recordingSaveDirectory = url
+            refreshRecordingPathLabel()
+        }
+    }
+
+    @objc private func resetRecordingFolder(_ sender: NSButton) {
+        UserPreferences.shared.recordingSaveDirectory = nil
+        refreshRecordingPathLabel()
+    }
+
+    @objc private func recordingSnapshotIntervalChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0, index < Self.recordingIntervalOptions.count else { return }
+        UserPreferences.shared.recordingSnapshotInterval = Self.recordingIntervalOptions[index]
+    }
+
+    @objc private func recordingImageQualityChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        let all = RecordingImageQuality.allCases
+        guard index >= 0, index < all.count else { return }
+        UserPreferences.shared.recordingImageQuality = all[index]
+    }
+
+    @objc private func recordingMicrophoneToggled(_ sender: NSButton) {
+        UserPreferences.shared.recordingMicrophoneEnabled = (sender.state == .on)
     }
 
     @objc private func customPathChanged(_ sender: NSTextField) {

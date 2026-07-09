@@ -78,9 +78,15 @@ struct RecordingSession: Hashable {
 struct RecordingLibrary {
     typealias AudioDurationProvider = (URL) throws -> TimeInterval
 
-    private let rootDirectory: URL
+    /// 注入的根目录（测试用）；为 nil 时动态读取用户偏好，使保存位置改动即时生效。
+    private let injectedRootDirectory: URL?
     private let fileManager: FileManager
     private let audioDurationProvider: AudioDurationProvider
+
+    /// 生效的录制根目录：优先注入值，否则取偏好中的保存位置。
+    private var rootDirectory: URL {
+        injectedRootDirectory ?? UserPreferences.shared.recordingsRootDirectory(fileManager: fileManager)
+    }
 
     private static let sessionDirectoryFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -95,7 +101,7 @@ struct RecordingLibrary {
         audioDurationProvider: @escaping AudioDurationProvider = RecordingLibrary.defaultAudioDuration
     ) {
         self.fileManager = fileManager
-        self.rootDirectory = rootDirectory ?? RecordingLibrary.defaultRootDirectory(fileManager: fileManager)
+        self.injectedRootDirectory = rootDirectory
         self.audioDurationProvider = audioDurationProvider
     }
 
@@ -272,13 +278,6 @@ struct RecordingLibrary {
 
         let values = try? directory.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
         return values?.creationDate ?? values?.contentModificationDate ?? .distantPast
-    }
-
-    private static func defaultRootDirectory(fileManager: FileManager) -> URL {
-        let moviesDirectory = fileManager.urls(for: .moviesDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Movies", isDirectory: true)
-
-        return moviesDirectory.appendingPathComponent("ScreenPresenter Recordings", isDirectory: true)
     }
 
     private static func defaultAudioDuration(audioURL: URL) throws -> TimeInterval {

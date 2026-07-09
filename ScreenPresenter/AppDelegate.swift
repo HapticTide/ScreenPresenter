@@ -1552,7 +1552,8 @@ extension AppDelegate {
     @MainActor
     private func presentRecordingStartToast(audioStatus: RecordingAudioStatus) {
         switch audioStatus {
-        case .enabled:
+        case .enabled, .disabled:
+            // 正常录音，或用户主动关闭麦克风：均属预期，用 success。
             ToastView.success(L10n.recording.started, in: mainWindow)
         case .noDevice:
             ToastView.warning(L10n.recording.startedNoMicrophoneDevice, in: mainWindow)
