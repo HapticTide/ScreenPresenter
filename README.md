@@ -43,7 +43,7 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/HapticTide/ScreenPresenter/releases) 下载最新版本，解压 ZIP 或打开 DMG 后，将 `ScreenPresenter.app` 拖入 `/Applications`。
+从 [GitHub Releases](https://github.com/HapticTide/ScreenPresenter/releases) 下载最新版本的 ZIP，解压后将 `ScreenPresenter.app` 拖入 `/Applications`。
 
 ### 打开未签名构建
 

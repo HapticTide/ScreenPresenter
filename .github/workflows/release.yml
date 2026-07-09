@@ -129,13 +129,11 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           app_path="${{ steps.build.outputs.app_path }}"
           release_dir="$PWD/build/release"
-          dmg_root="$PWD/build/dmg-root"
           zip_path="$release_dir/${APP_NAME}-${version}.zip"
-          dmg_path="$release_dir/${APP_NAME}-${version}.dmg"
           checksum_path="$release_dir/SHA256SUMS.txt"
 
-          rm -rf "$release_dir" "$dmg_root"
-          mkdir -p "$release_dir" "$dmg_root"
+          rm -rf "$release_dir"
+          mkdir -p "$release_dir"
 
           app_parent="$(dirname "$app_path")"
           (
@@ -143,23 +141,13 @@ jobs:
             ditto -c -k --sequesterRsrc --keepParent "${APP_NAME}.app" "$zip_path"
           )
 
-          cp -R "$app_path" "$dmg_root/${APP_NAME}.app"
-          ln -s /Applications "$dmg_root/Applications"
-          hdiutil create \
-            -volname "$APP_NAME" \
-            -srcfolder "$dmg_root" \
-            -ov \
-            -format UDZO \
-            "$dmg_path"
-
           (
             cd "$release_dir"
-            shasum -a 256 "$(basename "$zip_path")" "$(basename "$dmg_path")" > "$checksum_path"
+            shasum -a 256 "$(basename "$zip_path")" > "$checksum_path"
           )
 
           echo "release_dir=$release_dir" >> "$GITHUB_OUTPUT"
           echo "zip_path=$zip_path" >> "$GITHUB_OUTPUT"
-          echo "dmg_path=$dmg_path" >> "$GITHUB_OUTPUT"
           echo "checksum_path=$checksum_path" >> "$GITHUB_OUTPUT"
 
       - name: Sign update with Sparkle
@@ -229,7 +217,6 @@ jobs:
           name: ScreenPresenter-${{ steps.version.outputs.version }}
           path: |
             ${{ steps.package.outputs.zip_path }}
-            ${{ steps.package.outputs.dmg_path }}
             ${{ steps.package.outputs.checksum_path }}
 
       - name: Create release notes
@@ -272,6 +259,8 @@ jobs:
             echo
             echo "### 安装提示"
             echo
+            echo "下载下方的 \`${APP_NAME}-${version}.zip\`，解压后将 \`${APP_NAME}.app\` 拖入 \`/Applications\`。"
+            echo
             echo "当前自动构建产物未进行 Developer ID 签名和公证。首次打开时，如 macOS 提示“无法验证开发者”或阻止启动，请在确认来源可信后执行以下命令移除隔离属性："
             echo
             echo '```bash'
@@ -300,19 +289,17 @@ jobs:
           tag_name="${{ steps.version.outputs.tag_name }}"
           version="${{ steps.version.outputs.version }}"
           zip_path="${{ steps.package.outputs.zip_path }}"
-          dmg_path="${{ steps.package.outputs.dmg_path }}"
           checksum_path="${{ steps.package.outputs.checksum_path }}"
           notes_path="${{ steps.notes.outputs.notes_path }}"
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "$zip_path" "$dmg_path" "$checksum_path" --clobber
+            gh release upload "$tag_name" "$zip_path" "$checksum_path" --clobber
             gh release edit "$tag_name" \
               --title "ScreenPresenter $version" \
               --notes-file "$notes_path"
           elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             gh release create "$tag_name" \
               "$zip_path" \
-              "$dmg_path" \
               "$checksum_path" \
               --title "ScreenPresenter $version" \
               --notes-file "$notes_path" \
@@ -320,7 +307,6 @@ jobs:
           else
             gh release create "$tag_name" \
               "$zip_path" \
-              "$dmg_path" \
               "$checksum_path" \
               --title "ScreenPresenter $version" \
               --notes-file "$notes_path" \
