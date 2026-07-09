@@ -15,6 +15,9 @@
 
                 <h3>✨ 更新内容</h3>
                 <ul>
+                    <li>ci: Release 只发布 ZIP,去掉 DMG,并补充安装指引</li>
+                    <li>ci: Release 说明内联 xattr 解隔离命令,不再让用户跳转 README</li>
+                    <li>release: 更新 appcast 至 1.2.4 [skip ci]</li>
                     <li>feat: 停止录制提示条支持「回放」动作按钮</li>
                     <li>fix: 修复投屏中退出时确认弹窗在窗口关闭后出现并循环 (#19)</li>
                     <li>fix: 投屏录制-音频分页麦克风说明文字补足底部内边距</li>
@@ -34,17 +37,17 @@
                 </ul>
                 ]]>
             </description>
-            <pubDate>Thu, 09 Jul 2026 10:36:51 +0000</pubDate>
+            <pubDate>Thu, 09 Jul 2026 11:02:54 +0000</pubDate>
             
-            <sparkle:version>202607091833</sparkle:version>
+            <sparkle:version>202607091858</sparkle:version>
             <sparkle:shortVersionString>1.2.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
                 url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.4/ScreenPresenter-1.2.4.zip"
-                length="18293758"
+                length="18208228"
                 type="application/octet-stream"
-                sparkle:edSignature="si82rQVBy6etouUQ8+rsKK/M0esGT/Ia1h+7T2xqiU6HnRm+hPu39sJygRIFDmZMSatTmMLTo6JyrKE1vUPbCQ=="
+                sparkle:edSignature="SR5GD1TpZqJCsa2F39rAlTAK1AR05Q9x7wooLttJWghuwI3kggDCzCzfYEteZKihq/0ViGq1CGvA7+FSP4ETCg=="
             />
         </item>
     </channel>
