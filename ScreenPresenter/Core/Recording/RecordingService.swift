@@ -81,7 +81,6 @@ final class RecordingService: NSObject {
 
     private let frameProvider: FrameProvider
     private let fileManager: FileManager
-    private let imageContext = CIContext(options: [.useSoftwareRenderer: false])
 
     private var audioRecorder: AVAudioRecorder?
     private var snapshotTimer: Timer?
@@ -102,6 +101,12 @@ final class RecordingService: NSObject {
 
     private var consecutiveWriteFailures = 0
     private var snapshotTickCount = 0
+
+    private lazy var snapshotEncoder = SnapshotEncoder(
+        maxLongSide: maxSnapshotLongSide,
+        quality: jpegQuality,
+        maxPendingFrames: 12
+    )
 
     // MARK: - 初始化
 
@@ -313,27 +318,32 @@ final class RecordingService: NSObject {
         let elapsedSecond = max(1, Int(now.timeIntervalSince(startedAt)))
         elapsedSeconds = elapsedSecond
 
-        var didWriteFail = false
         for snapshot in frameProvider() {
             do {
                 let deviceDirectory = try directory(for: snapshot)
                 let fileName = RecordingFileNaming.snapshotFileName(elapsedSecond: elapsedSecond, date: now)
                 let outputURL = deviceDirectory.appendingPathComponent(fileName)
-                try writeJPEG(pixelBuffer: snapshot.pixelBuffer, to: outputURL)
+                // 深拷贝在主线程完成，编码/写盘在后台执行，结果回主线程记账。
+                snapshotEncoder.submit(pixelBuffer: snapshot.pixelBuffer, to: outputURL) { [weak self] ok in
+                    self?.handleSnapshotWriteResult(success: ok)
+                }
             } catch {
-                didWriteFail = true
                 AppLogger.capture.warning("保存录制截图失败: \(error.localizedDescription)")
+                handleSnapshotWriteResult(success: false)
             }
         }
+    }
 
-        // 连续多轮写失败视为磁盘异常，主动停录并让 UI 可见，避免静默丢帧。
-        if didWriteFail {
+    /// 汇总一帧写盘结果：连续失败达阈值则主动停录。仅在录制中生效。
+    private func handleSnapshotWriteResult(success: Bool) {
+        guard state.isRecording else { return }
+        if success {
+            consecutiveWriteFailures = 0
+        } else {
             consecutiveWriteFailures += 1
             if consecutiveWriteFailures >= maxConsecutiveWriteFailures {
                 abortRecording(with: .insufficientDiskSpace)
             }
-        } else {
-            consecutiveWriteFailures = 0
         }
     }
 
@@ -348,42 +358,6 @@ final class RecordingService: NSObject {
     private func availableCapacity(at url: URL) -> Int64 {
         let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage ?? .max
-    }
-
-    private func writeJPEG(pixelBuffer: CVPixelBuffer, to outputURL: URL) throws {
-        let image = CIImage(cvImageBuffer: pixelBuffer)
-        let scale = snapshotScale(for: image.extent.size)
-        let outputImage = scale < 1
-            ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            : image
-
-        guard let cgImage = imageContext.createCGImage(outputImage, from: outputImage.extent) else {
-            throw RecordingServiceError.outputDirectoryUnavailable
-        }
-
-        guard let destination = CGImageDestinationCreateWithURL(
-            outputURL as CFURL,
-            UTType.jpeg.identifier as CFString,
-            1,
-            nil
-        ) else {
-            throw RecordingServiceError.outputDirectoryUnavailable
-        }
-
-        let options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: jpegQuality,
-        ]
-        CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
-
-        if !CGImageDestinationFinalize(destination) {
-            throw RecordingServiceError.outputDirectoryUnavailable
-        }
-    }
-
-    private func snapshotScale(for size: CGSize) -> CGFloat {
-        let longSide = max(size.width, size.height)
-        guard longSide > maxSnapshotLongSide else { return 1 }
-        return maxSnapshotLongSide / longSide
     }
 
     private func cleanupAfterFailedStart() {
@@ -445,5 +419,128 @@ extension RecordingService: AVAudioRecorderDelegate {
             _ = stopRecording()
             state = .failed(message)
         }
+    }
+}
+
+// MARK: - 截图编码器
+
+/// 将截图的缩放、JPEG 编码与写盘放到后台串行队列执行，避免阻塞主线程。
+/// 提交前在调用线程完成 pixelBuffer 深拷贝，规避上游复用缓冲导致的读到错帧/崩溃。
+final class SnapshotEncoder {
+    private let context = CIContext(options: [.useSoftwareRenderer: false])
+    private let queue = DispatchQueue(label: "com.screenPresenter.recording.encode", qos: .utility)
+    private let maxLongSide: CGFloat
+    private let quality: CGFloat
+    private let maxPendingFrames: Int
+
+    private let lock = NSLock()
+    private var pendingCount = 0
+
+    init(maxLongSide: CGFloat, quality: CGFloat, maxPendingFrames: Int) {
+        self.maxLongSide = maxLongSide
+        self.quality = quality
+        self.maxPendingFrames = maxPendingFrames
+    }
+
+    /// 提交一帧编码。深拷贝在调用线程同步完成；编码与写盘在后台执行。
+    /// completion 在主线程回调，参数为是否成功写盘。
+    func submit(pixelBuffer: CVPixelBuffer, to outputURL: URL, completion: @escaping (Bool) -> Void) {
+        // 背压：积压过多时丢最新帧，避免内存无限增长。
+        lock.lock()
+        if pendingCount >= maxPendingFrames {
+            lock.unlock()
+            AppLogger.capture.warning("截图编码积压，丢弃当前帧")
+            return
+        }
+        pendingCount += 1
+        lock.unlock()
+
+        guard let copy = Self.deepCopy(pixelBuffer) else {
+            lock.lock(); pendingCount -= 1; lock.unlock()
+            AppLogger.capture.warning("截图缓冲拷贝失败，跳过当前帧")
+            DispatchQueue.main.async { completion(false) }
+            return
+        }
+
+        queue.async { [weak self] in
+            guard let self else { return }
+            let ok = self.encodeAndWrite(pixelBuffer: copy, to: outputURL)
+            self.lock.lock(); self.pendingCount -= 1; self.lock.unlock()
+            DispatchQueue.main.async { completion(ok) }
+        }
+    }
+
+    private func encodeAndWrite(pixelBuffer: CVPixelBuffer, to outputURL: URL) -> Bool {
+        let image = CIImage(cvImageBuffer: pixelBuffer)
+        let longSide = max(image.extent.width, image.extent.height)
+        let scale = longSide > maxLongSide ? maxLongSide / longSide : 1
+        let outputImage = scale < 1
+            ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : image
+
+        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
+            return false
+        }
+        guard let destination = CGImageDestinationCreateWithURL(
+            outputURL as CFURL,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return false
+        }
+        CGImageDestinationAddImage(
+            destination,
+            cgImage,
+            [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
+        )
+        return CGImageDestinationFinalize(destination)
+    }
+
+    /// 深拷贝 CVPixelBuffer（逐平面 memcpy），使后台编码不受上游缓冲复用影响。
+    private static func deepCopy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+        let width = CVPixelBufferGetWidth(source)
+        let height = CVPixelBufferGetHeight(source)
+        let format = CVPixelBufferGetPixelFormatType(source)
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferIOSurfacePropertiesKey: [:],
+            kCVPixelBufferMetalCompatibilityKey: true,
+        ]
+
+        var destination: CVPixelBuffer?
+        guard CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height, format, attrs as CFDictionary, &destination
+        ) == kCVReturnSuccess, let destination else {
+            return nil
+        }
+
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(destination, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(destination, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+
+        let planeCount = max(1, CVPixelBufferGetPlaneCount(source))
+        if CVPixelBufferGetPlaneCount(source) == 0 {
+            guard let src = CVPixelBufferGetBaseAddress(source),
+                  let dst = CVPixelBufferGetBaseAddress(destination) else { return nil }
+            let bytes = CVPixelBufferGetBytesPerRow(source) * height
+            memcpy(dst, src, min(bytes, CVPixelBufferGetBytesPerRow(destination) * height))
+            return destination
+        }
+
+        for plane in 0..<planeCount {
+            guard let src = CVPixelBufferGetBaseAddressOfPlane(source, plane),
+                  let dst = CVPixelBufferGetBaseAddressOfPlane(destination, plane) else { return nil }
+            let srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
+            let dstBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(destination, plane)
+            let planeHeight = CVPixelBufferGetHeightOfPlane(source, plane)
+            let copyBytesPerRow = min(srcBytesPerRow, dstBytesPerRow)
+            for row in 0..<planeHeight {
+                memcpy(dst + row * dstBytesPerRow, src + row * srcBytesPerRow, copyBytesPerRow)
+            }
+        }
+        return destination
     }
 }
