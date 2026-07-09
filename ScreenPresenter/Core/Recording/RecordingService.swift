@@ -34,6 +34,7 @@ enum RecordingServiceError: LocalizedError {
     case microphonePermissionDenied
     case recorderStartFailed
     case outputDirectoryUnavailable
+    case insufficientDiskSpace
 
     var errorDescription: String? {
         switch self {
@@ -43,6 +44,8 @@ enum RecordingServiceError: LocalizedError {
             L10n.recording.startFailed
         case .outputDirectoryUnavailable:
             L10n.recording.outputDirectoryUnavailable
+        case .insufficientDiskSpace:
+            L10n.recording.insufficientDiskSpace
         }
     }
 }
@@ -90,6 +93,16 @@ final class RecordingService: NSObject {
     private let maxSnapshotLongSide: CGFloat = 1280
     private let jpegQuality: CGFloat = 0.65
 
+    /// 录制启动前要求的最小可用磁盘空间。
+    private let minFreeBytesToStart: Int64 = 1_024 * 1_024 * 1_024
+    /// 录制过程中的安全下限，低于此值主动停录。
+    private let minFreeBytesDuringRecording: Int64 = 200 * 1_024 * 1_024
+    /// 连续写入失败达到此阈值即主动停录。
+    private let maxConsecutiveWriteFailures = 3
+
+    private var consecutiveWriteFailures = 0
+    private var snapshotTickCount = 0
+
     // MARK: - 初始化
 
     init(fileManager: FileManager = .default, frameProvider: @escaping FrameProvider) {
@@ -112,11 +125,18 @@ final class RecordingService: NSObject {
         lastOutputDirectory = nil
         elapsedSeconds = 0
         isAudioEnabled = false
+        consecutiveWriteFailures = 0
+        snapshotTickCount = 0
         deviceDirectories.removeAll()
 
         do {
             let now = Date()
             let directory = try createSessionDirectory(startedAt: now)
+
+            // 录制前预检磁盘空间，避免录到一半写满。
+            if availableCapacity(at: directory) < minFreeBytesToStart {
+                throw RecordingServiceError.insufficientDiskSpace
+            }
 
             // 音频降级为可选轨道：麦克风不可用或权限被拒时不再中断录制，仅记录画面截图。
             if await ensureMicrophoneAccess() {
@@ -281,10 +301,19 @@ final class RecordingService: NSObject {
     private func captureCurrentDeviceSnapshots() {
         guard state.isRecording, let startedAt else { return }
 
+        // 周期性空间检查（约每 10 秒一次），低于安全线主动停录。
+        snapshotTickCount += 1
+        if snapshotTickCount % 10 == 0, let outputDirectory,
+           availableCapacity(at: outputDirectory) < minFreeBytesDuringRecording {
+            abortRecording(with: .insufficientDiskSpace)
+            return
+        }
+
         let now = Date()
         let elapsedSecond = max(1, Int(now.timeIntervalSince(startedAt)))
         elapsedSeconds = elapsedSecond
 
+        var didWriteFail = false
         for snapshot in frameProvider() {
             do {
                 let deviceDirectory = try directory(for: snapshot)
@@ -292,9 +321,33 @@ final class RecordingService: NSObject {
                 let outputURL = deviceDirectory.appendingPathComponent(fileName)
                 try writeJPEG(pixelBuffer: snapshot.pixelBuffer, to: outputURL)
             } catch {
+                didWriteFail = true
                 AppLogger.capture.warning("保存录制截图失败: \(error.localizedDescription)")
             }
         }
+
+        // 连续多轮写失败视为磁盘异常，主动停录并让 UI 可见，避免静默丢帧。
+        if didWriteFail {
+            consecutiveWriteFailures += 1
+            if consecutiveWriteFailures >= maxConsecutiveWriteFailures {
+                abortRecording(with: .insufficientDiskSpace)
+            }
+        } else {
+            consecutiveWriteFailures = 0
+        }
+    }
+
+    /// 因异常（磁盘不足/写失败）被动停录：收尾资源并置为 failed，供 UI 感知。
+    private func abortRecording(with error: RecordingServiceError) {
+        AppLogger.capture.error("录制被动停止: \(error.localizedDescription)")
+        _ = stopRecording()
+        state = .failed(error.localizedDescription)
+    }
+
+    /// 返回目录所在卷的可用空间（重要用途口径），失败时返回 Int64.max 不误停。
+    private func availableCapacity(at url: URL) -> Int64 {
+        let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values?.volumeAvailableCapacityForImportantUsage ?? .max
     }
 
     private func writeJPEG(pixelBuffer: CVPixelBuffer, to outputURL: URL) throws {

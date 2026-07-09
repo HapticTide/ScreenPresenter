@@ -445,6 +445,7 @@
 "recording.startFailed" = "录制开始失败";
 "recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";
 "recording.outputDirectoryUnavailable" = "无法创建录制保存目录";
+"recording.insufficientDiskSpace" = "磁盘空间不足，录制已停止";
 "recording.openOutputDirectory" = "打开录制目录";
 "recording.openHistory" = "查看录制历史";
 "recording.back" = "返回";

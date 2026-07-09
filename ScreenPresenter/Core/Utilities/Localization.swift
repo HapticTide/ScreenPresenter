@@ -541,6 +541,7 @@ enum L10n {
         static var startFailed: String { "recording.startFailed".localized }
         static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }
         static var outputDirectoryUnavailable: String { "recording.outputDirectoryUnavailable".localized }
+        static var insufficientDiskSpace: String { "recording.insufficientDiskSpace".localized }
         static var openOutputDirectory: String { "recording.openOutputDirectory".localized }
         static var openHistory: String { "recording.openHistory".localized }
         static var back: String { "recording.back".localized }

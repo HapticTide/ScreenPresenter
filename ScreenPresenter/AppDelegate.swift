@@ -33,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var recordingOutputToolbarItem: NSToolbarItem?
     private let recordingLibrary = RecordingLibrary()
     private var recordingHistoryWindowController: NSWindowController?
+    /// 已提示过的录制失败消息，避免状态发布器重复触发时反复弹 Toast。
+    private var lastRecordingFailureMessage: String?
     private var markdownToggleToolbarItem: NSToolbarItem?
     private var isRefreshing: Bool = false
     private var cancellables = Set<AnyCancellable>()
@@ -1222,8 +1224,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
                 self?.updateRecordingUI()
+                self?.surfaceRecordingFailureIfNeeded()
             }
             .store(in: &cancellables)
+    }
+
+    /// 被动停录（磁盘不足/写失败等）时经状态发布器弹出错误提示，仅在新消息出现时提示一次。
+    @MainActor
+    private func surfaceRecordingFailureIfNeeded() {
+        guard case let .failed(message) = AppState.shared.recordingService.state else {
+            lastRecordingFailureMessage = nil
+            return
+        }
+        guard message != lastRecordingFailureMessage else { return }
+        lastRecordingFailureMessage = message
+        ToastView.error(message, in: mainWindow)
     }
 }
 
@@ -1525,9 +1540,9 @@ extension AppDelegate {
                     ToastView.success(L10n.recording.started, in: mainWindow)
                 }
             } catch {
+                // 失败提示统一由 setupRecordingObservation 监听 .failed 状态弹出，避免重复。
                 await MainActor.run {
                     updateRecordingUI()
-                    ToastView.error(error.localizedDescription, in: mainWindow)
                 }
             }
         }

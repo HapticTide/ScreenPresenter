@@ -445,6 +445,7 @@
 "recording.startFailed" = "Failed to start recording";
 "recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";
 "recording.outputDirectoryUnavailable" = "Unable to create recording output directory";
+"recording.insufficientDiskSpace" = "Insufficient disk space. Recording stopped.";
 "recording.openOutputDirectory" = "Open recording folder";
 "recording.openHistory" = "View recording history";
 "recording.back" = "Back";
