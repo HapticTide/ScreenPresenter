@@ -23,7 +23,7 @@ final class RecordingLibraryTests: XCTestCase {
         temporaryDirectory = nil
     }
 
-    func testScanSortsSessionsAndParsesDurationPlatformDeviceNameAndSnapshotSeconds() throws {
+    func testScanSortsSessionsAndParsesDurationPlatformDeviceNameAndSnapshotSeconds() async throws {
         let olderSession = try makeSession(named: "2026-06-30 20-24-48", duration: 61)
         let newerSession = try makeSession(named: "2026-07-01 09-10-11", duration: 12)
 
@@ -53,7 +53,7 @@ final class RecordingLibraryTests: XCTestCase {
             }
         )
 
-        let sessions = try library.scanSessions()
+        let sessions = try await library.scanSessions()
 
         XCTAssertEqual(sessions.map(\.directory.lastPathComponent), [
             "2026-07-01 09-10-11",
@@ -87,7 +87,70 @@ final class RecordingLibraryTests: XCTestCase {
         XCTAssertEqual(track.snapshot(at: 99)?.elapsedSecond, 15)
     }
 
-    func testScanIgnoresInvalidSessionsDeviceDirectoriesAndSnapshots() throws {
+    func testVideoSegmentAtReturnsNilDuringInterruption() {
+        let firstURL = temporaryDirectory.appendingPathComponent("000002000_0001.mp4")
+        let secondURL = temporaryDirectory.appendingPathComponent("000010000_0002.mp4")
+        let track = RecordingDeviceTrack(
+            platform: .ios,
+            deviceName: "iPhone",
+            directory: temporaryDirectory,
+            snapshots: [],
+            videoSegments: [
+                RecordingVideoSegment(startTime: 2, duration: 4, fileURL: firstURL),
+                RecordingVideoSegment(startTime: 10, duration: 3, fileURL: secondURL)
+            ]
+        )
+
+        XCTAssertNil(track.videoSegment(at: 1.9))
+        XCTAssertEqual(track.videoSegment(at: 3)?.segment.fileURL, firstURL)
+        XCTAssertEqual(track.videoSegment(at: 3)?.localTime, 1)
+        XCTAssertNil(track.videoSegment(at: 7))
+        XCTAssertEqual(track.videoSegment(at: 11)?.segment.fileURL, secondURL)
+        XCTAssertEqual(track.videoSegment(at: 11)?.localTime, 1)
+    }
+
+    func testScanParsesVideoSegmentsAndUsesMetadataDuration() async throws {
+        let sessionDirectory = temporaryDirectory.appendingPathComponent(
+            "2026-07-17 15-30-00",
+            isDirectory: true
+        )
+        let deviceDirectory = sessionDirectory.appendingPathComponent("iOS-iPhone", isDirectory: true)
+        try FileManager.default.createDirectory(at: deviceDirectory, withIntermediateDirectories: true)
+
+        let firstURL = deviceDirectory.appendingPathComponent("000002000_0001.mp4")
+        let secondURL = deviceDirectory.appendingPathComponent("000010000_0002.mp4")
+        try Data("first".utf8).write(to: firstURL)
+        try Data("second".utf8).write(to: secondURL)
+
+        let metadata = RecordingSessionMetadata(
+            version: RecordingSessionMetadata.currentVersion,
+            startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMilliseconds: 30_000,
+            video: .screenRecording
+        )
+        try RecordingSessionMetadata.encode(metadata).write(
+            to: sessionDirectory.appendingPathComponent("session.json")
+        )
+
+        let library = RecordingLibrary(
+            rootDirectory: temporaryDirectory,
+            audioDurationProvider: { _ in 0 },
+            videoDurationProvider: { url in
+                url.lastPathComponent == firstURL.lastPathComponent ? 4 : 3
+            }
+        )
+
+        let sessions = try await library.scanSessions()
+
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions[0].duration, 30)
+        XCTAssertEqual(sessions[0].startedAt, metadata.startedAt)
+        XCTAssertEqual(sessions[0].deviceTracks[0].snapshots, [])
+        XCTAssertEqual(sessions[0].deviceTracks[0].videoSegments.map(\.startTime), [2, 10])
+        XCTAssertEqual(sessions[0].deviceTracks[0].videoSegments.map(\.duration), [4, 3])
+    }
+
+    func testScanIgnoresInvalidSessionsDeviceDirectoriesAndSnapshots() async throws {
         _ = try makeSession(named: "2026-07-01 09-10-11", duration: 30)
         let validSession = temporaryDirectory.appendingPathComponent("2026-07-01 09-10-11", isDirectory: true)
         try makeDeviceDirectory(
@@ -124,14 +187,14 @@ final class RecordingLibraryTests: XCTestCase {
             audioDurationProvider: { _ in 30 }
         )
 
-        let sessions = try library.scanSessions()
+        let sessions = try await library.scanSessions()
 
         XCTAssertEqual(sessions.count, 1)
         XCTAssertEqual(sessions[0].deviceTracks.map(\.deviceName), ["iPhone"])
         XCTAssertEqual(sessions[0].deviceTracks[0].snapshots.map(\.elapsedSecond), [1])
     }
 
-    func testScanIncludesAudiolessSessionAndDerivesDurationFromSnapshots() throws {
+    func testScanIncludesAudiolessSessionAndDerivesDurationFromSnapshots() async throws {
         // 纯截图录制（无 audio.m4a）：会话仍应被收录，时长按最大截图秒数 + 1 估算。
         let directory = temporaryDirectory.appendingPathComponent("2026-07-03 10-00-00", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -149,7 +212,7 @@ final class RecordingLibraryTests: XCTestCase {
             audioDurationProvider: { _ in XCTFail("无音频会话不应调用音频时长解析"); return 0 }
         )
 
-        let sessions = try library.scanSessions()
+        let sessions = try await library.scanSessions()
 
         XCTAssertEqual(sessions.count, 1)
         XCTAssertNil(sessions[0].audioURL)

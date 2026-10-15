@@ -5,27 +5,39 @@
 //  Created by Sun on 2026/06/30.
 //
 //  录制服务
-//  负责录制 Mac 麦克风并按秒保存投屏设备截图
+//  负责独立录制 Mac 麦克风，并按设备保存 HEVC 视频分段
 //
 
 import AVFoundation
 import Combine
-import CoreImage
+import CoreVideo
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
 // MARK: - 录制状态
 
 enum RecordingState: Equatable {
     case idle
+    case starting(outputDirectory: URL)
     case recording(startedAt: Date, outputDirectory: URL)
+    case stopping(outputDirectory: URL)
     case failed(String)
 
     var isRecording: Bool {
-        if case .recording = self {
-            return true
+        switch self {
+        case .starting, .recording, .stopping:
+            true
+        case .idle, .failed:
+            false
         }
+    }
+
+    var isCapturingFrames: Bool {
+        if case .recording = self { return true }
+        return false
+    }
+
+    var isStopping: Bool {
+        if case .stopping = self { return true }
         return false
     }
 }
@@ -93,7 +105,7 @@ final class RecordingService: NSObject {
     /// 本次录制音频轨道的最终状态。默认无音频；startRecording 时按实际情况判定。
     private(set) var audioStatus: RecordingAudioStatus = .noDevice
 
-    /// 本次录制是否启用了音频轨道。麦克风不可用或权限被拒时为 false，仍进行纯截图录制。
+    /// 本次录制是否启用了会议音频。麦克风不可用或权限被拒时为 false，视频仍继续录制。
     var isAudioEnabled: Bool { audioStatus == .enabled }
 
     // MARK: - 私有属性
@@ -101,12 +113,16 @@ final class RecordingService: NSObject {
     private let frameProvider: FrameProvider
     private let fileManager: FileManager
 
-    private var audioRecorder: AVAudioRecorder?
-    private var snapshotTimer: Timer?
-    private var elapsedTimer: Timer?
+    private var audioProcess: RecordingAudioProcess?
+    private var videoTask: Task<Void, Never>?
+    private var elapsedTask: Task<Void, Never>?
     private var startedAt: Date?
     private var outputDirectory: URL?
     private var deviceDirectories: [String: URL] = [:]
+    private var videoTracks: [String: DeviceVideoTrack] = [:]
+    private var pendingFinishTasks: [Task<Void, Never>] = []
+    private var isStopping = false
+    private var activeOperationID: UUID?
 
     /// 录制启动前要求的最小可用磁盘空间。
     private let minFreeBytesToStart: Int64 = 1_024 * 1_024 * 1_024
@@ -115,15 +131,22 @@ final class RecordingService: NSObject {
     /// 连续写入失败达到此阈值即主动停录。
     private let maxConsecutiveWriteFailures = 3
 
-    private var consecutiveWriteFailures = 0
-    private var snapshotTickCount = 0
+    private var videoTickCount = 0
 
-    /// 截图编码器。按当前画质偏好在每次录制开始时重建。
-    private var snapshotEncoder = SnapshotEncoder(
-        maxLongSide: RecordingImageQuality.medium.maxLongSide,
-        quality: RecordingImageQuality.medium.jpegQuality,
-        maxPendingFrames: 12
-    )
+    private final class DeviceVideoTrack {
+        let directory: URL
+        var sequence = 0
+        var currentWriter: RecordingVideoSegmentWriter?
+        var currentSize: CGSize?
+        var lastFrameTime: TimeInterval?
+        var isAppendPending = false
+        var appendTask: Task<Void, Never>?
+        var consecutiveWriteFailures = 0
+
+        init(directory: URL) {
+            self.directory = directory
+        }
+    }
 
     // MARK: - 初始化
 
@@ -134,9 +157,9 @@ final class RecordingService: NSObject {
     }
 
     deinit {
-        snapshotTimer?.invalidate()
-        elapsedTimer?.invalidate()
-        audioRecorder?.stop()
+        videoTask?.cancel()
+        elapsedTask?.cancel()
+        audioProcess?.cancel()
     }
 
     // MARK: - 公开方法
@@ -144,158 +167,200 @@ final class RecordingService: NSObject {
     func startRecording() async throws {
         guard !state.isRecording else { return }
 
+        let operationID = UUID()
+        activeOperationID = operationID
+
         lastOutputDirectory = nil
         elapsedSeconds = 0
         audioStatus = .noDevice
-        consecutiveWriteFailures = 0
-        snapshotTickCount = 0
+        videoTickCount = 0
+        isStopping = false
         deviceDirectories.removeAll()
+        videoTracks.removeAll()
+        pendingFinishTasks.removeAll()
 
         do {
-            let now = Date()
-            let directory = try createSessionDirectory(startedAt: now)
+            let directory = try createSessionDirectory(startedAt: Date())
+            outputDirectory = directory
+            state = .starting(outputDirectory: directory)
 
             // 录制前预检磁盘空间，避免录到一半写满。
             if availableCapacity(at: directory) < minFreeBytesToStart {
                 throw RecordingServiceError.insufficientDiskSpace
             }
 
-            // 按当前画质偏好重建截图编码器。
-            let quality = UserPreferences.shared.recordingImageQuality
-            snapshotEncoder = SnapshotEncoder(
-                maxLongSide: quality.maxLongSide,
-                quality: quality.jpegQuality,
-                maxPendingFrames: 12
-            )
-
-            // 音频降级为可选轨道：无麦克风 / 权限被拒 / 麦克风不可用都不中断录制，仅记录画面截图，
+            // 音频降级为可选轨道：无麦克风 / 权限被拒 / 麦克风不可用都不中断录制，仅记录画面，
             // 并把具体成因记入 audioStatus 供 UI 准确提示。
-            audioStatus = await configureAudioTrack(in: directory)
+            guard let audioTrack = await configureAudioTrack(
+                in: directory,
+                operationID: operationID
+            ) else {
+                throw CancellationError()
+            }
+            guard activeOperationID == operationID, case .starting = state else {
+                throw CancellationError()
+            }
+            audioStatus = audioTrack.status
 
-            startedAt = now
-            outputDirectory = directory
-            state = .recording(startedAt: now, outputDirectory: directory)
+            // 统一以音频 Helper 实际启动时间作为会话 epoch；无音频时使用当前时间。
+            // 这样首次权限弹窗停留时间不会被错误计入视频全局时间轴。
+            let startedAt = audioTrack.startedAt ?? Date()
+            self.startedAt = startedAt
+            state = .recording(startedAt: startedAt, outputDirectory: directory)
 
-            startTimers()
+            startSchedulingTasks()
             AppLogger.capture.info("录制已开始: \(directory.path)，音频状态: \(String(describing: audioStatus))")
+        } catch is CancellationError {
+            if activeOperationID == operationID {
+                await cleanupAfterFailedStart()
+                activeOperationID = nil
+                state = .idle
+            }
+            throw CancellationError()
         } catch {
-            cleanupAfterFailedStart()
-            state = .failed(error.localizedDescription)
+            if activeOperationID == operationID {
+                await cleanupAfterFailedStart()
+                activeOperationID = nil
+                state = .failed(error.localizedDescription)
+            }
             throw error
         }
     }
 
     @discardableResult
-    func stopRecording() -> URL? {
+    func stopRecording() async -> URL? {
         let wasRecording = state.isRecording
+        let wasCapturingFrames = state.isCapturingFrames
+        guard wasRecording, !isStopping else { return lastOutputDirectory }
+        isStopping = true
+        activeOperationID = nil
 
-        stopTimers()
-        stopAudioRecorder()
+        if let outputDirectory {
+            state = .stopping(outputDirectory: outputDirectory)
+        }
+
+        stopSchedulingTasks()
+        await stopAudioCapture()
 
         let directory = outputDirectory
+        let sessionStartedAt = startedAt
+
+        for track in videoTracks.values {
+            finishCurrentSegment(for: track)
+        }
+        let finishTasks = pendingFinishTasks
+        for task in finishTasks {
+            await task.value
+        }
+
+        let audioDuration = await recordedAudioDuration(in: directory)
+        let shouldPreserveSession = wasCapturingFrames || audioDuration != nil
+
+        if shouldPreserveSession, let directory {
+            writeSessionMetadata(
+                in: directory,
+                sessionStartedAt: sessionStartedAt,
+                audioDuration: audioDuration
+            )
+        }
+
         outputDirectory = nil
         startedAt = nil
         deviceDirectories.removeAll()
+        videoTracks.removeAll()
+        pendingFinishTasks.removeAll()
+        isStopping = false
+        activeOperationID = nil
 
         state = .idle
-        if let directory {
+        if shouldPreserveSession, let directory {
             lastOutputDirectory = directory
+        } else if let directory {
+            removeDirectoryIfEmptyOrResidual(directory)
         }
 
-        if wasRecording, let directory {
+        if shouldPreserveSession, let directory {
             AppLogger.capture.info("录制已停止: \(directory.path)")
         }
 
-        return directory ?? lastOutputDirectory
+        return shouldPreserveSession ? (directory ?? lastOutputDirectory) : nil
     }
+}
+
+// MARK: - 录制内部实现
+
+private extension RecordingService {
 
     // MARK: - 权限和录音
 
     /// 判定音频轨道状态并在可用时启动录音器。区分三种"没有音频"的成因:
     /// 无麦克风硬件 / 权限被拒 / 麦克风存在但不可用。
-    private func configureAudioTrack(in directory: URL) async -> RecordingAudioStatus {
+    private struct AudioTrackStart {
+        let status: RecordingAudioStatus
+        let startedAt: Date?
+    }
+
+    private func configureAudioTrack(
+        in directory: URL,
+        operationID: UUID
+    ) async -> AudioTrackStart? {
         // 0. 用户主动关闭麦克风录制时，直接纯画面录制，不查硬件/权限。
         guard UserPreferences.shared.recordingMicrophoneEnabled else {
-            AppLogger.capture.info("用户已关闭麦克风录制，仅录制画面截图")
-            return .disabled
+            AppLogger.capture.info("用户已关闭麦克风录制，仅录制设备视频")
+            return AudioTrackStart(status: .disabled, startedAt: nil)
         }
 
-        // 1. 先看是否有麦克风硬件。没有设备时权限查询无意义。
-        guard hasMicrophoneDevice() else {
-            AppLogger.capture.info("未检测到麦克风设备，仅录制画面截图")
-            return .noDevice
-        }
-
-        // 2. 有设备再确认权限。
-        guard await ensureMicrophoneAccess() else {
-            AppLogger.capture.info("未获得麦克风权限，仅录制画面截图")
-            return .permissionDenied
-        }
-
-        // 3. 有设备有权限，尝试启动录音器；失败视为麦克风不可用（被占用 / 硬件异常等）。
+        // 麦克风设备检查、权限申请和采集全部放在独立 Helper 中。
+        // 主 App 内仍有 iPhone 投屏 AVCaptureSession，
+        // 若两者处于同一进程，macOS 会聚合 AVFoundation 隐私状态，导致停录后橙色状态残留。
         let audioURL = directory.appendingPathComponent("audio.m4a")
-        guard let recorder = try? makeAudioRecorder(outputURL: audioURL), recorder.record() else {
-            AppLogger.capture.warning("麦克风可用但录音器启动失败，仅录制画面截图")
-            return .unavailable
-        }
-
-        audioRecorder = recorder
-        return .enabled
-    }
-
-    /// 是否存在可用的麦克风硬件。用 discovery session 枚举内建/外接麦克风。
-    /// deviceType 在 macOS 14 起改名（.builtInMicrophone→.microphone、.externalUnknown→.external），
-    /// 旧值在 14+ 已废弃，故按系统版本选择对应类型。
-    private func hasMicrophoneDevice() -> Bool {
-        let deviceTypes: [AVCaptureDevice.DeviceType]
-        if #available(macOS 14.0, *) {
-            deviceTypes = [.microphone, .external]
-        } else {
-            deviceTypes = [.builtInMicrophone, .externalUnknown]
-        }
-        let session = AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes,
-            mediaType: .audio,
-            position: .unspecified
-        )
-        return !session.devices.isEmpty
-    }
-
-    /// 检查麦克风访问权限。返回是否可用于录音，不再以抛错方式阻断整场录制。
-    private func ensureMicrophoneAccess() async -> Bool {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            return true
-        case .notDetermined:
-            return await requestMicrophoneAccess()
-        case .denied, .restricted:
-            return false
-        @unknown default:
-            return false
+        do {
+            let result = try await RecordingAudioProcess.start(
+                outputURL: audioURL,
+                onLaunched: { [weak self] process in
+                    guard let self, self.activeOperationID == operationID else {
+                        process.cancel()
+                        return
+                    }
+                    self.audioProcess = process
+                },
+                onUnexpectedTermination: { [weak self] error in
+                    Task { @MainActor in
+                        guard let self, self.state.isCapturingFrames else { return }
+                        _ = await self.stopRecording()
+                        self.state = .failed(error.localizedDescription)
+                    }
+                }
+            )
+            guard activeOperationID == operationID else {
+                result.process.cancel()
+                return nil
+            }
+            audioProcess = result.process
+            return AudioTrackStart(status: .enabled, startedAt: result.startedAt)
+        } catch let error as RecordingAudioProcessError {
+            guard activeOperationID == operationID else { return nil }
+            return audioTrackStart(for: error)
+        } catch {
+            guard activeOperationID == operationID else { return nil }
+            AppLogger.capture.warning("启动录音 Helper 失败，仅录制设备视频: \(error.localizedDescription)")
+            return AudioTrackStart(status: .unavailable, startedAt: nil)
         }
     }
 
-    private func requestMicrophoneAccess() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                continuation.resume(returning: granted)
+    private func audioTrackStart(for error: RecordingAudioProcessError) -> AudioTrackStart {
+        if case let .helperFailed(code, _) = error {
+            switch code {
+            case .noDevice:
+                return AudioTrackStart(status: .noDevice, startedAt: nil)
+            case .permissionDenied:
+                return AudioTrackStart(status: .permissionDenied, startedAt: nil)
+            case .unavailable:
+                break
             }
         }
-    }
-
-    private func makeAudioRecorder(outputURL: URL) throws -> AVAudioRecorder {
-        let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 44_100,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderBitRateKey: 64_000,
-        ]
-
-        let recorder = try AVAudioRecorder(url: outputURL, settings: settings)
-        recorder.delegate = self
-        recorder.isMeteringEnabled = false
-        recorder.prepareToRecord()
-        return recorder
+        AppLogger.capture.warning("麦克风可用但录音 Helper 启动失败，仅录制设备视频: \(error.localizedDescription)")
+        return AudioTrackStart(status: .unavailable, startedAt: nil)
     }
 
     // MARK: - 目录
@@ -303,13 +368,22 @@ final class RecordingService: NSObject {
     private func createSessionDirectory(startedAt: Date) throws -> URL {
         // 根目录取自偏好（保存位置），录制写入与历史扫描保持一致。
         let rootDirectory = UserPreferences.shared.recordingsRootDirectory(fileManager: fileManager)
-        let sessionDirectory = rootDirectory.appendingPathComponent(
-            RecordingFileNaming.sessionDirectoryName(date: startedAt),
-            isDirectory: true
-        )
+        try fileManager.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
 
-        try fileManager.createDirectory(at: sessionDirectory, withIntermediateDirectories: true)
-        return sessionDirectory
+        let baseName = RecordingFileNaming.sessionDirectoryName(date: startedAt)
+        for sequence in 0..<10_000 {
+            let directoryName = sequence == 0
+                ? baseName
+                : "\(baseName)-\(String(format: "%03d", sequence))"
+            let candidate = rootDirectory.appendingPathComponent(directoryName, isDirectory: true)
+            guard !fileManager.fileExists(atPath: candidate.path) else { continue }
+
+            // 不使用 withIntermediateDirectories，确保同名目录在竞争条件下不会被复用。
+            try fileManager.createDirectory(at: candidate, withIntermediateDirectories: false)
+            return candidate
+        }
+
+        throw RecordingServiceError.outputDirectoryUnavailable
     }
 
     private func directory(for snapshot: RecordingFrameSnapshot) throws -> URL {
@@ -332,30 +406,39 @@ final class RecordingService: NSObject {
         return directory
     }
 
-    // MARK: - 定时器
+    // MARK: - 录制定时任务
 
-    private func startTimers() {
-        stopTimers()
+    private func startSchedulingTasks() {
+        stopSchedulingTasks()
 
-        let elapsedTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
+        // RecordingService 整体由 MainActor 隔离，计时任务直接继承该隔离域。
+        // 不再依赖窗口 RunLoop；此前 RunLoop Timer 在部分启动路径中不会触发，
+        // 导致界面一直显示 00:00，且共用同一调度方式的视频取帧也完全不执行。
+        elapsedTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled, let self else { return }
                 self.updateElapsedSeconds()
             }
         }
-        RunLoop.main.add(elapsedTimer, forMode: .common)
-        self.elapsedTimer = elapsedTimer
 
-        // 截图间隔取自偏好（秒）。整秒时间轴模型下最小 1s。
-        let snapshotInterval = TimeInterval(max(1, UserPreferences.shared.recordingSnapshotInterval))
-        let snapshotTimer = Timer(timeInterval: snapshotInterval, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.captureCurrentDeviceSnapshots()
+        let framesPerSecond = RecordingVideoConfiguration.screenRecording.framesPerSecond
+        let videoIntervalNanoseconds = UInt64(1_000_000_000 / framesPerSecond)
+        videoTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: videoIntervalNanoseconds)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled, let self else { return }
+                self.captureCurrentDeviceFrames()
             }
         }
-        RunLoop.main.add(snapshotTimer, forMode: .common)
-        self.snapshotTimer = snapshotTimer
     }
 
     private func updateElapsedSeconds() {
@@ -366,47 +449,134 @@ final class RecordingService: NSObject {
         elapsedSeconds = max(0, Int(Date().timeIntervalSince(startedAt)))
     }
 
-    // MARK: - 截图
+    // MARK: - 视频帧
 
-    private func captureCurrentDeviceSnapshots() {
-        guard state.isRecording, let startedAt else { return }
+    private func captureCurrentDeviceFrames() {
+        guard state.isCapturingFrames, let startedAt else { return }
 
         // 周期性空间检查（约每 10 秒一次），低于安全线主动停录。
-        snapshotTickCount += 1
-        if snapshotTickCount % 10 == 0, let outputDirectory,
+        videoTickCount += 1
+        if videoTickCount % (RecordingVideoConfiguration.screenRecording.framesPerSecond * 10) == 0,
+           let outputDirectory,
            availableCapacity(at: outputDirectory) < minFreeBytesDuringRecording {
             abortRecording(with: .insufficientDiskSpace)
             return
         }
 
-        let now = Date()
-        let elapsedSecond = max(1, Int(now.timeIntervalSince(startedAt)))
-        elapsedSeconds = elapsedSecond
+        let sessionTime = max(0, Date().timeIntervalSince(startedAt))
+        let snapshots = frameProvider()
+        let activeKeys = Set(snapshots.map { trackKey(for: $0) })
+        finishInactiveTracks(activeKeys: activeKeys, sessionTime: sessionTime)
 
-        for snapshot in frameProvider() {
-            do {
-                let deviceDirectory = try directory(for: snapshot)
-                let fileName = RecordingFileNaming.snapshotFileName(elapsedSecond: elapsedSecond, date: now)
-                let outputURL = deviceDirectory.appendingPathComponent(fileName)
-                // 深拷贝在主线程完成，编码/写盘在后台执行，结果回主线程记账。
-                snapshotEncoder.submit(pixelBuffer: snapshot.pixelBuffer, to: outputURL) { [weak self] ok in
-                    self?.handleSnapshotWriteResult(success: ok)
-                }
-            } catch {
-                AppLogger.capture.warning("保存录制截图失败: \(error.localizedDescription)")
-                handleSnapshotWriteResult(success: false)
-            }
+        for snapshot in snapshots {
+            append(snapshot: snapshot, sessionTime: sessionTime)
         }
     }
 
-    /// 汇总一帧写盘结果：连续失败达阈值则主动停录。仅在录制中生效。
-    private func handleSnapshotWriteResult(success: Bool) {
-        guard state.isRecording else { return }
+    private func finishInactiveTracks(activeKeys: Set<String>, sessionTime: TimeInterval) {
+        for (key, track) in videoTracks where !activeKeys.contains(key) {
+            guard let lastFrameTime = track.lastFrameTime,
+                  sessionTime - lastFrameTime >= 0.5 else {
+                continue
+            }
+            finishCurrentSegment(for: track)
+            track.lastFrameTime = nil
+        }
+    }
+
+    private func append(snapshot: RecordingFrameSnapshot, sessionTime: TimeInterval) {
+        do {
+            let track = try videoTrack(for: snapshot)
+            let sourceSize = CGSize(
+                width: CVPixelBufferGetWidth(snapshot.pixelBuffer),
+                height: CVPixelBufferGetHeight(snapshot.pixelBuffer)
+            )
+            if track.currentWriter == nil || track.currentSize != sourceSize {
+                finishCurrentSegment(for: track)
+                track.sequence += 1
+                let startMilliseconds = Int64((sessionTime * 1_000).rounded())
+                let fileName = RecordingFileNaming.videoSegmentFileName(
+                    startMilliseconds: startMilliseconds,
+                    sequence: track.sequence
+                )
+                track.currentWriter = RecordingVideoSegmentWriter(
+                    outputURL: track.directory.appendingPathComponent(fileName),
+                    configuration: .screenRecording
+                )
+                track.currentSize = sourceSize
+            }
+            track.lastFrameTime = sessionTime
+
+            guard let writer = track.currentWriter, !track.isAppendPending else { return }
+            // 每个设备轨道最多保留一个待编码帧。编码跟不上 30fps 时直接丢弃新帧，
+            // 避免一小时录制期间无界积压 Task 和 CVPixelBuffer。
+            track.isAppendPending = true
+            let appendTask = Task { [weak self, weak track] in
+                do {
+                    try await writer.append(pixelBuffer: snapshot.pixelBuffer, sessionTime: sessionTime)
+                    await MainActor.run {
+                        guard let track else { return }
+                        self?.completeVideoAppend(for: track, success: true)
+                    }
+                } catch {
+                    AppLogger.capture.warning("写入录制视频帧失败: \(error.localizedDescription)")
+                    await MainActor.run {
+                        guard let track else { return }
+                        self?.completeVideoAppend(for: track, success: false)
+                    }
+                }
+            }
+            track.appendTask = appendTask
+        } catch {
+            AppLogger.capture.warning("创建录制视频分段失败: \(error.localizedDescription)")
+            abortRecording(with: .outputDirectoryUnavailable)
+        }
+    }
+
+    private func trackKey(for snapshot: RecordingFrameSnapshot) -> String {
+        "\(snapshot.platform.rawValue)-\(snapshot.deviceName)"
+    }
+
+    private func videoTrack(for snapshot: RecordingFrameSnapshot) throws -> DeviceVideoTrack {
+        let key = trackKey(for: snapshot)
+        if let track = videoTracks[key] { return track }
+
+        let track = DeviceVideoTrack(directory: try directory(for: snapshot))
+        videoTracks[key] = track
+        return track
+    }
+
+    private func finishCurrentSegment(for track: DeviceVideoTrack) {
+        guard let writer = track.currentWriter else { return }
+        track.currentWriter = nil
+        track.currentSize = nil
+        let appendTask = track.appendTask
+
+        let task = Task {
+            await appendTask?.value
+            do {
+                try await writer.finish()
+            } catch {
+                AppLogger.capture.warning("完成录制视频分段失败: \(error.localizedDescription)")
+            }
+        }
+        pendingFinishTasks.append(task)
+    }
+
+    private func completeVideoAppend(for track: DeviceVideoTrack, success: Bool) {
+        track.isAppendPending = false
+        track.appendTask = nil
+        handleVideoWriteResult(for: track, success: success)
+    }
+
+    /// 按设备轨道汇总视频帧写入结果，避免一个设备的成功掩盖另一个设备的持续失败。
+    private func handleVideoWriteResult(for track: DeviceVideoTrack, success: Bool) {
+        guard state.isCapturingFrames else { return }
         if success {
-            consecutiveWriteFailures = 0
+            track.consecutiveWriteFailures = 0
         } else {
-            consecutiveWriteFailures += 1
-            if consecutiveWriteFailures >= maxConsecutiveWriteFailures {
+            track.consecutiveWriteFailures += 1
+            if track.consecutiveWriteFailures >= maxConsecutiveWriteFailures {
                 abortRecording(with: .insufficientDiskSpace)
             }
         }
@@ -415,8 +585,10 @@ final class RecordingService: NSObject {
     /// 因异常（磁盘不足/写失败）被动停录：收尾资源并置为 failed，供 UI 感知。
     private func abortRecording(with error: RecordingServiceError) {
         AppLogger.capture.error("录制被动停止: \(error.localizedDescription)")
-        _ = stopRecording()
-        state = .failed(error.localizedDescription)
+        Task { @MainActor in
+            _ = await stopRecording()
+            state = .failed(error.localizedDescription)
+        }
     }
 
     /// 返回目录所在卷的可用空间（重要用途口径），失败时返回 Int64.max 不误停。
@@ -425,9 +597,9 @@ final class RecordingService: NSObject {
         return values?.volumeAvailableCapacityForImportantUsage ?? .max
     }
 
-    private func cleanupAfterFailedStart() {
-        stopTimers()
-        stopAudioRecorder()
+    private func cleanupAfterFailedStart() async {
+        stopSchedulingTasks()
+        await stopAudioCapture()
 
         // 删除本次启动已创建、但未产出有效内容的会话目录，避免残留空壳。
         if let directory = outputDirectory {
@@ -437,10 +609,13 @@ final class RecordingService: NSObject {
         startedAt = nil
         outputDirectory = nil
         deviceDirectories.removeAll()
+        videoTracks.removeAll()
+        pendingFinishTasks.removeAll()
+        isStopping = false
         elapsedSeconds = 0
     }
 
-    /// 仅当目录为空、或只含启动失败残片(如未写入内容的 audio.m4a)时删除，避免误删有效数据。
+    /// 调用前已经验证目录中不存在有效音频或视频；这里只负责删除空目录及无效残片。
     private func removeDirectoryIfEmptyOrResidual(_ directory: URL) {
         guard fileManager.fileExists(atPath: directory.path) else { return }
 
@@ -459,153 +634,59 @@ final class RecordingService: NSObject {
         }
     }
 
-    private func stopTimers() {
-        snapshotTimer?.invalidate()
-        elapsedTimer?.invalidate()
-        snapshotTimer = nil
-        elapsedTimer = nil
+    /// 返回已完成音频文件的有效时长。只有能够被 AVFoundation 正常解析且时长大于零，
+    /// 才将其视作需要保留的用户录制内容。
+    private func recordedAudioDuration(in directory: URL?) async -> TimeInterval? {
+        guard let directory else { return nil }
+        let audioURL = directory.appendingPathComponent("audio.m4a")
+        guard fileManager.fileExists(atPath: audioURL.path) else { return nil }
+
+        let asset = AVURLAsset(url: audioURL)
+        guard let duration = try? await asset.load(.duration) else { return nil }
+        let seconds = duration.seconds
+        guard seconds.isFinite, seconds > 0 else { return nil }
+        return seconds
     }
 
-    private func stopAudioRecorder() {
-        guard let recorder = audioRecorder else { return }
-        recorder.stop()
-        recorder.delegate = nil
-        audioRecorder = nil
-    }
-}
+    private func writeSessionMetadata(
+        in directory: URL,
+        sessionStartedAt: Date?,
+        audioDuration: TimeInterval?
+    ) {
+        // 正常启动后使用 Helper 上报的准确 epoch；如果用户在 starting 阶段停止，
+        // 则用已完成音频的实际时长反推开始时间，避免删除已经录到的有效内容。
+        let metadataStartedAt = sessionStartedAt
+            ?? Date().addingTimeInterval(-(audioDuration ?? 0))
+        let elapsedDuration = max(0, Date().timeIntervalSince(metadataStartedAt))
+        let finalDuration = max(elapsedDuration, audioDuration ?? 0)
+        let durationMilliseconds = Int64((finalDuration * 1_000).rounded())
 
-// MARK: - AVAudioRecorderDelegate
-
-extension RecordingService: AVAudioRecorderDelegate {
-    nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
-        Task { @MainActor in
-            let message = error?.localizedDescription ?? L10n.recording.startFailed
-            AppLogger.capture.error("录制音频编码失败: \(message)")
-            _ = stopRecording()
-            state = .failed(message)
-        }
-    }
-}
-
-// MARK: - 截图编码器
-
-/// 将截图的缩放、JPEG 编码与写盘放到后台串行队列执行，避免阻塞主线程。
-/// 提交前在调用线程完成 pixelBuffer 深拷贝，规避上游复用缓冲导致的读到错帧/崩溃。
-final class SnapshotEncoder {
-    private let context = CIContext(options: [.useSoftwareRenderer: false])
-    private let queue = DispatchQueue(label: "com.screenPresenter.recording.encode", qos: .utility)
-    private let maxLongSide: CGFloat
-    private let quality: CGFloat
-    private let maxPendingFrames: Int
-
-    private let lock = NSLock()
-    private var pendingCount = 0
-
-    init(maxLongSide: CGFloat, quality: CGFloat, maxPendingFrames: Int) {
-        self.maxLongSide = maxLongSide
-        self.quality = quality
-        self.maxPendingFrames = maxPendingFrames
-    }
-
-    /// 提交一帧编码。深拷贝在调用线程同步完成；编码与写盘在后台执行。
-    /// completion 在主线程回调，参数为是否成功写盘。
-    func submit(pixelBuffer: CVPixelBuffer, to outputURL: URL, completion: @escaping (Bool) -> Void) {
-        // 背压：积压过多时丢最新帧，避免内存无限增长。
-        lock.lock()
-        if pendingCount >= maxPendingFrames {
-            lock.unlock()
-            AppLogger.capture.warning("截图编码积压，丢弃当前帧")
-            return
-        }
-        pendingCount += 1
-        lock.unlock()
-
-        guard let copy = Self.deepCopy(pixelBuffer) else {
-            lock.lock(); pendingCount -= 1; lock.unlock()
-            AppLogger.capture.warning("截图缓冲拷贝失败，跳过当前帧")
-            DispatchQueue.main.async { completion(false) }
-            return
-        }
-
-        queue.async { [weak self] in
-            guard let self else { return }
-            let ok = self.encodeAndWrite(pixelBuffer: copy, to: outputURL)
-            self.lock.lock(); self.pendingCount -= 1; self.lock.unlock()
-            DispatchQueue.main.async { completion(ok) }
+        do {
+            let metadata = RecordingSessionMetadata(
+                version: RecordingSessionMetadata.currentVersion,
+                startedAt: metadataStartedAt,
+                durationMilliseconds: durationMilliseconds,
+                video: .screenRecording
+            )
+            try RecordingSessionMetadata.encode(metadata).write(
+                to: directory.appendingPathComponent("session.json"),
+                options: .atomic
+            )
+        } catch {
+            AppLogger.capture.error("写入录制会话元数据失败: \(error.localizedDescription)")
         }
     }
 
-    private func encodeAndWrite(pixelBuffer: CVPixelBuffer, to outputURL: URL) -> Bool {
-        let image = CIImage(cvImageBuffer: pixelBuffer)
-        let longSide = max(image.extent.width, image.extent.height)
-        let scale = longSide > maxLongSide ? maxLongSide / longSide : 1
-        let outputImage = scale < 1
-            ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            : image
-
-        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-            return false
-        }
-        guard let destination = CGImageDestinationCreateWithURL(
-            outputURL as CFURL,
-            UTType.jpeg.identifier as CFString,
-            1,
-            nil
-        ) else {
-            return false
-        }
-        CGImageDestinationAddImage(
-            destination,
-            cgImage,
-            [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
-        )
-        return CGImageDestinationFinalize(destination)
+    private func stopSchedulingTasks() {
+        videoTask?.cancel()
+        elapsedTask?.cancel()
+        videoTask = nil
+        elapsedTask = nil
     }
 
-    /// 深拷贝 CVPixelBuffer（逐平面 memcpy），使后台编码不受上游缓冲复用影响。
-    private static func deepCopy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
-        let width = CVPixelBufferGetWidth(source)
-        let height = CVPixelBufferGetHeight(source)
-        let format = CVPixelBufferGetPixelFormatType(source)
-        let attrs: [CFString: Any] = [
-            kCVPixelBufferIOSurfacePropertiesKey: [:],
-            kCVPixelBufferMetalCompatibilityKey: true,
-        ]
-
-        var destination: CVPixelBuffer?
-        guard CVPixelBufferCreate(
-            kCFAllocatorDefault, width, height, format, attrs as CFDictionary, &destination
-        ) == kCVReturnSuccess, let destination else {
-            return nil
-        }
-
-        CVPixelBufferLockBaseAddress(source, .readOnly)
-        CVPixelBufferLockBaseAddress(destination, [])
-        defer {
-            CVPixelBufferUnlockBaseAddress(destination, [])
-            CVPixelBufferUnlockBaseAddress(source, .readOnly)
-        }
-
-        let planeCount = max(1, CVPixelBufferGetPlaneCount(source))
-        if CVPixelBufferGetPlaneCount(source) == 0 {
-            guard let src = CVPixelBufferGetBaseAddress(source),
-                  let dst = CVPixelBufferGetBaseAddress(destination) else { return nil }
-            let bytes = CVPixelBufferGetBytesPerRow(source) * height
-            memcpy(dst, src, min(bytes, CVPixelBufferGetBytesPerRow(destination) * height))
-            return destination
-        }
-
-        for plane in 0..<planeCount {
-            guard let src = CVPixelBufferGetBaseAddressOfPlane(source, plane),
-                  let dst = CVPixelBufferGetBaseAddressOfPlane(destination, plane) else { return nil }
-            let srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
-            let dstBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(destination, plane)
-            let planeHeight = CVPixelBufferGetHeightOfPlane(source, plane)
-            let copyBytesPerRow = min(srcBytesPerRow, dstBytesPerRow)
-            for row in 0..<planeHeight {
-                memcpy(dst + row * dstBytesPerRow, src + row * srcBytesPerRow, copyBytesPerRow)
-            }
-        }
-        return destination
+    private func stopAudioCapture() async {
+        guard let audioProcess else { return }
+        self.audioProcess = nil
+        await audioProcess.stop()
     }
 }

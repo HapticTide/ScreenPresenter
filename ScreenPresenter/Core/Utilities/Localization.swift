@@ -338,7 +338,6 @@ enum L10n {
             static var layout: String { "prefs.section.layout".localized }
             static var frameRate: String { "prefs.section.frameRate".localized }
             static var recordingOutput: String { "prefs.section.recordingOutput".localized }
-            static var recordingSnapshot: String { "prefs.section.recordingSnapshot".localized }
             static var recordingAudio: String { "prefs.section.recordingAudio".localized }
             static var audio: String { "prefs.section.audio".localized }
             static var iosAudio: String { "prefs.section.iosAudio".localized }
@@ -395,13 +394,6 @@ enum L10n {
             static var saveLocationNote: String { "prefs.recording.saveLocationNote".localized }
             static var chooseFolder: String { "prefs.recording.chooseFolder".localized }
             static var resetToDefault: String { "prefs.recording.resetToDefault".localized }
-            static var snapshotInterval: String { "prefs.recording.snapshotInterval".localized }
-            static var snapshotIntervalNote: String { "prefs.recording.snapshotIntervalNote".localized }
-            static func intervalSeconds(_ seconds: Int) -> String { "prefs.recording.intervalSeconds".localized(seconds) }
-            static var imageQuality: String { "prefs.recording.imageQuality".localized }
-            static var qualityLow: String { "prefs.recording.qualityLow".localized }
-            static var qualityMedium: String { "prefs.recording.qualityMedium".localized }
-            static var qualityHigh: String { "prefs.recording.qualityHigh".localized }
             static var enableMicrophone: String { "prefs.recording.enableMicrophone".localized }
             static var enableMicrophoneNote: String { "prefs.recording.enableMicrophoneNote".localized }
         }
@@ -565,6 +557,7 @@ enum L10n {
         static var microphonePermissionDenied: String { "recording.microphonePermissionDenied".localized }
         static var outputDirectoryUnavailable: String { "recording.outputDirectoryUnavailable".localized }
         static var insufficientDiskSpace: String { "recording.insufficientDiskSpace".localized }
+        static var captureInterrupted: String { "recording.captureInterrupted".localized }
         static var openOutputDirectory: String { "recording.openOutputDirectory".localized }
         static var openHistory: String { "recording.openHistory".localized }
         static var back: String { "recording.back".localized }

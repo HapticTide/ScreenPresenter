@@ -151,7 +151,6 @@
 "prefs.section.layout" = "布局";
 "prefs.section.frameRate" = "帧率";
 "prefs.section.recordingOutput" = "保存位置";
-"prefs.section.recordingSnapshot" = "画面截图";
 "prefs.section.recordingAudio" = "音频";
 "prefs.section.audio" = "音频";
 "prefs.section.iosAudio" = "iOS 音频";
@@ -207,13 +206,6 @@
 "prefs.recording.saveLocationNote" = "录制文件将存放在所选目录的“ScreenPresenter Recordings”子文件夹中";
 "prefs.recording.chooseFolder" = "选择文件夹…";
 "prefs.recording.resetToDefault" = "恢复默认";
-"prefs.recording.snapshotInterval" = "截图间隔";
-"prefs.recording.snapshotIntervalNote" = "间隔越短回放越流畅，占用磁盘也越多";
-"prefs.recording.intervalSeconds" = "每 %d 秒";
-"prefs.recording.imageQuality" = "截图画质";
-"prefs.recording.qualityLow" = "低（更省空间）";
-"prefs.recording.qualityMedium" = "中";
-"prefs.recording.qualityHigh" = "高（更清晰）";
 "prefs.recording.enableMicrophone" = "录制麦克风音频";
 "prefs.recording.enableMicrophoneNote" = "关闭后仅录制画面，不再请求麦克风权限";
 
@@ -469,6 +461,7 @@
 "recording.microphonePermissionDenied" = "麦克风权限未开启，请在系统设置中允许 ScreenPresenter 访问麦克风";
 "recording.outputDirectoryUnavailable" = "无法创建录制保存目录";
 "recording.insufficientDiskSpace" = "磁盘空间不足，录制已停止";
+"recording.captureInterrupted" = "投屏已中断";
 "recording.openOutputDirectory" = "打开录制目录";
 "recording.openHistory" = "查看录制历史";
 "recording.back" = "返回";
@@ -488,7 +481,7 @@
 "recording.historyDetail" = "%@ · %d 台设备";
 "recording.rewindFiveSeconds" = "后退5秒";
 "recording.forwardFiveSeconds" = "前进5秒";
-"recording.noSnapshots" = "暂无截图";
+"recording.noSnapshots" = "暂无录制画面";
 "recording.replayLoadFailed" = "录制音频加载失败";
 "recording.replayTitle" = "回看 %@";
 "recording.replayDeviceCount" = "%d 台设备";

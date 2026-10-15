@@ -374,13 +374,6 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         audioPlayer?.isMuted = !audioEnabledForCurrentSession
     }
 
-    /// 仅停止当前捕获会话的 iOS 音频，不改写用户偏好。
-    /// 停止录制时用于释放系统音频输入路径，避免下次启动时丢失用户原本的音频偏好。
-    func stopAudioCaptureForCurrentSession() {
-        audioEnabledForCurrentSession = false
-        setAudioCaptureEnabled(false)
-    }
-
     /// 运行时切换 iOS 设备音频捕获
     /// 说明：只静音播放器不能释放系统音频输入路径，必须从 AVCaptureSession 中移除音频输出。
     private func setAudioCaptureEnabled(_ enabled: Bool) {
