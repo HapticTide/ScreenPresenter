@@ -55,24 +55,14 @@ public final class LabeledSearchField: NSSearchField {
             )
         }
 
-        // To completely clip the unnecessary capsule-style border
+        // 系统内部视图的名称和创建时机可能随 macOS 版本变化。
+        // 找到时修正胶囊边框；未找到时沿用系统绘制，不能因此中断应用启动。
         if modernStyle {
-            #if DEBUG
-                var hasAppKitSearchField = false
-            #endif
-
             enumerateDescendants { view in
                 if view.className.contains("AppKitSearchField") {
-                    #if DEBUG
-                        hasAppKitSearchField = true
-                    #endif
                     view.layer?.cornerRadius = view.frame.height * 0.5
                 }
             }
-
-            #if DEBUG
-                assert(hasAppKitSearchField, "Missing AppKitSearchField in NSSearchField")
-            #endif
         }
     }
 

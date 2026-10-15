@@ -78,7 +78,13 @@ final class DevicePanelView: NSView {
         case toolchainMissing
     }
 
-    private var currentState: PanelState = .loading
+    private var currentState: PanelState = .loading {
+        didSet {
+            if currentState != .capturing {
+                resetCaptureIdle()
+            }
+        }
+    }
     private var currentPlatform: DevicePlatform = .ios {
         didSet {
             if oldValue != currentPlatform {
@@ -92,6 +98,17 @@ final class DevicePanelView: NSView {
 
     private var trackingArea: NSTrackingArea?
     private var isMouseInside: Bool = false
+    private var isMouseInsideCaptureInfo = false
+
+    /// 仅记录投屏画面内的静止时间，不影响侧边浮层上的操作。
+    private var captureIdleTimer: Timer?
+    private var isCaptureIdle = false
+    private let captureIdleDuration: TimeInterval = 1
+
+    /// 独立子窗口允许控制浮层超出主窗口，同时不改变设备画面的尺寸。
+    private var captureInfoPanel: NSPanel?
+    /// 两侧均无法完整显示时，复用信息视图作为画面内蒙层。
+    private var isCaptureInfoEmbedded = false
 
     /// 隐藏延迟计时器（鼠标移出后延迟隐藏）
     private var hideDelayTimer: Timer?
@@ -126,7 +143,13 @@ final class DevicePanelView: NSView {
             removeTrackingArea(trackingArea)
         }
         cancelHideDelayTimer()
+        resetCaptureIdle()
         fpsUpdateTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+        if let panel = captureInfoPanel {
+            panel.parent?.removeChildWindow(panel)
+        }
+        captureInfoPanel?.orderOut(nil)
     }
 
     // MARK: - UI 设置
@@ -151,7 +174,7 @@ final class DevicePanelView: NSView {
     }
 
     private func setupTrackingArea() {
-        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .enabledDuringMouseDrag, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
         if let trackingArea {
             addTrackingArea(trackingArea)
@@ -165,7 +188,7 @@ final class DevicePanelView: NSView {
             removeTrackingArea(oldTrackingArea)
         }
 
-        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .enabledDuringMouseDrag, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
         if let trackingArea {
             addTrackingArea(trackingArea)
@@ -180,6 +203,7 @@ final class DevicePanelView: NSView {
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
         isMouseInside = false
+        resetCaptureIdle()
         updateCaptureInfoVisibility()
     }
 
@@ -188,35 +212,24 @@ final class DevicePanelView: NSView {
         checkMouseInCaptureZone(with: event)
     }
 
-    /// 检查鼠标是否在 captureInfo 显示区域内（屏幕中心区域）
+    override func mouseDragged(with event: NSEvent) {
+        super.mouseDragged(with: event)
+        checkMouseInCaptureZone(with: event)
+    }
+
+    /// 整个投屏画面都可触发侧边浮层，隐藏设备边框时使用实际渲染区域。
     private func checkMouseInCaptureZone(with event: NSEvent) {
-        // 将鼠标位置转换到 bezelView.screenContentView 的坐标系
-        let locationInView = convert(event.locationInWindow, from: nil)
-        let locationInScreen = bezelView.screenContentView.convert(locationInView, from: self)
-
-        let screenBounds = bezelView.screenContentView.bounds
-        guard screenBounds.width > 0, screenBounds.height > 0 else {
-            isMouseInside = false
-            updateCaptureInfoVisibility()
-            return
-        }
-
-        // 计算中心区域（中间 50% 区域）
-        let centerRatio: CGFloat = 0.5
-        let marginX = screenBounds.width * (1 - centerRatio) / 2
-        let marginY = screenBounds.height * (1 - centerRatio) / 2
-        let centerZone = CGRect(
-            x: marginX,
-            y: marginY,
-            width: screenBounds.width * centerRatio,
-            height: screenBounds.height * centerRatio
-        )
-
+        let screenView = showBezel ? bezelView.screenContentView : renderView
+        let location = screenView.convert(event.locationInWindow, from: nil)
         let wasInside = isMouseInside
-        isMouseInside = centerZone.contains(locationInScreen)
-
-        // 只在状态改变时更新
-        if wasInside != isMouseInside {
+        let wasIdle = isCaptureIdle
+        isMouseInside = screenView.bounds.contains(location)
+        // 每次实际移动都重新计时；静止隐藏后首次移动要重新显示浮层。
+        resetCaptureIdle()
+        if isMouseInside, currentState == .capturing {
+            scheduleCaptureIdleTimer()
+        }
+        if wasInside != isMouseInside || wasIdle {
             updateCaptureInfoVisibility()
         }
     }
@@ -228,17 +241,48 @@ final class DevicePanelView: NSView {
             return
         }
 
-        if isMouseInside {
+        if isMouseInside || isMouseInsideCaptureInfo {
             // 鼠标进入：立即取消所有隐藏计时器，立即显示
             cancelHideDelayTimer()
-            captureInfoView.cancelAutoHide()
-            captureInfoView.showAnimated(autoHide: false)
+            if !isCaptureIdle {
+                showCaptureInfo()
+                if isMouseInside, !isMouseInsideCaptureInfo, captureIdleTimer == nil {
+                    scheduleCaptureIdleTimer()
+                }
+            }
         } else {
-            // 鼠标移出：如果已有 autoHide 定时器在运行（首次显示后的自动隐藏），不重复调度
-            // 只有在没有任何隐藏定时器运行时才启动延迟隐藏
-            if !captureInfoView.isAutoHideScheduled, hideDelayTimer == nil {
+            // 离开后保留短暂操作时间；已隐藏或正在等待隐藏时无需重复调度。
+            if !captureInfoView.isHidden, hideDelayTimer == nil {
                 scheduleHideDelayTimer()
             }
+        }
+    }
+
+    /// 静止一秒后同时收起控制浮层和光标；布局刷新不能重新显示它们。
+    private func scheduleCaptureIdleTimer() {
+        captureIdleTimer?.invalidate()
+        let timer = Timer(timeInterval: captureIdleDuration, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.captureIdleTimer = nil
+            guard self.currentState == .capturing, self.isMouseInside,
+                  !self.isMouseInsideCaptureInfo, !self.isHiddenOrHasHiddenAncestor else { return }
+            self.cancelHideDelayTimer()
+            self.isCaptureIdle = true
+            self.captureInfoView.isHidden = true
+            // 由 AppKit 在下一次真实鼠标移动时自动恢复，避免隐藏计数影响其他窗口。
+            NSCursor.setHiddenUntilMouseMoves(true)
+        }
+        captureIdleTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    /// 离开画面、停止投屏或应用失活时，取消计时并恢复本次隐藏的光标。
+    private func resetCaptureIdle() {
+        captureIdleTimer?.invalidate()
+        captureIdleTimer = nil
+        if isCaptureIdle {
+            isCaptureIdle = false
+            NSCursor.setHiddenUntilMouseMoves(false)
         }
     }
 
@@ -247,8 +291,9 @@ final class DevicePanelView: NSView {
         cancelHideDelayTimer()
         hideDelayTimer = Timer.scheduledTimer(withTimeInterval: hideDelayDuration, repeats: false) { [weak self] _ in
             guard let self else { return }
-            // 隐藏前再次检查鼠标是否在区域内
-            if !self.isMouseInside {
+            self.hideDelayTimer = nil
+            // 鼠标可以跨过画面与浮层之间的间隙，进入浮层后继续操作。
+            if !self.isMouseInside, !self.isMouseInsideCaptureInfo {
                 self.captureInfoView.hideAnimated()
             }
         }
@@ -280,9 +325,19 @@ final class DevicePanelView: NSView {
     }
 
     private func setupCaptureInfoView() {
-        // 捕获状态覆盖视图（覆盖整个 screenContentView 区域）
         captureInfoView.isHidden = true
-        bezelView.screenContentView.addSubview(captureInfoView)
+        captureInfoView.onHoverChanged = { [weak self] isInside in
+            guard let self, !self.isCaptureInfoEmbedded else { return }
+            self.isMouseInsideCaptureInfo = isInside
+            if isInside {
+                self.resetCaptureIdle()
+            }
+            self.updateCaptureInfoVisibility()
+        }
+        captureInfoView.onHidden = { [weak self] in
+            self?.captureInfoPanel?.orderOut(nil)
+            self?.isMouseInsideCaptureInfo = false
+        }
 
         captureInfoView.onStopTapped = { [weak self] in
             self?.onStopAction?()
@@ -309,6 +364,150 @@ final class DevicePanelView: NSView {
                 // audioVolume 属性会自动更新 UserPreferences 和 audioPlayer 的音量
                 AppState.shared.androidDeviceSource?.audioVolume = volume
             }
+        }
+    }
+
+    // MARK: - 侧边控制浮层
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        NotificationCenter.default.removeObserver(self)
+        resetCaptureIdle()
+        captureInfoView.isHidden = true
+        if let panel = captureInfoPanel {
+            panel.parent?.removeChildWindow(panel)
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(captureWindowGeometryChanged), name: name, object: window
+            )
+        }
+        // 应用退到后台或主窗口最小化时，清除悬停状态，避免恢复后残留浮层。
+        for (name, object) in [
+            (NSApplication.didResignActiveNotification, NSApp as AnyObject),
+            (NSWindow.willMiniaturizeNotification, window as AnyObject),
+            (NSWindow.willCloseNotification, window as AnyObject),
+        ] {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(hideCaptureInfo), name: name, object: object
+            )
+        }
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        hideCaptureInfo()
+    }
+
+    @objc private func hideCaptureInfo() {
+        isMouseInside = false
+        isMouseInsideCaptureInfo = false
+        resetCaptureIdle()
+        cancelHideDelayTimer()
+        captureInfoView.isHidden = true
+    }
+
+    @objc private func captureWindowGeometryChanged() {
+        updateCaptureInfoPanelFrame()
+        refreshCaptureHover()
+    }
+
+    private func refreshCaptureHover() {
+        // 几何变化也会触发本方法；后台布局不能被当成新的鼠标悬停。
+        guard NSApp.isActive else {
+            hideCaptureInfo()
+            return
+        }
+        guard let window, !isHiddenOrHasHiddenAncestor else { return }
+        let screenView = showBezel ? bezelView.screenContentView : renderView
+        let location = screenView.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        isMouseInside = screenView.bounds.contains(location)
+        isMouseInsideCaptureInfo = !isCaptureInfoEmbedded && !captureInfoView.isHidden
+            && (captureInfoPanel?.frame.contains(NSEvent.mouseLocation) ?? false)
+        if !isMouseInside || isMouseInsideCaptureInfo {
+            resetCaptureIdle()
+        }
+        updateCaptureInfoVisibility()
+    }
+
+    private func showCaptureInfo() {
+        guard let window, !isHiddenOrHasHiddenAncestor, !window.isMiniaturized else { return }
+        if captureInfoPanel == nil {
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 240, height: 420),
+                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true
+            )
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
+            panel.hidesOnDeactivate = true
+            panel.isReleasedWhenClosed = false
+            panel.collectionBehavior = [.fullScreenAuxiliary]
+            panel.contentView = captureInfoView
+            captureInfoPanel = panel
+        }
+        guard let panel = captureInfoPanel else { return }
+        updateCaptureInfoPanelFrame()
+        if !isCaptureInfoEmbedded {
+            if panel.parent !== window {
+                window.addChildWindow(panel, ordered: .above)
+            }
+            panel.orderFront(nil)
+        }
+        captureInfoView.showAnimated()
+    }
+
+    /// 优先利用画面两侧空白；双设备布局中避开另一台设备，必要时超出主窗口。
+    private func updateCaptureInfoPanelFrame() {
+        guard let window, let panel = captureInfoPanel else { return }
+        let deviceFrame = window.convertToScreen(convert(bounds, to: nil))
+        let size = NSSize(width: 240, height: 420)
+        let gap: CGFloat = 12
+        let rightX = deviceFrame.maxX + gap
+        let leftX = deviceFrame.minX - gap - size.width
+        let siblingFrames = superview?.subviews.compactMap { view -> NSRect? in
+            guard let device = view as? DevicePanelView, device !== self,
+                  !device.isHiddenOrHasHiddenAncestor else { return nil }
+            return window.convertToScreen(device.convert(device.bounds, to: nil))
+        } ?? []
+        let visibleFrame = window.screen?.visibleFrame ?? deviceFrame
+        let y = max(visibleFrame.minY, min(deviceFrame.midY - size.height / 2, visibleFrame.maxY - size.height))
+        let candidates = [rightX, leftX].map { NSRect(x: $0, y: y, width: size.width, height: size.height) }
+        let frame = candidates.first { candidate in
+            visibleFrame.contains(candidate) && !siblingFrames.contains { $0.intersects(candidate) }
+        }
+        let screenView: NSView = showBezel ? bezelView.screenContentView : self
+        isCaptureInfoEmbedded = frame == nil
+        captureInfoView.setEmbeddedInScreen(isCaptureInfoEmbedded)
+        if let frame {
+            // 从画面内恢复到侧边时，始终保留固定大小，不继承蒙层的屏幕尺寸。
+            if panel.contentView !== captureInfoView {
+                captureInfoView.removeFromSuperview()
+                panel.contentView = captureInfoView
+            }
+            panel.setFrame(frame, display: true)
+            if !captureInfoView.isHidden {
+                if panel.parent !== window {
+                    window.addChildWindow(panel, ordered: .above)
+                }
+                panel.orderFront(nil)
+            }
+        } else {
+            // 两侧都放不下时恢复旧的画面内蒙层，不再把控制按钮放到显示器外。
+            panel.orderOut(nil)
+            if captureInfoView.superview !== screenView {
+                panel.contentView = nil
+                captureInfoView.removeFromSuperview()
+                screenView.addSubview(captureInfoView)
+            }
+            captureInfoView.frame = screenView.bounds
+            // 内嵌蒙层属于投屏画面，不能被当作侧边控件而阻止一秒静止隐藏。
+            isMouseInsideCaptureInfo = false
         }
     }
 
@@ -572,8 +771,8 @@ final class DevicePanelView: NSView {
         captureInfoView.updateResolution(resolutionValid ? resolution : .zero)
         updateFPS(fps)
 
-        // 开始投屏后显示一次，然后延时自动隐藏
-        captureInfoView.showAnimated(autoHide: true)
+        // 仅在光标位于画面上时显示控制浮层，开始投屏不主动打断演示。
+        refreshCaptureHover()
 
         // 启动 FPS 更新定时器
         startFPSUpdateTimer()
@@ -654,8 +853,8 @@ final class DevicePanelView: NSView {
         captureInfoView.updateResolution(resolutionValid ? resolution : .zero)
         updateFPS(fps)
 
-        // 开始投屏后显示一次，然后延时自动隐藏
-        captureInfoView.showAnimated(autoHide: true)
+        // 仅在光标位于画面上时显示控制浮层，开始投屏不主动打断演示。
+        refreshCaptureHover()
 
         // 启动 FPS 更新定时器
         startFPSUpdateTimer()
@@ -786,7 +985,7 @@ final class DevicePanelView: NSView {
     /// 更新 bezel 可见性（重新布局视图）
     private func updateBezelVisibility() {
         if showBezel {
-            // 显示 bezel：将 renderView、statusView、captureInfoView 移回 bezelView.screenContentView
+            // 显示 bezel：将画面和状态视图移回屏幕区域，控制浮层始终留在独立窗口中。
             bezelView.isHidden = false
 
             renderView.removeFromSuperview()
@@ -794,11 +993,8 @@ final class DevicePanelView: NSView {
 
             statusView.removeFromSuperview()
             bezelView.screenContentView.addSubview(statusView)
-
-            captureInfoView.removeFromSuperview()
-            bezelView.screenContentView.addSubview(captureInfoView)
         } else {
-            // 隐藏 bezel：将 renderView、statusView、captureInfoView 移到 self 中
+            // 隐藏 bezel：将画面和状态视图移到 self 中。
             bezelView.isHidden = true
 
             renderView.removeFromSuperview()
@@ -806,9 +1002,6 @@ final class DevicePanelView: NSView {
 
             statusView.removeFromSuperview()
             addSubview(statusView)
-
-            captureInfoView.removeFromSuperview()
-            addSubview(captureInfoView)
         }
 
         // 强制重新布局
@@ -821,7 +1014,7 @@ final class DevicePanelView: NSView {
         let targetFrame = containerView.bounds
         renderView.frame = targetFrame
         statusView.frame = targetFrame
-        captureInfoView.frame = targetFrame
+        updateCaptureInfoPanelFrame()
     }
 
     override func layout() {
@@ -833,6 +1026,8 @@ final class DevicePanelView: NSView {
         bezelView.layoutSubtreeIfNeeded()
         updateContentFrames()
         CATransaction.commit()
+        // 布局变化后以实际光标位置更新状态，兼容设备交换和边框开关。
+        refreshCaptureHover()
     }
 
     // MARK: - 私有方法

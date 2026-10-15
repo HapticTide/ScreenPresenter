@@ -89,6 +89,7 @@
 		TST000010000000000001 /* RecordingFileNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000001 /* RecordingFileNamingTests.swift */; };
 		TST000010000000000002 /* ScrcpyVideoStreamParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */; };
 		TST000010000000000003 /* RecordingLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000003 /* RecordingLibraryTests.swift */; };
+		TST000010000000000004 /* DeviceCaptureInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000020000000000004 /* DeviceCaptureInfoTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -195,6 +196,7 @@
 		TST000020000000000001 /* RecordingFileNamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFileNamingTests.swift; sourceTree = "<group>"; };
 		TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyVideoStreamParserTests.swift; sourceTree = "<group>"; };
 		TST000020000000000003 /* RecordingLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLibraryTests.swift; sourceTree = "<group>"; };
+		TST000020000000000004 /* DeviceCaptureInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureInfoTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -282,6 +284,7 @@
 			children = (
 				TST000020000000000001 /* RecordingFileNamingTests.swift */,
 				TST000020000000000003 /* RecordingLibraryTests.swift */,
+				TST000020000000000004 /* DeviceCaptureInfoTests.swift */,
 				TST000020000000000002 /* ScrcpyVideoStreamParserTests.swift */,
 			);
 			path = ScreenPresenterTests;
@@ -657,6 +660,7 @@
 			files = (
 				TST000010000000000001 /* RecordingFileNamingTests.swift in Sources */,
 				TST000010000000000003 /* RecordingLibraryTests.swift in Sources */,
+				TST000010000000000004 /* DeviceCaptureInfoTests.swift in Sources */,
 				TST000010000000000002 /* ScrcpyVideoStreamParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
