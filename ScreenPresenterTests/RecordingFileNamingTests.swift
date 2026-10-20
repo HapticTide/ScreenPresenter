@@ -38,4 +38,23 @@ final class RecordingFileNamingTests: XCTestCase {
 
         XCTAssertEqual(result, "000007_2026-06-30_10-18-43.jpg")
     }
+
+    func testVideoSegmentFileNameRoundTripsStartMillisecondsAndSequence() {
+        let name = RecordingFileNaming.videoSegmentFileName(
+            startMilliseconds: 125_430,
+            sequence: 2
+        )
+
+        XCTAssertEqual(name, "000125430_0002.mp4")
+        XCTAssertEqual(
+            RecordingFileNaming.parseVideoSegmentFileName(name),
+            RecordingVideoSegmentFileComponents(startMilliseconds: 125_430, sequence: 2)
+        )
+    }
+
+    func testVideoSegmentFileNameRejectsInvalidNames() {
+        XCTAssertNil(RecordingFileNaming.parseVideoSegmentFileName("000125430_0002.mov"))
+        XCTAssertNil(RecordingFileNaming.parseVideoSegmentFileName("125430_0002.mp4"))
+        XCTAssertNil(RecordingFileNaming.parseVideoSegmentFileName("000125430_02.mp4"))
+    }
 }

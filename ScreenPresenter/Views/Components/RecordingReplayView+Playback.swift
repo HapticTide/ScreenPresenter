@@ -20,7 +20,7 @@ extension RecordingReplayView {
     func refreshPlaybackState(at time: TimeInterval) {
         currentTimeLabel.stringValue = "\(Self.formatTime(time)) / \(Self.formatTime(session?.duration ?? 0))"
         progressSlider.doubleValue = min(max(progressSlider.minValue, time), progressSlider.maxValue)
-        refreshSnapshots(at: Int(floor(time)))
+        refreshDeviceContent(at: time)
     }
 
     func startPlaybackTimer() {
@@ -60,6 +60,7 @@ extension RecordingReplayView {
 
         clock.rate = playbackRate
         if clock.play() {
+            refreshPlaybackState(at: clock.currentTime)
             startPlaybackTimer()
             updatePlayPauseButton(.playing)
         } else {
@@ -89,14 +90,28 @@ extension RecordingReplayView {
         }
     }
 
-    func refreshSnapshots(at elapsedSecond: Int) {
+    func refreshDeviceContent(at time: TimeInterval) {
         for pane in devicePanes {
-            guard let snapshot = pane.track.snapshot(at: elapsedSecond) else {
+            switch RecordingReplayTimeline.state(for: pane.track, at: time) {
+            case let .snapshot(fileURL):
+                pane.clearVideo()
+                pane.interruptedLabel.isHidden = true
+                pane.imageView.isHidden = false
+                updateSnapshot(for: pane, fileURL: fileURL)
+            case let .video(fileURL, localTime):
+                pane.showVideo(
+                    fileURL: fileURL,
+                    localTime: localTime,
+                    isPlaying: clock?.isPlaying == true,
+                    rate: playbackRate
+                )
+            case .interrupted:
+                pane.showInterrupted()
+            case .empty:
+                pane.clearVideo()
                 pane.clearImage()
-                continue
+                pane.interruptedLabel.isHidden = true
             }
-
-            updateSnapshot(for: pane, fileURL: snapshot.fileURL)
         }
     }
 
@@ -132,6 +147,7 @@ extension RecordingReplayView {
 
         if clock.isPlaying {
             clock.pause()
+            devicePanes.forEach { $0.pauseVideo() }
             playbackTimer?.invalidate()
             playbackTimer = nil
             updatePlayPauseButton(.paused)
@@ -141,6 +157,7 @@ extension RecordingReplayView {
             }
             clock.rate = playbackRate
             clock.play()
+            refreshPlaybackState(at: clock.currentTime)
             startPlaybackTimer()
             updatePlayPauseButton(.playing)
         }
@@ -167,6 +184,9 @@ extension RecordingReplayView {
         }
 
         clock?.rate = playbackRate
+        if clock?.isPlaying == true {
+            devicePanes.compactMap(\.player).forEach { $0.rate = playbackRate }
+        }
         updateSpeedButtonTitle()
     }
 
@@ -186,6 +206,7 @@ extension RecordingReplayView {
         guard reachedEnd else { return }
 
         clock.pause() // 冻结虚拟时钟于末尾；对音频时钟是空操作。
+        devicePanes.forEach { $0.pauseVideo() }
         playbackTimer?.invalidate()
         playbackTimer = nil
         // 对齐进度条与时间标签到末尾，避免停在 24.75s / 25s 这类中间态。

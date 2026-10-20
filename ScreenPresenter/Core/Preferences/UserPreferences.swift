@@ -27,41 +27,6 @@ enum ScrcpyCodecType: String, CaseIterable {
     }
 }
 
-// MARK: - 录制画质档位
-
-/// 投屏录制的截图画质档位。合成分辨率上限与 JPEG 质量两个内部参数。
-enum RecordingImageQuality: String, CaseIterable {
-    case low
-    case medium
-    case high
-
-    /// 截图长边像素上限。
-    var maxLongSide: CGFloat {
-        switch self {
-        case .low: 960
-        case .medium: 1280
-        case .high: 1920
-        }
-    }
-
-    /// JPEG 压缩质量。
-    var jpegQuality: CGFloat {
-        switch self {
-        case .low: 0.5
-        case .medium: 0.65
-        case .high: 0.8
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .low: L10n.prefs.recording.qualityLow
-        case .medium: L10n.prefs.recording.qualityMedium
-        case .high: L10n.prefs.recording.qualityHigh
-        }
-    }
-}
-
 // MARK: - 用户偏好设置模型
 
 /// 用户偏好设置
@@ -100,8 +65,6 @@ final class UserPreferences {
         static let androidAudioCodec = "androidAudioCodec"
         // 投屏录制
         static let recordingSaveDirectory = "recordingSaveDirectory"
-        static let recordingSnapshotInterval = "recordingSnapshotInterval"
-        static let recordingImageQuality = "recordingImageQuality"
         static let recordingMicrophoneEnabled = "recordingMicrophoneEnabled"
         // Markdown 编辑器
         static let markdownEditorVisible = "markdownEditorVisible"
@@ -435,29 +398,6 @@ final class UserPreferences {
         set { defaults.set(newValue?.path, forKey: Keys.recordingSaveDirectory) }
     }
 
-    /// 截图间隔（秒）。每隔 N 秒截一帧，决定回放粒度与磁盘占用，默认 1。
-    /// 受整秒时间轴模型约束，最小为 1s（即上限 1fps）。
-    var recordingSnapshotInterval: Int {
-        get {
-            let value = defaults.integer(forKey: Keys.recordingSnapshotInterval)
-            return value > 0 ? value : 1
-        }
-        set { defaults.set(max(1, newValue), forKey: Keys.recordingSnapshotInterval) }
-    }
-
-    /// 截图画质档位（低/中/高）。默认中。
-    var recordingImageQuality: RecordingImageQuality {
-        get {
-            guard
-                let rawValue = defaults.string(forKey: Keys.recordingImageQuality),
-                let quality = RecordingImageQuality(rawValue: rawValue) else {
-                return .medium
-            }
-            return quality
-        }
-        set { defaults.set(newValue.rawValue, forKey: Keys.recordingImageQuality) }
-    }
-
     /// 录制时是否采集麦克风音频。关闭则纯画面录制，不请求权限。默认开。
     var recordingMicrophoneEnabled: Bool {
         get {
@@ -512,8 +452,6 @@ final class UserPreferences {
             Keys.iosAudioVolume: 1.0,
             Keys.androidAudioEnabled: false,
             Keys.androidAudioVolume: 1.0,
-            Keys.recordingSnapshotInterval: 1,
-            Keys.recordingImageQuality: RecordingImageQuality.medium.rawValue,
             Keys.recordingMicrophoneEnabled: true,
         ])
     }

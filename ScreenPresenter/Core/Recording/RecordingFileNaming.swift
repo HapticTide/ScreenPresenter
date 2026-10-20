@@ -44,6 +44,38 @@ enum RecordingFileNaming {
         return "\(elapsed)_\(snapshotFormatter.string(from: date)).jpg"
     }
 
+    /// 视频分段文件名包含会话内起始毫秒和设备轨道内递增序号。
+    static func videoSegmentFileName(startMilliseconds: Int64, sequence: Int) -> String {
+        let clampedMilliseconds = max(0, startMilliseconds)
+        let clampedSequence = max(1, sequence)
+        return String(format: "%09lld_%04d.mp4", clampedMilliseconds, clampedSequence)
+    }
+
+    static func parseVideoSegmentFileName(_ fileName: String) -> RecordingVideoSegmentFileComponents? {
+        let url = URL(fileURLWithPath: fileName)
+        guard url.pathExtension.lowercased() == "mp4" else { return nil }
+
+        let components = url.deletingPathExtension().lastPathComponent.split(
+            separator: "_",
+            omittingEmptySubsequences: false
+        )
+        guard components.count == 2,
+              components[0].count == 9,
+              components[1].count == 4,
+              components[0].allSatisfy(\.isNumber),
+              components[1].allSatisfy(\.isNumber),
+              let startMilliseconds = Int64(components[0]),
+              let sequence = Int(components[1]),
+              sequence > 0 else {
+            return nil
+        }
+
+        return RecordingVideoSegmentFileComponents(
+            startMilliseconds: startMilliseconds,
+            sequence: sequence
+        )
+    }
+
     static func sanitizeFileNameComponent(_ value: String) -> String {
         let scalars = value.unicodeScalars.map { scalar -> String in
             invalidFileNameCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar)

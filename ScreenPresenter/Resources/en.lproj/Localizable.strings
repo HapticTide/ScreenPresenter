@@ -151,7 +151,6 @@
 "prefs.section.layout" = "Layout";
 "prefs.section.frameRate" = "Frame Rate";
 "prefs.section.recordingOutput" = "Save Location";
-"prefs.section.recordingSnapshot" = "Screen Snapshots";
 "prefs.section.recordingAudio" = "Audio";
 "prefs.section.audio" = "Audio";
 "prefs.section.iosAudio" = "iOS Audio";
@@ -207,13 +206,6 @@
 "prefs.recording.saveLocationNote" = "Recordings are stored in a \"ScreenPresenter Recordings\" subfolder of the chosen directory";
 "prefs.recording.chooseFolder" = "Choose Folder…";
 "prefs.recording.resetToDefault" = "Reset to Default";
-"prefs.recording.snapshotInterval" = "Snapshot Interval";
-"prefs.recording.snapshotIntervalNote" = "Shorter intervals mean smoother replay but more disk usage";
-"prefs.recording.intervalSeconds" = "Every %d s";
-"prefs.recording.imageQuality" = "Snapshot Quality";
-"prefs.recording.qualityLow" = "Low (saves space)";
-"prefs.recording.qualityMedium" = "Medium";
-"prefs.recording.qualityHigh" = "High (sharper)";
 "prefs.recording.enableMicrophone" = "Record Microphone Audio";
 "prefs.recording.enableMicrophoneNote" = "When off, only the screen is recorded and microphone permission is not requested";
 
@@ -469,6 +461,7 @@
 "recording.microphonePermissionDenied" = "Microphone permission is disabled. Allow ScreenPresenter to access the microphone in System Settings.";
 "recording.outputDirectoryUnavailable" = "Unable to create recording output directory";
 "recording.insufficientDiskSpace" = "Insufficient disk space. Recording stopped.";
+"recording.captureInterrupted" = "Screen sharing interrupted";
 "recording.openOutputDirectory" = "Open recording folder";
 "recording.openHistory" = "View recording history";
 "recording.back" = "Back";
@@ -488,7 +481,7 @@
 "recording.historyDetail" = "%@ · %d devices";
 "recording.rewindFiveSeconds" = "-5s";
 "recording.forwardFiveSeconds" = "+5s";
-"recording.noSnapshots" = "No snapshots";
+"recording.noSnapshots" = "No recorded screen content";
 "recording.replayLoadFailed" = "Failed to load recording audio";
 "recording.replayTitle" = "Replay %@";
 "recording.replayDeviceCount" = "%d devices";
