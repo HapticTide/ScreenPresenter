@@ -5,7 +5,7 @@
 //  Created by Tank on 2026/07/02.
 //
 //  录制回看视图
-//  同步音频播放进度与设备截图轨道
+//  同步会议音频与设备图片或视频轨道
 //
 
 import AVFoundation
@@ -127,7 +127,7 @@ final class RecordingReplayView: NSView {
             refreshPlaybackState(at: 0)
             startAutoPlayback()
         } else if session.duration > 0 {
-            // 纯截图录制或音频加载失败：用虚拟时钟按截图时间轴回放。
+            // 无会议音频或音频加载失败时，使用虚拟时钟驱动画面时间轴。
             clock = VirtualReplayClock(duration: session.duration)
             setErrorMessage(nil)
             updatePlaybackControls(isEnabled: true)
@@ -145,6 +145,10 @@ final class RecordingReplayView: NSView {
 
         clock?.pause()
         clock = nil
+        devicePanes.forEach {
+            $0.pauseVideo()
+            $0.clearVideo()
+        }
 
         updatePlayPauseButton(.paused)
         updatePlaybackControls(isEnabled: false)
@@ -372,7 +376,7 @@ final class AudioReplayClock: ReplayClock {
     func pause() { player.pause() }
 }
 
-/// 虚拟时钟，用于纯截图录制（无音频）的回放。基于系统单调时钟按倍速推进。
+/// 虚拟时钟，用于无会议音频录制的回放。基于系统单调时钟按倍速推进。
 final class VirtualReplayClock: ReplayClock {
     let duration: TimeInterval
     var rate: Float = 1.0

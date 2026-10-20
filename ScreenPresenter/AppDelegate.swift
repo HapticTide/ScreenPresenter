@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
     private var isClosingWindowAfterMarkdownConfirmation = false
     private var isTerminationCloseApproved = false
+    private var isTerminationCleanupInProgress = false
     private var isCaptureQuitConfirmationPresented = false
     private var isUnsavedNewMarkdownQuitFlowInProgress = false
     private var quitConfirmationShortcutMonitor: Any?
@@ -214,10 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         // 停止捕获电源协调器（释放防休眠 assertion）
         CapturePowerCoordinator.shared.stop()
 
-        // 清理资源
-        Task {
-            await AppState.shared.cleanup()
-        }
+        // 异步资源清理已在 applicationShouldTerminate 的 terminateLater 阶段完成。
+        // 此回调不能等待 Task，不能再把录制收尾放到这里。
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -229,14 +228,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             return .terminateNow
         }
 
+        if isTerminationCleanupInProgress {
+            return .terminateLater
+        }
+
         if isUnsavedNewMarkdownQuitFlowInProgress {
             return .terminateCancel
         }
 
-        // 二次确认弹窗已显示时，再次按 Cmd+Q 直接退出
+        // 二次退出请求跳过确认，但仍进入 terminateLater 清理流程。
+        // 视频 writer 必须完成 finishWriting，不能直接 terminateNow。
         if isCaptureQuitConfirmationPresented {
-            isTerminationCloseApproved = true
-            return .terminateNow
+            confirmPendingCaptureQuit()
+            return .terminateLater
         }
 
         // 3.1: 存在“未保存到磁盘”的文档，先触发保存流程，再继续退出决策
@@ -304,7 +308,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
                 }
                 return .terminateLater
             }
-            return .terminateNow
+            beginTerminationCleanup()
+            return .terminateLater
         }
 
         // 3.2: 对“已落盘但编辑未保存”的文档先自动保存，再按投屏状态决定
@@ -348,15 +353,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
                 self?.replyCaptureQuitToTermination(confirmed)
             }
         } else {
-            isTerminationCloseApproved = true
-            NSApp.reply(toApplicationShouldTerminate: true)
+            beginTerminationCleanup()
         }
     }
 
     /// 将投屏退出确认结果结算到 AppKit 终止流程:记录审批结果并回复。
     private func replyCaptureQuitToTermination(_ confirmed: Bool) {
-        isTerminationCloseApproved = confirmed
-        NSApp.reply(toApplicationShouldTerminate: confirmed)
+        guard confirmed else {
+            NSApp.reply(toApplicationShouldTerminate: false)
+            return
+        }
+        beginTerminationCleanup()
+    }
+
+    /// AppKit 不会等待 applicationWillTerminate 中启动的异步 Task。
+    /// 因此必须在 terminateLater 阶段完成录制、Helper 和设备清理，再允许进程退出。
+    private func beginTerminationCleanup() {
+        guard !isTerminationCleanupInProgress else { return }
+        isTerminationCleanupInProgress = true
+
+        Task { @MainActor [weak self] in
+            guard let self else {
+                NSApp.reply(toApplicationShouldTerminate: false)
+                return
+            }
+            await AppState.shared.cleanup()
+            self.isTerminationCleanupInProgress = false
+            self.isTerminationCloseApproved = true
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
     }
 
     private enum UnsavedMarkdownQuitDecision {
@@ -448,13 +473,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
             let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard modifiers.contains(.command), key == "q" else { return event }
 
-            if let mainWindow = self.mainWindow, let sheet = mainWindow.attachedSheet {
-                mainWindow.endSheet(sheet, returnCode: .alertFirstButtonReturn)
-            } else {
-                // 无 sheet(极少数窗口不可见的兜底路径):直接以"确认"结算当前退出流程。
-                self.pendingCaptureQuitCompletion?(true)
-            }
+            self.confirmPendingCaptureQuit()
             return nil
+        }
+    }
+
+    /// 跳过当前投屏退出确认，但仍通过原 terminateLater 回调完成异步资源清理。
+    private func confirmPendingCaptureQuit() {
+        if let mainWindow, let sheet = mainWindow.attachedSheet {
+            mainWindow.endSheet(sheet, returnCode: .alertFirstButtonReturn)
+        } else {
+            // 无 sheet（极少数窗口不可见的兜底路径）时，直接以“确认”结算当前退出流程。
+            pendingCaptureQuitCompletion?(true)
         }
     }
 
@@ -1552,11 +1582,14 @@ extension AppDelegate {
         let recordingService = AppState.shared.recordingService
 
         if recordingService.state.isRecording {
-            let directory = recordingService.stopRecording()
-            AppState.shared.iosDeviceSource?.stopAudioCaptureForCurrentSession()
-            updateRecordingUI()
-            if let directory {
-                presentRecordingSavedToast(directory: directory)
+            Task {
+                let directory = await recordingService.stopRecording()
+                await MainActor.run {
+                    updateRecordingUI()
+                }
+                if let directory {
+                    await presentRecordingSavedToast(directory: directory)
+                }
             }
             return
         }
@@ -1580,8 +1613,8 @@ extension AppDelegate {
     /// 停录成功提示：能构建出会话则带「回放」动作按钮，点击直接打开回放；否则退回普通提示。
     /// 不自动弹窗，避免投屏时打断画面或暴露给观众。
     @MainActor
-    private func presentRecordingSavedToast(directory: URL) {
-        guard let session = recordingLibrary.makeSession(from: directory) else {
+    private func presentRecordingSavedToast(directory: URL) async {
+        guard let session = await recordingLibrary.makeSession(from: directory) else {
             ToastView.success(L10n.recording.saved, in: mainWindow)
             return
         }
@@ -1661,12 +1694,15 @@ extension AppDelegate {
 
     /// 扫描并刷新历史列表，同时更新总占用摘要。
     private func reloadRecordingHistory(into historyView: RecordingHistoryPopoverView) {
-        do {
-            let sessions = try recordingLibrary.scanSessions()
-            historyView.configure(sessions: sessions, summaryText: historySummaryText(for: sessions))
-        } catch {
-            AppLogger.capture.error("读取录制历史失败: \(error.localizedDescription)")
-            historyView.configure(sessions: [])
+        Task { @MainActor [weak self, weak historyView] in
+            guard let self, let historyView else { return }
+            do {
+                let sessions = try await recordingLibrary.scanSessions()
+                historyView.configure(sessions: sessions, summaryText: historySummaryText(for: sessions))
+            } catch {
+                AppLogger.capture.error("读取录制历史失败: \(error.localizedDescription)")
+                historyView.configure(sessions: [])
+            }
         }
     }
 
@@ -2023,6 +2059,7 @@ extension AppDelegate {
         let isRecording = service.state.isRecording
 
         if let item = recordingToolbarItem {
+            item.isEnabled = !service.state.isStopping
             updateRecordingToolbarItemImage(item)
         }
 

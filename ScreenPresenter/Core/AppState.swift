@@ -109,7 +109,7 @@ final class AppState {
         AppLogger.app.info("开始清理资源")
 
         deviceObservationTask?.cancel()
-        recordingService.stopRecording()
+        _ = await recordingService.stopRecording()
 
         // 断开所有设备
         if let source = iosDeviceSource {
@@ -307,8 +307,8 @@ final class AppState {
         }
     }
 
-    /// 获取当前可用于录制截图的投屏帧。
-    /// 录制服务每秒调用这里一次，因此录制开始后才启动投屏的设备也会自动加入。
+    /// 获取当前可用于录制视频的投屏帧。
+    /// 录制服务持续采样这里，因此录制开始后才启动投屏的设备也会自动加入。
     private func currentRecordingFrameSnapshots() -> [RecordingFrameSnapshot] {
         var snapshots: [RecordingFrameSnapshot] = []
 

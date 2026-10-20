@@ -1240,7 +1240,6 @@ final class PreferencesViewController: NSViewController {
     /// 录制保存位置路径标签的 tag，供选择/重置后回填。
     private static let recordingPathLabelTag = 4601
     /// 截图间隔可选档位（秒）。受整秒时间轴约束，最小 1s。
-    private static let recordingIntervalOptions = [1, 2, 5, 10]
 
     private func createRecordingView() -> NSView {
         let scrollView = createScrollView()
@@ -1283,44 +1282,10 @@ final class PreferencesViewController: NSViewController {
         addGroupRow(outputGroup, self.recordingNote(L10n.prefs.recording.saveLocationNote), addDivider: false)
         addSettingsGroup(outputGroup, to: stackView)
 
-        addRecordingSnapshotGroup(to: stackView)
         addRecordingAudioGroup(to: stackView)
 
         setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
-    }
-
-    /// 画面截图组：截图间隔 + 画质档。
-    private func addRecordingSnapshotGroup(to stackView: StackContainerView) {
-        let group = createSettingsGroup(title: L10n.prefs.section.recordingSnapshot, icon: "camera")
-
-        // 截图间隔
-        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.snapshotInterval) {
-            let popup = NSPopUpButton()
-            for seconds in Self.recordingIntervalOptions {
-                popup.addItem(withTitle: L10n.prefs.recording.intervalSeconds(seconds))
-            }
-            let current = UserPreferences.shared.recordingSnapshotInterval
-            popup.selectItem(at: Self.recordingIntervalOptions.firstIndex(of: current) ?? 0)
-            popup.target = self
-            popup.action = #selector(self.recordingSnapshotIntervalChanged(_:))
-            return popup
-        })
-        addGroupRow(group, self.recordingNote(L10n.prefs.recording.snapshotIntervalNote), addDivider: false)
-
-        // 画质档
-        addGroupRow(group, createLabeledRow(label: L10n.prefs.recording.imageQuality) {
-            let popup = NSPopUpButton()
-            for quality in RecordingImageQuality.allCases {
-                popup.addItem(withTitle: quality.displayName)
-            }
-            let current = UserPreferences.shared.recordingImageQuality
-            popup.selectItem(at: RecordingImageQuality.allCases.firstIndex(of: current) ?? 1)
-            popup.target = self
-            popup.action = #selector(self.recordingImageQualityChanged(_:))
-            return popup
-        })
-        addSettingsGroup(group, to: stackView)
     }
 
     /// 音频组：麦克风录制开关。
@@ -2392,19 +2357,6 @@ final class PreferencesViewController: NSViewController {
     @objc private func resetRecordingFolder(_ sender: NSButton) {
         UserPreferences.shared.recordingSaveDirectory = nil
         refreshRecordingPathLabel()
-    }
-
-    @objc private func recordingSnapshotIntervalChanged(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        guard index >= 0, index < Self.recordingIntervalOptions.count else { return }
-        UserPreferences.shared.recordingSnapshotInterval = Self.recordingIntervalOptions[index]
-    }
-
-    @objc private func recordingImageQualityChanged(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        let all = RecordingImageQuality.allCases
-        guard index >= 0, index < all.count else { return }
-        UserPreferences.shared.recordingImageQuality = all[index]
     }
 
     @objc private func recordingMicrophoneToggled(_ sender: NSButton) {
