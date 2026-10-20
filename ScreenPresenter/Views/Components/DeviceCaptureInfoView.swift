@@ -5,7 +5,7 @@
 //  Created by Sun on 2025/12/25.
 //
 //  捕获信息视图
-//  覆盖整个屏幕区域，显示设备名称、型号、分辨率、FPS 等信息
+//  在投屏画面外的侧边浮层中显示设备信息与控制
 //
 
 import AppKit
@@ -63,15 +63,26 @@ final class DeviceCaptureInfoView: NSView {
 
     // MARK: - 回调
 
+    var onHoverChanged: ((Bool) -> Void)?
+    var onHidden: (() -> Void)?
+    private var hoverTrackingArea: NSTrackingArea?
+    /// 动画版本用于防止旧淡出回调把重新显示的浮层隐藏。
+    private var visibilityGeneration = 0
+    private var isShowing = false
+
+    override var isHidden: Bool {
+        didSet {
+            if isHidden {
+                visibilityGeneration += 1
+                isShowing = false
+                onHidden?()
+            }
+        }
+    }
+
     var onStopTapped: (() -> Void)?
     var onAudioToggle: ((Bool) -> Void)?
     var onVolumeChange: ((Float) -> Void)?
-
-    // MARK: - 自动隐藏
-
-    private var autoHideTimer: Timer?
-    /// 自动隐藏延时（秒）
-    private let autoHideDelay: TimeInterval = 1.5
 
     // MARK: - 初始化
 
@@ -85,15 +96,13 @@ final class DeviceCaptureInfoView: NSView {
         setupUI()
     }
 
-    deinit {
-        cancelAutoHide()
-    }
-
     // MARK: - UI 设置
 
     private func setupUI() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.65).cgColor
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
+        layer?.cornerRadius = 12
+        layer?.masksToBounds = true
 
         setupContentContainer()
         setupTopStatusBar()
@@ -214,8 +223,24 @@ final class DeviceCaptureInfoView: NSView {
         stopButtonContainer.addSubview(stopButtonIcon)
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self, userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
+
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
+        if event.trackingArea === hoverTrackingArea {
+            onHoverChanged?(true)
+        }
         if
             let userInfo = event.trackingArea?.userInfo as? [String: String],
             userInfo["view"] == "stopButton" {
@@ -228,6 +253,9 @@ final class DeviceCaptureInfoView: NSView {
 
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
+        if event.trackingArea === hoverTrackingArea {
+            onHoverChanged?(false)
+        }
         if
             let userInfo = event.trackingArea?.userInfo as? [String: String],
             userInfo["view"] == "stopButton" {
@@ -426,6 +454,12 @@ final class DeviceCaptureInfoView: NSView {
 
     // MARK: - 公开方法
 
+    /// 空间不足时恢复画面内蒙层的原有外观，侧边模式仍使用圆角卡片。
+    func setEmbeddedInScreen(_ embedded: Bool) {
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(embedded ? 0.65 : 0.85).cgColor
+        layer?.cornerRadius = embedded ? 0 : 12
+    }
+
     /// 更新设备信息
     /// - Parameters:
     ///   - deviceName: 设备名称
@@ -468,51 +502,34 @@ final class DeviceCaptureInfoView: NSView {
     // MARK: - 显示/隐藏控制
 
     /// 显示视图（带淡入动画）
-    func showAnimated(autoHide: Bool = false) {
-        cancelAutoHide()
-
+    func showAnimated() {
+        guard !isShowing else { return }
+        isShowing = true
+        visibilityGeneration += 1
+        let wasHidden = isHidden
         isHidden = false
-        alphaValue = 0
+        if wasHidden { alphaValue = 0 }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             self.animator().alphaValue = 1.0
-        } completionHandler: { [weak self] in
-            if autoHide {
-                self?.scheduleAutoHide()
-            }
         }
     }
 
     /// 隐藏视图（带淡出动画）
     func hideAnimated() {
-        cancelAutoHide()
+        guard !isHidden else { return }
+        isShowing = false
+        visibilityGeneration += 1
+        let generation = visibilityGeneration
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             self.animator().alphaValue = 0.0
         } completionHandler: { [weak self] in
-            self?.isHidden = true
+            guard let self, self.visibilityGeneration == generation else { return }
+            self.isHidden = true
         }
-    }
-
-    /// 计划自动隐藏
-    func scheduleAutoHide() {
-        cancelAutoHide()
-        autoHideTimer = Timer.scheduledTimer(withTimeInterval: autoHideDelay, repeats: false) { [weak self] _ in
-            self?.hideAnimated()
-        }
-    }
-
-    /// 取消自动隐藏
-    func cancelAutoHide() {
-        autoHideTimer?.invalidate()
-        autoHideTimer = nil
-    }
-
-    /// 检查自动隐藏定时器是否正在运行
-    var isAutoHideScheduled: Bool {
-        autoHideTimer != nil
     }
 
     // MARK: - 音频控制
