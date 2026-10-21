@@ -7,47 +7,31 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.2.4</title>
+            <title>Version 1.2.5</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.2.4</h2>
+                <h2>🚀 ScreenPresenter 1.2.5</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>ci: Release 只发布 ZIP,去掉 DMG,并补充安装指引</li>
-                    <li>ci: Release 说明内联 xattr 解隔离命令,不再让用户跳转 README</li>
-                    <li>release: 更新 appcast 至 1.2.4 [skip ci]</li>
-                    <li>feat: 停止录制提示条支持「回放」动作按钮</li>
-                    <li>fix: 修复投屏中退出时确认弹窗在窗口关闭后出现并循环 (#19)</li>
-                    <li>fix: 投屏录制-音频分页麦克风说明文字补足底部内边距</li>
-                    <li>fix: 回放播放结束后按钮显示重播样式而非停留在播放中</li>
-                    <li>feat: 偏好设置新增「投屏录制」分页</li>
-                    <li>修复删除录制 Toast 的主线程隔离编译警告</li>
-                    <li>麦克风设备枚举按系统版本选用非废弃的 DeviceType</li>
-                    <li>区分无音频的三种成因并分别提示</li>
-                    <li>开始录制时无麦克风弹提示告知用户</li>
-                    <li>偏好设置-权限:新增麦克风权限行 (#18)</li>
-                    <li>回放截图缓存改用 NSCache 限制内存 (#14)</li>
-                    <li>录制历史支持删除与总占用展示 (#13)</li>
-                    <li>录制截图编码移出主线程 (#12)</li>
-                    <li>录制启动失败清理空目录 (#15)</li>
-                    <li>录制磁盘空间检查与写失败处理 (#11)</li>
-                    <li>录制音频解耦:无麦克风/拒绝权限时仍可录制与回放 (#10)</li>
+                    <li>fix(mirroring,editor): 调整投屏浮层交互并修复搜索框 Debug 崩溃</li>
+                    <li>将截图录制升级为分段视频并修复麦克风录制生命周期</li>
+                    <li>docs: 新增 CLAUDE.md AI 助手开发指南</li>
                 </ul>
                 ]]>
             </description>
-            <pubDate>Thu, 09 Jul 2026 11:02:54 +0000</pubDate>
+            <pubDate>Wed, 21 Oct 2026 12:42:24 +0000</pubDate>
             
-            <sparkle:version>202607091858</sparkle:version>
-            <sparkle:shortVersionString>1.2.4</sparkle:shortVersionString>
+            <sparkle:version>202610212037</sparkle:version>
+            <sparkle:shortVersionString>1.2.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.4/ScreenPresenter-1.2.4.zip"
-                length="18208228"
+                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.5/ScreenPresenter-1.2.5.zip"
+                length="18530232"
                 type="application/octet-stream"
-                sparkle:edSignature="SR5GD1TpZqJCsa2F39rAlTAK1AR05Q9x7wooLttJWghuwI3kggDCzCzfYEteZKihq/0ViGq1CGvA7+FSP4ETCg=="
+                sparkle:edSignature="Laa+9d3T5/ordhajS4sXA/gmPNckVIHC8+YuHdrpo4T7zNnX+yHvHTyuEBscl/oG23ZWliBRCyLjqkJeuV77BQ=="
             />
         </item>
     </channel>
