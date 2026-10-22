@@ -7,31 +7,29 @@
         <link>https://github.com/HapticTide/ScreenPresenter</link>
         
         <item>
-            <title>Version 1.2.5</title>
+            <title>Version 1.2.6</title>
             <description>
                 <![CDATA[
-                <h2>🚀 ScreenPresenter 1.2.5</h2>
+                <h2>🚀 ScreenPresenter 1.2.6</h2>
                 <p>本次更新包含以下改动：</p>
 
                 <h3>✨ 更新内容</h3>
                 <ul>
-                    <li>fix(mirroring,editor): 调整投屏浮层交互并修复搜索框 Debug 崩溃</li>
-                    <li>将截图录制升级为分段视频并修复麦克风录制生命周期</li>
-                    <li>docs: 新增 CLAUDE.md AI 助手开发指南</li>
+                    <li>fix(mirroring): 防止投屏悬停浮层遮挡偏好设置窗口</li>
                 </ul>
                 ]]>
             </description>
-            <pubDate>Wed, 21 Oct 2026 12:42:24 +0000</pubDate>
+            <pubDate>Thu, 22 Oct 2026 02:21:56 +0000</pubDate>
             
-            <sparkle:version>202610212037</sparkle:version>
-            <sparkle:shortVersionString>1.2.5</sparkle:shortVersionString>
+            <sparkle:version>202610221017</sparkle:version>
+            <sparkle:shortVersionString>1.2.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.5/ScreenPresenter-1.2.5.zip"
-                length="18530232"
+                url="https://github.com/HapticTide/ScreenPresenter/releases/download/1.2.6/ScreenPresenter-1.2.6.zip"
+                length="18531072"
                 type="application/octet-stream"
-                sparkle:edSignature="Laa+9d3T5/ordhajS4sXA/gmPNckVIHC8+YuHdrpo4T7zNnX+yHvHTyuEBscl/oG23ZWliBRCyLjqkJeuV77BQ=="
+                sparkle:edSignature="CD+MdDVGjDFAMDNhFF+HvR5BTMyviF6km0TAx/eF1BiURCSqFTe/CrWp0ZrRM3y7gRC9mz+emBTI2gQN1+3ECQ=="
             />
         </item>
     </channel>
