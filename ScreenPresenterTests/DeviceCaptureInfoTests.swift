@@ -12,13 +12,13 @@ import XCTest
 @testable import ScreenPresenter
 
 final class DeviceCaptureInfoTests: XCTestCase {
-    private var window: NSWindow!
+    private var window: CaptureInfoTestWindow!
     private var device: DevicePanelView!
 
     override func setUp() {
         super.setUp()
         let visibleFrame = NSScreen.main!.visibleFrame
-        window = NSWindow(
+        window = CaptureInfoTestWindow(
             contentRect: NSRect(x: visibleFrame.midX - 170, y: visibleFrame.midY - 300, width: 340, height: 600),
             styleMask: [.titled], backing: .buffered, defer: false
         )
@@ -168,6 +168,49 @@ final class DeviceCaptureInfoTests: XCTestCase {
         return panel
     }
 
+    func testPreferencesWindowPreventsBackgroundHoverAndLayoutFromShowingPanel() throws {
+        let preferences = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 520, height: 480),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false
+        )
+        preferences.isReleasedWhenClosed = false
+        defer { preferences.close() }
+        preferences.makeKeyAndOrderFront(nil)
+        window.hasTestFocus = false
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: preferences)
+
+        // 设置窗口在前台时，后台投屏仍可能收到悬停与布局回调。
+        try hoverCapture()
+        device.layoutSubtreeIfNeeded()
+        XCTAssertFalse(window.childWindows?.contains { $0.isVisible } ?? false)
+        XCTAssertLessThan(preferences.orderedIndex, window.orderedIndex)
+
+        // 点击回投屏窗口后，正常的悬停浮层应恢复。
+        window.makeKeyAndOrderFront(nil)
+        window.hasTestFocus = true
+        _ = try startCaptureAndHover()
+    }
+
+    func testOpeningPreferencesDismissesExistingPanelAndCancelsIdle() throws {
+        let panel = try startCaptureAndHover()
+        let preferences = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 520, height: 480),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false
+        )
+        preferences.isReleasedWhenClosed = false
+        defer { preferences.close() }
+        preferences.makeKeyAndOrderFront(nil)
+        window.hasTestFocus = false
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: preferences)
+        XCTAssertFalse(panel.isVisible)
+
+        // 几何刷新不能把已经退到后台的窗口组再次抬到设置窗口前面。
+        window.setFrameOrigin(NSPoint(x: window.frame.minX + 10, y: window.frame.minY))
+        RunLoop.main.run(until: Date().addingTimeInterval(1.1))
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertLessThan(preferences.orderedIndex, window.orderedIndex)
+    }
+
     private func hoverCapture() throws {
         device.showCapturing(
             deviceName: "Test iPhone", modelName: nil, platform: .ios,
@@ -181,4 +224,10 @@ final class DeviceCaptureInfoTests: XCTestCase {
         ))
         device.mouseMoved(with: event)
     }
+}
+
+/// 测试宿主不一定获得系统焦点，显式模拟焦点以稳定验证窗口切换后的悬停策略。
+private final class CaptureInfoTestWindow: NSWindow {
+    var hasTestFocus = true
+    override var isKeyWindow: Bool { hasTestFocus }
 }

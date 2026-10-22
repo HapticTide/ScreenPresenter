@@ -235,6 +235,10 @@ final class DevicePanelView: NSView {
     }
 
     private func updateCaptureInfoVisibility() {
+        guard canShowCaptureInfo else {
+            hideCaptureInfo()
+            return
+        }
         guard currentState == .capturing else {
             captureInfoView.isHidden = true
             cancelHideDelayTimer()
@@ -265,6 +269,7 @@ final class DevicePanelView: NSView {
             guard let self else { return }
             self.captureIdleTimer = nil
             guard self.currentState == .capturing, self.isMouseInside,
+                  self.canShowCaptureInfo,
                   !self.isMouseInsideCaptureInfo, !self.isHiddenOrHasHiddenAncestor else { return }
             self.cancelHideDelayTimer()
             self.isCaptureIdle = true
@@ -369,6 +374,13 @@ final class DevicePanelView: NSView {
 
     // MARK: - 侧边控制浮层
 
+    /// 非激活浮层仍会改变父子窗口组的层级，只允许当前正在操作的投屏窗口显示它。
+    /// 浮层自身成为键窗口时也保留操作，避免点击音量等控件后立即收起。
+    private var canShowCaptureInfo: Bool {
+        guard let window else { return false }
+        return window.isKeyWindow || captureInfoPanel?.isKeyWindow == true
+    }
+
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         NotificationCenter.default.removeObserver(self)
         resetCaptureIdle()
@@ -382,6 +394,11 @@ final class DevicePanelView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let window else { return }
+        // 偏好设置等窗口获得焦点后立即收起浮层并取消静止计时。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(captureWindowFocusChanged),
+            name: NSWindow.didBecomeKeyNotification, object: nil
+        )
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(captureWindowGeometryChanged), name: name, object: window
@@ -417,6 +434,12 @@ final class DevicePanelView: NSView {
         refreshCaptureHover()
     }
 
+    @objc private func captureWindowFocusChanged() {
+        if !canShowCaptureInfo {
+            hideCaptureInfo()
+        }
+    }
+
     private func refreshCaptureHover() {
         // 几何变化也会触发本方法；后台布局不能被当成新的鼠标悬停。
         guard NSApp.isActive else {
@@ -436,7 +459,7 @@ final class DevicePanelView: NSView {
     }
 
     private func showCaptureInfo() {
-        guard let window, !isHiddenOrHasHiddenAncestor, !window.isMiniaturized else { return }
+        guard canShowCaptureInfo, let window, !isHiddenOrHasHiddenAncestor, !window.isMiniaturized else { return }
         if captureInfoPanel == nil {
             let panel = NSPanel(
                 contentRect: NSRect(x: 0, y: 0, width: 240, height: 420),
@@ -464,6 +487,11 @@ final class DevicePanelView: NSView {
 
     /// 优先利用画面两侧空白；双设备布局中避开另一台设备，必要时超出主窗口。
     private func updateCaptureInfoPanelFrame() {
+        // 几何更新先于悬停刷新，必须在这里阻止后台窗口再次 orderFront。
+        guard canShowCaptureInfo else {
+            hideCaptureInfo()
+            return
+        }
         guard let window, let panel = captureInfoPanel else { return }
         let deviceFrame = window.convertToScreen(convert(bounds, to: nil))
         let size = NSSize(width: 240, height: 420)
